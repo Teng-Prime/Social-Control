@@ -71,6 +71,11 @@ const api: IElectronAPI = {
   cancelPublishJob: (jobId) => ipcRenderer.invoke('cancelPublishJob', jobId),
   checkPlatformPostReadiness: (params) => ipcRenderer.invoke('checkPlatformPostReadiness', params),
 
+  // Performance Analytics
+  getAnalyticsSummary: (filter) => ipcRenderer.invoke('getAnalyticsSummary', filter),
+  syncAnalyticsMetrics: () => ipcRenderer.invoke('syncAnalyticsMetrics'),
+  getTopPerformingPosts: (limit, platform) => ipcRenderer.invoke('getTopPerformingPosts', limit, platform),
+
   // Captions
   generateCaptions: (req) => ipcRenderer.invoke('generateCaptions', req),
 

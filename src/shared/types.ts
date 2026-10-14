@@ -417,6 +417,82 @@ export interface PostReadinessParams {
   privacy?: string;
 }
 
+// ==========================================
+// Performance & Content Analytics
+// ==========================================
+export interface PublishedPost {
+  id: string;
+  publishJobId: string;
+  mediaAssetId: string;
+  platform: SocialPlatform;
+  accountId: string;
+  remotePostId: string;
+  remotePostUrl: string;
+  title: string;
+  thumbnailPath?: string;
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  watchTimeSeconds: number;
+  lastAnalyticsSync?: string;
+  publishedAt: string;
+  duration?: number;
+  genre?: string;
+}
+
+export interface PlatformMetricBreakdown {
+  platform: SocialPlatform;
+  name: string;
+  postsCount: number;
+  views: number;
+  likes: number;
+  comments: number;
+  shares: number;
+  watchTimeSeconds: number;
+  avgRetentionPercent: number;
+  engagementRate: number;
+}
+
+export interface GenreMetricBreakdown {
+  genre: string;
+  postsCount: number;
+  views: number;
+  retentionPercent: number;
+  color: string;
+}
+
+export interface DurationMetricBreakdown {
+  bucket: 'short' | 'mid' | 'long';
+  label: string;
+  range: string;
+  count: number;
+  avgViews: number;
+  retentionPercent: number;
+  badge: string;
+  note: string;
+}
+
+export interface AnalyticsSummary {
+  timeframe: '7d' | '30d' | '90d' | 'all';
+  platformFilter: 'all' | SocialPlatform;
+  totalPosts: number;
+  totalViews: number;
+  totalLikes: number;
+  totalComments: number;
+  totalShares: number;
+  totalWatchTimeHours: number;
+  likeToViewRatio: number;
+  avgRetentionPercent: number;
+  viewsGrowthPercent: number;
+  platformBreakdown: Record<SocialPlatform, PlatformMetricBreakdown>;
+  genreBreakdown: GenreMetricBreakdown[];
+  durationBreakdown: DurationMetricBreakdown[];
+  topPosts: PublishedPost[];
+  lastSyncedAt: string;
+  isAuditedLive: boolean;
+}
+
 export interface TaskQueueItem {
   id: string;
   type: 'character_gen' | 'video_gen' | 'video_render' | 'file_transfer' | 'caption_gen' | 'upload' | 'publishing';
@@ -604,6 +680,11 @@ export interface IElectronAPI {
   executePublishJob: (jobId: string) => Promise<{ success: boolean; remotePostId?: string; remotePostUrl?: string; message?: string }>;
   cancelPublishJob: (jobId: string) => Promise<boolean>;
   checkPlatformPostReadiness: (params: PostReadinessParams) => Promise<PlatformPostCheckResult>;
+
+  // Performance Analytics
+  getAnalyticsSummary: (filter?: { platform?: 'all' | SocialPlatform; timeframe?: '7d' | '30d' | '90d' | 'all' }) => Promise<AnalyticsSummary>;
+  syncAnalyticsMetrics: () => Promise<{ success: boolean; updatedCount: number; message: string }>;
+  getTopPerformingPosts: (limit?: number, platform?: string) => Promise<PublishedPost[]>;
 
   // Caption Assistant
   generateCaptions: (request: CaptionGenerationRequest) => Promise<CaptionGenerationResult>;

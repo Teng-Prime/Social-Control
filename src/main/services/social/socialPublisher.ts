@@ -12,6 +12,7 @@ import { mediaAssetRepo } from '../../database/repositories/mediaAssetRepository
 import { deviceRepo } from '../../database/repositories/deviceRepository';
 import { adbService } from '../adbService';
 import { atxAutomationService } from '../atxAutomationService';
+import { analyticsService } from '../analyticsService';
 import { logger } from '../../logger';
 import fs from 'fs';
 import path from 'path';
@@ -91,6 +92,16 @@ export class SocialPublisherService {
         });
         // Move asset to Published folder if appropriate
         mediaAssetRepo.update(asset.id, { folder: 'Published' });
+        try {
+          analyticsService.recordPublishedPost(
+            job,
+            result.remotePostId || `post_${Date.now()}`,
+            result.remotePostUrl || `https://${job.platform}.com`,
+            asset
+          );
+        } catch (e: any) {
+          logger.warn('SocialPublisher', `Failed to record analytics post: ${e.message}`);
+        }
       } else {
         publishJobRepo.update(jobId, {
           status: 'failed',
@@ -270,10 +281,17 @@ export class SocialPublisherService {
 
           mediaAssetRepo.update(job.mediaAssetId, { folder: 'Published' });
 
+          const atxPostId = atxResult.postId || `atx_${job.platform}_${Date.now()}`;
+          const atxPostUrl = atxResult.postUrl || `Phone: ${destinationPath}`;
+          try {
+            const asset = mediaAssetRepo.getById(job.mediaAssetId);
+            analyticsService.recordPublishedPost(job, atxPostId, atxPostUrl, asset || undefined);
+          } catch {}
+
           return {
             success: true,
-            remotePostId: atxResult.postId || `atx_${job.platform}_${Date.now()}`,
-            remotePostUrl: atxResult.postUrl || `Phone: ${destinationPath}`,
+            remotePostId: atxPostId,
+            remotePostUrl: atxPostUrl,
             message: `Video uploaded & published via ATX on ${device.model}! ${atxResult.message}`,
           };
         }
@@ -286,15 +304,22 @@ export class SocialPublisherService {
       destinationPath = `/sdcard/Movies/SocialEarningsStudio/${path.basename(filePath)}`;
     }
 
+    const phonePostId = `phone_${device?.serial || 'dev'}_${Date.now()}`;
+    const phonePostUrl = `Phone: ${destinationPath}`;
+
     publishJobRepo.update(job.id, {
       status: 'published',
       progress: 100,
-      remotePostId: `phone_${device?.serial || 'dev'}_${Date.now()}`,
-      remotePostUrl: `Phone: ${destinationPath}`,
+      remotePostId: phonePostId,
+      remotePostUrl: phonePostUrl,
       errorMessage: undefined,
     });
 
     mediaAssetRepo.update(job.mediaAssetId, { folder: 'Published' });
+    try {
+      const asset = mediaAssetRepo.getById(job.mediaAssetId);
+      analyticsService.recordPublishedPost(job, phonePostId, phonePostUrl, asset || undefined);
+    } catch {}
 
     const launchMsg = appLaunched
       ? `${targetApp.appName} launched on your phone screen!`
@@ -302,8 +327,8 @@ export class SocialPublisherService {
 
     return {
       success: true,
-      remotePostId: `phone_${Date.now()}`,
-      remotePostUrl: `Phone: ${destinationPath}`,
+      remotePostId: phonePostId,
+      remotePostUrl: phonePostUrl,
       message: `Video transferred to ${device?.model || 'phone'}! ${launchMsg} Caption and hashtags copied to clipboard.`,
     };
   }

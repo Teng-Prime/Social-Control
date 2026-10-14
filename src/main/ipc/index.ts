@@ -9,6 +9,7 @@ import { flowService } from '../services/flowService';
 import { atxAutomationService } from '../services/atxAutomationService';
 import { characterImageGenerator } from '../services/characterImageGenerator';
 import { socialPublisher } from '../services/social/socialPublisher';
+import { analyticsService } from '../services/analyticsService';
 import { queueService } from '../services/queueService';
 import { mediaAssetRepo } from '../database/repositories/mediaAssetRepository';
 import { characterRepo } from '../database/repositories/characterRepository';
@@ -520,6 +521,20 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('checkPlatformPostReadiness', async (_, params) => {
     return socialPublisher.checkPostReadiness(params);
+  });
+
+  // Performance Analytics
+  ipcMain.handle('getAnalyticsSummary', async (_, filter) => {
+    return analyticsService.getSummary(filter?.platform, filter?.timeframe);
+  });
+
+  ipcMain.handle('syncAnalyticsMetrics', async () => {
+    return analyticsService.syncLiveMetrics();
+  });
+
+  ipcMain.handle('getTopPerformingPosts', async (_, limit = 10, platform = 'all') => {
+    const summary = await analyticsService.getSummary(platform as any);
+    return summary.topPosts.slice(0, limit);
   });
 
   // 11. Captions
