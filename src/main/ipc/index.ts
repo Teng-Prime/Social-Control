@@ -517,6 +517,10 @@ export function registerIpcHandlers(): void {
     return publishJobRepo.update(jobId, { status: 'draft', progress: 0 }) !== null;
   });
 
+  ipcMain.handle('checkPlatformPostReadiness', async (_, params) => {
+    return socialPublisher.checkPostReadiness(params);
+  });
+
   // 11. Captions
   ipcMain.handle('generateCaptions', async (_, req: CaptionGenerationRequest) => {
     return flowService.generateCaptions(req);

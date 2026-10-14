@@ -63,6 +63,18 @@ export class PublishJobRepository {
   public create(job: Omit<PublishJob, 'id' | 'createdAt' | 'updatedAt' | 'progress' | 'status'>): PublishJob {
     const db = appDb.getRawDb();
     const id = 'pub_' + Math.random().toString(36).substring(2, 11);
+
+    // If accountId is phone-based, ensure social_accounts has a record for it so foreign keys stay valid
+    if (job.accountId.startsWith('phone_')) {
+      const existing = db.prepare('SELECT id FROM social_accounts WHERE id = ?').get(job.accountId);
+      if (!existing) {
+        db.prepare(`
+          INSERT INTO social_accounts (id, platform, account_name, channel_id, is_connected, permissions, created_at, updated_at)
+          VALUES (?, ?, ?, ?, 1, '["phone_direct_push"]', datetime('now'), datetime('now'))
+        `).run(job.accountId, job.platform, 'Authorized Phone Device', job.accountId);
+      }
+    }
+
     const stmt = db.prepare(`
       INSERT INTO publish_jobs (
         id, media_asset_id, platform, account_id, title, caption,

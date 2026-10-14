@@ -229,6 +229,42 @@ export interface TransferJob {
   completedAt?: string;
 }
 
+export interface PlatformPostCheckItem {
+  name: string;
+  passed: boolean;
+  severity: 'success' | 'warn' | 'error';
+  message: string;
+}
+
+export interface PlatformPostCheckResult {
+  canPost: boolean;
+  status: 'ready' | 'warning' | 'error';
+  platform: SocialPlatform;
+  platformName: string;
+  checks: PlatformPostCheckItem[];
+  summary: string;
+  recommendations: string[];
+  platformLimits: {
+    maxTitleLength: number;
+    maxCaptionLength: number;
+    maxDurationSeconds: number;
+    recommendedAspectRatio: string;
+    packageName: string;
+    appName: string;
+  };
+}
+
+export interface PostReadinessParams {
+  platform: SocialPlatform;
+  deviceId?: string;
+  mediaAssetId?: string;
+  checkQuery?: string;
+  title?: string;
+  caption?: string;
+  hashtags?: string[];
+  privacy?: string;
+}
+
 export interface TaskQueueItem {
   id: string;
   type: 'character_gen' | 'video_gen' | 'video_render' | 'file_transfer' | 'caption_gen' | 'upload' | 'publishing';
@@ -415,6 +451,7 @@ export interface IElectronAPI {
   createPublishJob: (job: Omit<PublishJob, 'id' | 'createdAt' | 'updatedAt' | 'progress' | 'status'>) => Promise<PublishJob>;
   executePublishJob: (jobId: string) => Promise<{ success: boolean; remotePostId?: string; remotePostUrl?: string; message?: string }>;
   cancelPublishJob: (jobId: string) => Promise<boolean>;
+  checkPlatformPostReadiness: (params: PostReadinessParams) => Promise<PlatformPostCheckResult>;
 
   // Caption Assistant
   generateCaptions: (request: CaptionGenerationRequest) => Promise<CaptionGenerationResult>;
