@@ -162,6 +162,15 @@ export class AdbService {
         let totalStorageMb = 65536;
         let installedApps: InstalledAppInfo[] = [];
 
+        let ipAddress = '127.0.0.1';
+        if (serial.includes(':')) {
+          ipAddress = serial;
+        } else if (serial.startsWith('emulator-')) {
+          ipAddress = '127.0.0.1:5555';
+        } else {
+          ipAddress = 'USB Connected';
+        }
+
         if (status === 'connected') {
           try {
             // Get Android OS version
@@ -194,6 +203,15 @@ export class AdbService {
               playStoreUrl: app.playStoreUrl,
               isInstalled: packagesOut.includes(`package:${app.packageName}`),
             }));
+
+            // Resolve IP address
+            try {
+              const { stdout: ipOut } = await execAsync(`"${adb}" -s "${serial}" shell ip addr show wlan0`, { timeout: 2000 });
+              const ipMatch = ipOut.match(/inet\s+(\d+\.\d+\.\d+\.\d+)/);
+              if (ipMatch && ipMatch[1]) {
+                ipAddress = ipMatch[1];
+              }
+            } catch {}
           } catch (deviceQueryErr: any) {
             logger.warn('AdbService', `Failed partial query on device ${serial}: ${deviceQueryErr.message}`);
           }
@@ -208,6 +226,7 @@ export class AdbService {
           availableStorageMb,
           totalStorageMb,
           installedApps,
+          ipAddress,
         });
 
         result.push(device);

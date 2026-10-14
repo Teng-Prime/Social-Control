@@ -87,6 +87,7 @@ export const PhoneControlView: React.FC = () => {
 
 
   // Modals & Wizards
+  const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isWizardOpen, setIsWizardOpen] = useState(false);
   const [isTroubleshootOpen, setIsTroubleshootOpen] = useState(false);
   const [customAdbHost, setCustomAdbHost] = useState('127.0.0.1:5555');
@@ -361,6 +362,14 @@ export const PhoneControlView: React.FC = () => {
     loadAtxStatus(dev.id);
   };
 
+  const handleOpenConfigModal = (dev: Device) => {
+    setSelectedDevice(dev);
+    loadDiagnostic(dev.id);
+    loadAtxStatus(dev.id);
+    setIsConfigModalOpen(true);
+  };
+
+
   const handleInstallSingleApp = async (app: LocalAppPackageInfo) => {
     if (!selectedDevice && !diagnostic?.deviceId) return;
     const targetDevId = selectedDevice?.id || diagnostic?.deviceId || 'virtual_device';
@@ -616,89 +625,300 @@ export const PhoneControlView: React.FC = () => {
         </div>
       )}
 
-      {/* Device Selector & Navigation Tabs */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-studio-850 rounded-2xl border border-studio-750">
-        {/* Device Picker */}
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-studio-300 flex items-center gap-1.5 shrink-0">
-            <Smartphone size={14} className="text-brand-400" />
-            Active Device:
-          </span>
-          <select
-            className="bg-studio-900 border border-studio-700 rounded-lg px-2.5 py-1 text-studio-100 text-xs focus:ring-1 focus:ring-brand-500"
-            value={selectedDevice?.id || ''}
-            onChange={(e) => {
-              const found = devices.find((d) => d.id === e.target.value);
-              if (found) handleDeviceSelect(found);
-            }}
-          >
-            {devices.length === 0 ? (
-              <option value="">📱 Virtual Android Phone (Staging / Offline)</option>
-            ) : (
-              devices.map((d) => (
-                <option key={d.id} value={d.id}>
-                  📱 {d.model} ({d.serial}) — {d.status.toUpperCase()}
-                </option>
-              ))
-            )}
-          </select>
+      {/* Connected Devices Table */}
+      <Card
+        title="Connected Android Devices"
+        subtitle="Device fleet status, connectivity details, and configuration controls"
+        headerAction={
+          <div className="flex items-center gap-2">
+            <Badge variant={devices.length > 0 ? 'success' : 'neutral'} size="sm">
+              {devices.length} {devices.length === 1 ? 'Device' : 'Devices'} Connected
+            </Badge>
+          </div>
+        }
+      >
+        <div className="overflow-x-auto -mx-6 -my-4">
+          <table className="w-full text-left border-collapse text-xs">
+            <thead>
+              <tr className="border-b border-studio-750 bg-studio-900/60 text-studio-400 uppercase text-[11px] font-semibold tracking-wider">
+                <th className="py-3 px-4 w-14 text-center">No</th>
+                <th className="py-3 px-4">Name</th>
+                <th className="py-3 px-4">Status</th>
+                <th className="py-3 px-4">IP</th>
+                <th className="py-3 px-4 text-right">btn config</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-studio-800">
+              {devices.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-12 text-center text-studio-400">
+                    <Smartphone size={36} className="mx-auto mb-3 text-studio-600 stroke-[1.5]" />
+                    <p className="font-semibold text-studio-200 text-sm">No Android Device Detected</p>
+                    <p className="text-xs text-studio-400 mt-1 max-w-md mx-auto">
+                      Connect your phone via USB with USB debugging enabled, or click below to connect an emulator.
+                    </p>
+                    <div className="mt-4 flex items-center justify-center gap-2.5">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        loading={isConnectingAdb}
+                        onClick={() => handleConnectAdb('127.0.0.1:5555')}
+                      >
+                        Connect LDPlayer (127.0.0.1:5555)
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => setIsTroubleshootOpen(true)}
+                      >
+                        Troubleshoot & Connect
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const virtualDev: Device = {
+                            id: 'virtual_device',
+                            serial: 'virtual_staging',
+                            model: 'Virtual Android Phone (Staging)',
+                            androidVersion: '13',
+                            status: 'offline',
+                            lastSeenAt: new Date().toISOString(),
+                            isRooted: true,
+                            ipAddress: '127.0.0.1',
+                          };
+                          handleOpenConfigModal(virtualDev);
+                        }}
+                      >
+                        Config Virtual Device
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                devices.map((device, idx) => {
+                  const displayIp =
+                    device.ipAddress ||
+                    (device.serial.includes(':') ? device.serial : 'USB (Direct)');
+
+                  return (
+                    <tr
+                      key={device.id}
+                      className="hover:bg-studio-800/40 transition-colors group"
+                    >
+                      {/* 1. No */}
+                      <td className="py-3.5 px-4 text-center font-mono font-semibold text-studio-400">
+                        #{idx + 1}
+                      </td>
+
+                      {/* 2. Name */}
+                      <td className="py-3.5 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-studio-800 border border-studio-700/60 flex items-center justify-center text-brand-400 shrink-0">
+                            <Smartphone size={16} />
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-semibold text-studio-100 text-sm">
+                                {device.model || 'Android Device'}
+                              </span>
+                              {device.isRooted && (
+                                <Badge variant="success" size="sm">
+                                  Rooted
+                                </Badge>
+                              )}
+                              {device.isEmulator && (
+                                <Badge variant="default" size="sm">
+                                  Emulator
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="text-[11px] text-studio-400 font-mono mt-0.5 flex items-center gap-2">
+                              <span>Serial: {device.serial}</span>
+                              <span>•</span>
+                              <span>Android {device.androidVersion}</span>
+                              {device.brand && (
+                                <>
+                                  <span>•</span>
+                                  <span>{device.brand}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* 3. Status */}
+                      <td className="py-3.5 px-4">
+                        <Badge
+                          variant={
+                            device.status === 'connected'
+                              ? 'success'
+                              : device.status === 'unauthorized'
+                              ? 'warning'
+                              : 'danger'
+                          }
+                          size="sm"
+                          dot
+                        >
+                          {device.status === 'connected'
+                            ? 'Connected'
+                            : device.status === 'unauthorized'
+                            ? 'Unauthorized'
+                            : 'Offline'}
+                        </Badge>
+                      </td>
+
+                      {/* 4. IP */}
+                      <td className="py-3.5 px-4 font-mono text-studio-300">
+                        <div className="flex items-center gap-1.5">
+                          <Wifi size={13} className="text-studio-500 shrink-0" />
+                          <span className="bg-studio-900 px-2.5 py-0.5 rounded border border-studio-800 text-studio-200">
+                            {displayIp}
+                          </span>
+                        </div>
+                      </td>
+
+                      {/* 5. btn config */}
+                      <td className="py-3.5 px-4 text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            title="Screen Mirror (Scrcpy)"
+                            icon={<Monitor size={13} />}
+                            onClick={() => handleStartMirror(device.id)}
+                          />
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            title="Capture Screenshot"
+                            icon={<Camera size={13} />}
+                            onClick={() => handleCaptureScreenshot(device.id)}
+                          />
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            icon={<Settings size={13} />}
+                            onClick={() => handleOpenConfigModal(device)}
+                          >
+                            Config
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
+      </Card>
 
-        {/* View Tabs */}
-        <div className="flex items-center gap-1 bg-studio-900 p-1 rounded-xl border border-studio-800 text-xs">
-          <button
-            type="button"
-            onClick={() => setActiveTab('setup')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
-              activeTab === 'setup'
-                ? 'bg-brand-500 text-white shadow-sm'
-                : 'text-studio-400 hover:text-studio-200'
-            }`}
-          >
-            <ShieldCheck size={13} />
-            Phone Setup & Provisioning
-          </button>
+      {/* Pop-up Modal for Phone Configuration */}
+      <Modal
+        isOpen={isConfigModalOpen}
+        onClose={() => setIsConfigModalOpen(false)}
+        maxWidth="full"
+        title={`Phone Configuration — ${selectedDevice?.model || 'Device'}`}
+        subtitle={`Serial: ${selectedDevice?.serial || 'N/A'} • OS: Android ${selectedDevice?.androidVersion || 'N/A'} • IP: ${selectedDevice?.ipAddress || selectedDevice?.serial || 'USB'}`}
+        footer={
+          <div className="flex items-center justify-between w-full">
+            <div className="text-xs text-studio-400">
+              Active configuration target:{' '}
+              <span className="text-studio-200 font-mono font-medium">
+                {selectedDevice?.model || 'Device'} ({selectedDevice?.serial || 'N/A'})
+              </span>
+            </div>
+            <Button variant="secondary" size="sm" onClick={() => setIsConfigModalOpen(false)}>
+              Close Configuration
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-6">
+          {/* Modal Tab Switcher */}
+          <div className="sticky top-0 z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-studio-900/95 backdrop-blur-md rounded-2xl border border-studio-750 shadow-md">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-studio-300 flex items-center gap-1.5 shrink-0">
+                <Smartphone size={14} className="text-brand-400" />
+                Active Device:
+              </span>
+              <select
+                className="bg-studio-950 border border-studio-700 rounded-lg px-2.5 py-1 text-studio-100 text-xs focus:ring-1 focus:ring-brand-500 font-mono"
+                value={selectedDevice?.id || ''}
+                onChange={(e) => {
+                  const found = devices.find((d) => d.id === e.target.value);
+                  if (found) handleDeviceSelect(found);
+                }}
+              >
+                {devices.length === 0 ? (
+                  <option value="">📱 Virtual Android Phone (Staging)</option>
+                ) : (
+                  devices.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      📱 {d.model} ({d.serial}) — {d.status.toUpperCase()}
+                    </option>
+                  ))
+                )}
+              </select>
+            </div>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('transfer')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
-              activeTab === 'transfer'
-                ? 'bg-brand-500 text-white shadow-sm'
-                : 'text-studio-400 hover:text-studio-200'
-            }`}
-          >
-            <Send size={13} />
-            Video Push
-          </button>
+            {/* View Tabs */}
+            <div className="flex items-center gap-1 bg-studio-950 p-1 rounded-xl border border-studio-800 text-xs overflow-x-auto">
+              <button
+                type="button"
+                onClick={() => setActiveTab('setup')}
+                className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 shrink-0 ${
+                  activeTab === 'setup'
+                    ? 'bg-brand-500 text-white shadow-sm'
+                    : 'text-studio-400 hover:text-studio-200'
+                }`}
+              >
+                <ShieldCheck size={13} />
+                Phone Setup & Provisioning
+              </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('control')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
-              activeTab === 'control'
-                ? 'bg-brand-500 text-white shadow-sm'
-                : 'text-studio-400 hover:text-studio-200'
-            }`}
-          >
-            <Monitor size={13} />
-            Screen & Launcher
-          </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('transfer')}
+                className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 shrink-0 ${
+                  activeTab === 'transfer'
+                    ? 'bg-brand-500 text-white shadow-sm'
+                    : 'text-studio-400 hover:text-studio-200'
+                }`}
+              >
+                <Send size={13} />
+                Video Push
+              </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab('atx')}
-            className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
-              activeTab === 'atx'
-                ? 'bg-brand-500 text-white shadow-sm'
-                : 'text-studio-400 hover:text-studio-200'
-            }`}
-          >
-            <Sparkles size={13} className={activeTab === 'atx' ? 'text-white' : 'text-amber-400'} />
-            ATX Automation
-          </button>
-        </div>
-      </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('control')}
+                className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 shrink-0 ${
+                  activeTab === 'control'
+                    ? 'bg-brand-500 text-white shadow-sm'
+                    : 'text-studio-400 hover:text-studio-200'
+                }`}
+              >
+                <Monitor size={13} />
+                Screen & Launcher
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveTab('atx')}
+                className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 shrink-0 ${
+                  activeTab === 'atx'
+                    ? 'bg-brand-500 text-white shadow-sm'
+                    : 'text-studio-400 hover:text-studio-200'
+                }`}
+              >
+                <Sparkles size={13} className={activeTab === 'atx' ? 'text-white' : 'text-amber-400'} />
+                ATX Automation
+              </button>
+            </div>
+          </div>
 
       {/* TAB 1: PHONE SETUP & PROVISIONING */}
       {activeTab === 'setup' && (
@@ -1606,6 +1826,8 @@ export const PhoneControlView: React.FC = () => {
           </div>
         </div>
       )}
+        </div>
+      </Modal>
 
       {/* Screenshot Viewer Modal */}
       {screenshotBase64 && (

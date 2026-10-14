@@ -218,6 +218,7 @@ export interface Device {
   googleAccount?: string;
   googleAccountsCount?: number;
   hasInternet?: boolean;
+  ipAddress?: string;
 }
 
 export interface LocalAppPackageInfo {

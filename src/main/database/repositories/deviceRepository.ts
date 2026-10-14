@@ -73,7 +73,11 @@ export class DeviceRepository {
       JSON.stringify(device.installedApps || [])
     );
 
-    return this.getBySerial(device.serial)!;
+    const saved = this.getBySerial(device.serial)!;
+    return {
+      ...saved,
+      ipAddress: device.ipAddress,
+    };
   }
 
   public createTransferJob(job: Omit<TransferJob, 'id' | 'createdAt' | 'transferredBytes' | 'status'>): TransferJob {
