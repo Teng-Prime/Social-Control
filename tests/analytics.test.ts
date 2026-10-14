@@ -68,12 +68,13 @@ describe('Performance & Content Analytics Engine', () => {
   });
 
   it('should record newly published posts and include them in analytics', async () => {
-    const assetId = 'asset_test_' + Date.now();
+    const uniqueSuffix = Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+    const assetId = 'asset_test_' + uniqueSuffix;
     const asset = mediaAssetRepo.create({
       id: assetId,
       title: 'The AI Paradox in Cyber City',
-      filePath: '/tmp/test_paradox.mp4',
-      fileName: 'test_paradox.mp4',
+      filePath: `/tmp/test_paradox_${uniqueSuffix}.mp4`,
+      fileName: `test_paradox_${uniqueSuffix}.mp4`,
       fileSize: 12000000,
       duration: 32,
       width: 1080,
