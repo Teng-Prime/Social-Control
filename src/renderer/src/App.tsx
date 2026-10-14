@@ -10,7 +10,6 @@ import { AIStudioView } from './views/AIStudio/AIStudioView';
 import { CharactersView } from './views/Characters/CharactersView';
 import { StoryProjectsView } from './views/StoryProjects/StoryProjectsView';
 import { VideoLibraryView } from './views/VideoLibrary/VideoLibraryView';
-import { SocialAccountsView } from './views/SocialAccounts/SocialAccountsView';
 import { PublishCenterView } from './views/PublishCenter/PublishCenterView';
 import { ContentCalendarView } from './views/ContentCalendar/ContentCalendarView';
 import { PhoneControlView } from './views/PhoneControl/PhoneControlView';
@@ -39,8 +38,6 @@ export const App: React.FC = () => {
         return <StoryProjectsView />;
       case 'video-library':
         return <VideoLibraryView />;
-      case 'social-accounts':
-        return <SocialAccountsView />;
       case 'publish-center':
         return <PublishCenterView />;
       case 'calendar':

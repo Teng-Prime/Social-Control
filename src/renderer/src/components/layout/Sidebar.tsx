@@ -2,10 +2,8 @@ import React from 'react';
 import {
   LayoutDashboard,
   Sparkles,
-  Users,
   Film,
   Video,
-  Share2,
   Send,
   Calendar,
   Smartphone,
@@ -31,7 +29,6 @@ export const Sidebar: React.FC = () => {
     { id: 'ai-studio', label: 'AI Studio', icon: <Sparkles size={18} /> },
     { id: 'story-projects', label: 'Story Projects', icon: <Film size={18} /> },
     { id: 'video-library', label: 'Video Library', icon: <Video size={18} />, badge: stats?.totalGeneratedVideos },
-    { id: 'social-accounts', label: 'Social Accounts', icon: <Share2 size={18} />, badge: stats?.connectedAccountsCount },
     { id: 'publish-center', label: 'Publish Center', icon: <Send size={18} />, badge: stats?.videosReadyToPublish },
     { id: 'calendar', label: 'Content Calendar', icon: <Calendar size={18} />, badge: stats?.scheduledPosts },
     { id: 'phone-control', label: 'Phone Control', icon: <Smartphone size={18} /> },

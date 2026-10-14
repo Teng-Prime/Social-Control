@@ -8,7 +8,6 @@ import {
   Send,
   Calendar,
   AlertCircle,
-  Share2,
   Smartphone,
   HardDrive,
   Plus,
@@ -74,13 +73,6 @@ export const DashboardView: React.FC = () => {
       action: () => setCurrentSection('automation-queue'),
     },
     {
-      title: 'Connected Accounts',
-      value: stats?.connectedAccountsCount ?? 0,
-      icon: <Share2 className="text-amber-400" size={20} />,
-      subtext: 'YouTube, TikTok, Meta',
-      action: () => setCurrentSection('social-accounts'),
-    },
-    {
       title: 'Connected Phones',
       value: stats?.connectedDevicesCount ?? 0,
       icon: <Smartphone className="text-purple-400" size={20} />,
@@ -117,10 +109,10 @@ export const DashboardView: React.FC = () => {
           <Button
             variant="secondary"
             size="sm"
-            icon={<Share2 size={15} />}
-            onClick={() => setCurrentSection('social-accounts')}
+            icon={<Send size={15} />}
+            onClick={() => setCurrentSection('publish-center')}
           >
-            Connect Account
+            Publish Center
           </Button>
 
           <Button
@@ -144,7 +136,7 @@ export const DashboardView: React.FC = () => {
       </div>
 
       {/* Metrics Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         {statCards.map((card, idx) => (
           <div
             key={idx}

@@ -7,7 +7,6 @@ export type NavigationSection =
   | 'characters'
   | 'story-projects'
   | 'video-library'
-  | 'social-accounts'
   | 'publish-center'
   | 'calendar'
   | 'phone-control'

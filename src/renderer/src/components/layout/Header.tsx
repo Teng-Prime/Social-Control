@@ -12,7 +12,6 @@ export const Header: React.FC = () => {
     characters: 'Character Profiles & Consistency Library',
     'story-projects': 'Story Projects & Scenes',
     'video-library': 'Local Video Library',
-    'social-accounts': 'Connected Social Accounts',
     'publish-center': 'Multi-Platform Publish Center',
     calendar: 'Content Calendar & Schedule',
     'phone-control': 'Android Phone Control & ADB',

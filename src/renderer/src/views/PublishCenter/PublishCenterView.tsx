@@ -11,7 +11,6 @@ import {
   Send,
   Sparkles,
   Video,
-  Share2,
   Calendar,
   Eye,
   CheckCircle2,
@@ -28,7 +27,6 @@ import {
 import {
   MediaAsset,
   PublishJob,
-  SocialAccount,
   SocialPlatform,
   Device,
   PlatformPostCheckResult,
@@ -86,7 +84,6 @@ export const PublishCenterView: React.FC = () => {
   const { addToast, setCurrentSection } = useAppStore();
 
   const [assets, setAssets] = useState<MediaAsset[]>([]);
-  const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [publishJobs, setPublishJobs] = useState<PublishJob[]>([]);
 
@@ -95,8 +92,6 @@ export const PublishCenterView: React.FC = () => {
   const [previewPlatform, setPreviewPlatform] = useState<SocialPlatform>('youtube');
   const [selectedAssetId, setSelectedAssetId] = useState<string>('');
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
-  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
-  const [publishMode, setPublishMode] = useState<'phone' | 'account'>('phone');
   const [isScanningDevices, setIsScanningDevices] = useState(false);
 
   // Platform Check State
@@ -121,12 +116,10 @@ export const PublishCenterView: React.FC = () => {
   const loadData = async () => {
     if (window.api) {
       const aList = await window.api.getMediaAssets();
-      const accList = await window.api.getSocialAccounts();
       const jList = await window.api.getPublishJobs();
       const dList = await window.api.getConnectedDevices();
 
       setAssets(aList);
-      setAccounts(accList);
       setPublishJobs(jList);
       setDevices(dList);
 
@@ -135,9 +128,6 @@ export const PublishCenterView: React.FC = () => {
         curAssetId = aList[0].id;
         setSelectedAssetId(aList[0].id);
         setPostTitle(aList[0].title);
-      }
-      if (accList.length > 0 && !selectedAccountId) {
-        setSelectedAccountId(accList[0].id);
       }
       let curDevId = selectedDeviceId;
       if (dList.length > 0 && !curDevId) {
@@ -279,17 +269,9 @@ export const PublishCenterView: React.FC = () => {
       return;
     }
 
-    const targetAccountId =
-      publishMode === 'phone'
-        ? selectedDeviceId
-          ? `phone_${selectedDeviceId}`
-          : 'phone_virtual'
-        : selectedAccountId;
-
-    if (publishMode === 'account' && !targetAccountId) {
-      addToast({ type: 'warn', title: 'Please select an authorized account or switch to Phone mode' });
-      return;
-    }
+    const targetAccountId = selectedDeviceId
+      ? `phone_${selectedDeviceId}`
+      : 'phone_virtual';
 
     setIsPublishing(true);
     let successCount = 0;
@@ -327,7 +309,7 @@ export const PublishCenterView: React.FC = () => {
       if (successCount === selectedPlatforms.length) {
         addToast({
           type: 'success',
-          title: publishMode === 'phone' ? 'Transferred & Ready on Phone!' : 'Published Successfully!',
+          title: 'Transferred & Ready on Phone!',
           message: `Successfully processed for ${successCount} platform(s): ${selectedPlatforms.map((p) => p.toUpperCase()).join(', ')}.`,
         });
       } else if (successCount > 0) {
@@ -392,40 +374,12 @@ export const PublishCenterView: React.FC = () => {
         <div className="space-y-3 pt-2 border-t border-studio-800">
           <div className="flex items-center justify-between">
             <label className="block text-xs font-semibold text-studio-300">
-              2. Platforms & Destination
+              2. Platforms & Phone Destination
             </label>
-            <div className="flex items-center gap-1 bg-studio-850 p-0.5 rounded-lg border border-studio-750">
-              <button
-                type="button"
-                onClick={() => {
-                  setPublishMode('phone');
-                  runMultiPostCheck(selectedPlatforms, checkQuery, selectedAssetId, selectedDeviceId);
-                }}
-                className={`px-2 py-0.5 text-[10px] font-medium rounded-md transition-colors flex items-center gap-1 ${
-                  publishMode === 'phone'
-                    ? 'bg-brand-500 text-white shadow-sm'
-                    : 'text-studio-400 hover:text-studio-200'
-                }`}
-              >
-                <Smartphone size={11} />
-                Phone
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setPublishMode('account');
-                  runMultiPostCheck(selectedPlatforms, checkQuery, selectedAssetId, '');
-                }}
-                className={`px-2 py-0.5 text-[10px] font-medium rounded-md transition-colors flex items-center gap-1 ${
-                  publishMode === 'account'
-                    ? 'bg-brand-500 text-white shadow-sm'
-                    : 'text-studio-400 hover:text-studio-200'
-                }`}
-              >
-                <Share2 size={11} />
-                Cloud API
-              </button>
-            </div>
+            <span className="text-[10px] text-cyan-400 font-medium flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/40">
+              <Smartphone size={11} />
+              Android Direct Push
+            </span>
           </div>
 
           {/* 3 Clickable Platform Cards (Select 1, 2, or All 3) */}
@@ -481,94 +435,74 @@ export const PublishCenterView: React.FC = () => {
             </div>
           </div>
 
-          {/* Destination Selector: Authorized Phone or Cloud Account */}
+          {/* Destination Selector: Authorized Phone Destination */}
           <div>
-            {publishMode === 'phone' ? (
-              <div className="p-3 bg-studio-850/80 rounded-xl border border-studio-750 space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-studio-200 flex items-center gap-1.5">
-                    <Smartphone size={13} className="text-brand-400" />
-                    Authorized Phone Destination
-                  </label>
-                  <button
-                    type="button"
-                    onClick={handleRefreshDevices}
-                    disabled={isScanningDevices}
-                    className="text-[10px] text-brand-400 hover:text-brand-300 flex items-center gap-1"
-                    title="Scan connected Android phones via ADB"
-                  >
-                    <RefreshCw size={10} className={isScanningDevices ? 'animate-spin' : ''} />
-                    Scan Phone
-                  </button>
-                </div>
-
-                <select
-                  className="w-full bg-studio-900 border border-studio-750 rounded-lg p-2 text-studio-100 text-xs"
-                  value={selectedDeviceId}
-                  onChange={(e) => {
-                    setSelectedDeviceId(e.target.value);
-                    runMultiPostCheck(selectedPlatforms, checkQuery, selectedAssetId, e.target.value);
-                  }}
-                >
-                  {devices.length === 0 ? (
-                    <option value="">📱 Virtual Android Phone (Staging Mode)</option>
-                  ) : (
-                    devices.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        📱 {d.model} ({d.status.toUpperCase()}) — Battery {d.batteryLevel || 85}%
-                      </option>
-                    ))
-                  )}
-                </select>
-
-                {/* Show installed app readiness on phone for each selected platform */}
-                {devices.length > 0 && selectedDeviceId && (
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {selectedPlatforms.map((p) => {
-                      const d = devices.find((x) => x.id === selectedDeviceId);
-                      const appPkg =
-                        p === 'youtube'
-                          ? 'com.google.android.youtube'
-                          : p === 'tiktok'
-                          ? 'com.zhiliaoapp.musically'
-                          : 'com.facebook.katana';
-                      const isInstalled = d?.installedApps?.some((a) => a.packageName === appPkg && a.isInstalled);
-                      const appName = p === 'youtube' ? 'YouTube' : p === 'tiktok' ? 'TikTok' : 'Facebook';
-                      return (
-                        <span
-                          key={p}
-                          className={`text-[9px] px-2 py-0.5 rounded-full border ${
-                            isInstalled
-                              ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300 font-medium'
-                              : 'bg-studio-800 border-studio-700 text-studio-400'
-                          }`}
-                        >
-                          {isInstalled ? `✓ ${appName} App Ready` : `${appName} (Gallery Push)`}
-                        </span>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div>
-                <label className="block text-xs font-semibold text-studio-300 mb-1.5">
-                  Authorized Account
+            <div className="p-3 bg-studio-850/80 rounded-xl border border-studio-750 space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-semibold text-studio-200 flex items-center gap-1.5">
+                  <Smartphone size={13} className="text-brand-400" />
+                  Authorized Phone Destination
                 </label>
-                <select
-                  className="w-full bg-studio-850 border border-studio-750 rounded-lg p-2.5 text-studio-100 text-xs"
-                  value={selectedAccountId}
-                  onChange={(e) => setSelectedAccountId(e.target.value)}
+                <button
+                  type="button"
+                  onClick={handleRefreshDevices}
+                  disabled={isScanningDevices}
+                  className="text-[10px] text-brand-400 hover:text-brand-300 flex items-center gap-1"
+                  title="Scan connected Android phones via ADB"
                 >
-                  {accounts.length === 0 && <option value="">No Accounts Connected</option>}
-                  {accounts.map((acc) => (
-                    <option key={acc.id} value={acc.id}>
-                      {acc.accountName} ({acc.platform})
-                    </option>
-                  ))}
-                </select>
+                  <RefreshCw size={10} className={isScanningDevices ? 'animate-spin' : ''} />
+                  Scan Phone
+                </button>
               </div>
-            )}
+
+              <select
+                className="w-full bg-studio-900 border border-studio-750 rounded-lg p-2 text-studio-100 text-xs"
+                value={selectedDeviceId}
+                onChange={(e) => {
+                  setSelectedDeviceId(e.target.value);
+                  runMultiPostCheck(selectedPlatforms, checkQuery, selectedAssetId, e.target.value);
+                }}
+              >
+                {devices.length === 0 ? (
+                  <option value="">📱 Virtual Android Phone (Staging Mode)</option>
+                ) : (
+                  devices.map((d) => (
+                    <option key={d.id} value={d.id}>
+                      📱 {d.model} ({d.status.toUpperCase()}) — Battery {d.batteryLevel || 85}%
+                    </option>
+                  ))
+                )}
+              </select>
+
+              {/* Show installed app readiness on phone for each selected platform */}
+              {devices.length > 0 && selectedDeviceId && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {selectedPlatforms.map((p) => {
+                    const d = devices.find((x) => x.id === selectedDeviceId);
+                    const appPkg =
+                      p === 'youtube'
+                        ? 'com.google.android.youtube'
+                        : p === 'tiktok'
+                        ? 'com.zhiliaoapp.musically'
+                        : 'com.facebook.katana';
+                    const isInstalled = d?.installedApps?.some((a) => a.packageName === appPkg && a.isInstalled);
+                    const appName = p === 'youtube' ? 'YouTube' : p === 'tiktok' ? 'TikTok' : 'Facebook';
+                    return (
+                      <span
+                        key={p}
+                        className={`text-[9px] px-2 py-0.5 rounded-full border ${
+                          isInstalled
+                            ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300 font-medium'
+                            : 'bg-studio-800 border-studio-700 text-studio-400'
+                        }`}
+                      >
+                        {isInstalled ? `✓ ${appName} App Ready` : `${appName} (Gallery Push)`}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Platform Update & Check We Can Post Textbox */}
@@ -795,9 +729,7 @@ export const PublishCenterView: React.FC = () => {
           >
             {scheduleTime
               ? `Schedule Post (${selectedPlatforms.length} Platform${selectedPlatforms.length > 1 ? 's' : ''})`
-              : publishMode === 'phone'
-              ? `Push to Phone & Post (${selectedPlatforms.length} Platform${selectedPlatforms.length > 1 ? 's' : ''})`
-              : `Publish to ${selectedPlatforms.length} Platform${selectedPlatforms.length > 1 ? 's' : ''}`}
+              : `Push to Phone & Post (${selectedPlatforms.length} Platform${selectedPlatforms.length > 1 ? 's' : ''})`}
           </Button>
         </div>
       </div>
@@ -832,11 +764,9 @@ export const PublishCenterView: React.FC = () => {
                 );
               })}
             </div>
-            {publishMode === 'phone' && (
-              <Badge variant="default" size="sm" className="text-cyan-400 border-cyan-800/40 bg-cyan-950/40">
-                Phone Direct Push
-              </Badge>
-            )}
+            <Badge variant="default" size="sm" className="text-cyan-400 border-cyan-800/40 bg-cyan-950/40">
+              Phone Direct Push
+            </Badge>
           </div>
         </div>
 
@@ -844,15 +774,13 @@ export const PublishCenterView: React.FC = () => {
           {/* Simulated Mobile Feed Card */}
           <div className="w-80 mx-auto lg:mx-0 bg-black rounded-3xl border-4 border-studio-800 shadow-elevated overflow-hidden flex flex-col relative aspect-[9/16]">
             {/* Top Phone Mode status notch */}
-            {publishMode === 'phone' && (
-              <div className="absolute top-2.5 left-3 right-3 bg-studio-900/80 backdrop-blur-md rounded-full py-0.5 px-2.5 flex items-center justify-between text-[9px] text-studio-200 border border-studio-700/60 z-20">
-                <span className="flex items-center gap-1 text-cyan-400 font-semibold truncate">
-                  <Smartphone size={10} />
-                  {devices.find((d) => d.id === selectedDeviceId)?.model || 'Android Phone'}
-                </span>
-                <span className="text-emerald-400 text-[8px] font-mono shrink-0">ADB READY</span>
-              </div>
-            )}
+            <div className="absolute top-2.5 left-3 right-3 bg-studio-900/80 backdrop-blur-md rounded-full py-0.5 px-2.5 flex items-center justify-between text-[9px] text-studio-200 border border-studio-700/60 z-20">
+              <span className="flex items-center gap-1 text-cyan-400 font-semibold truncate">
+                <Smartphone size={10} />
+                {devices.find((d) => d.id === selectedDeviceId)?.model || 'Android Phone'}
+              </span>
+              <span className="text-emerald-400 text-[8px] font-mono shrink-0">ADB READY</span>
+            </div>
 
             {/* Video preview area */}
             <div className="flex-1 bg-studio-950 flex items-center justify-center relative overflow-hidden">
@@ -870,14 +798,8 @@ export const PublishCenterView: React.FC = () => {
               <div className="absolute bottom-4 left-3 right-12 text-white space-y-1.5 drop-shadow-md">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-xs font-bold flex items-center gap-1">
-                    {publishMode === 'phone' ? (
-                      <>
-                        <Smartphone size={11} className="text-cyan-400 shrink-0" />
-                        @{devices.find((d) => d.id === selectedDeviceId)?.model?.replace(/\s+/g, '_').toLowerCase() || 'phone_creator'}
-                      </>
-                    ) : (
-                      `@${accounts.find((a) => a.id === selectedAccountId)?.accountName || 'creator'}`
-                    )}
+                    <Smartphone size={11} className="text-cyan-400 shrink-0" />
+                    @{devices.find((d) => d.id === selectedDeviceId)?.model?.replace(/\s+/g, '_').toLowerCase() || 'phone_creator'}
                   </span>
                   <span
                     className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
