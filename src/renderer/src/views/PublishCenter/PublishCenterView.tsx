@@ -23,6 +23,15 @@ import {
   AlertTriangle,
   XCircle,
   HelpCircle,
+  Terminal,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  MousePointer,
+  Cpu,
+  Bot,
+  Layers,
 } from 'lucide-react';
 import {
   MediaAsset,
@@ -30,6 +39,11 @@ import {
   SocialPlatform,
   Device,
   PlatformPostCheckResult,
+  AtxAgentStatus,
+  AtxUiNode,
+  AtxAutomatePostResult,
+  AtxAutomatePostStep,
+  AtxActionResult,
 } from '../../../shared/types';
 
 interface PlatformMeta {
@@ -113,6 +127,190 @@ export const PublishCenterView: React.FC = () => {
   const [isGeneratingCaptions, setIsGeneratingCaptions] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
 
+  // ATX Automation & Remote Screen Touchpad State
+  const [atxStatus, setAtxStatus] = useState<AtxAgentStatus | null>(null);
+  const [isLoadingAtx, setIsLoadingAtx] = useState(false);
+  const [useAtxAutomation, setUseAtxAutomation] = useState(true);
+  const [atxResult, setAtxResult] = useState<AtxAutomatePostResult | null>(null);
+  const [isAutomatingPublish, setIsAutomatingPublish] = useState(false);
+  const [atxHierarchy, setAtxHierarchy] = useState<AtxUiNode[]>([]);
+  const [isDumpingHierarchy, setIsDumpingHierarchy] = useState(false);
+  const [isAtxInspectorOpen, setIsAtxInspectorOpen] = useState(false);
+  const [manualTapX, setManualTapX] = useState<number>(540);
+  const [manualTapY, setManualTapY] = useState<number>(1800);
+  const [manualText, setManualText] = useState('');
+
+  const loadAtxStatus = async (deviceId: string) => {
+    if (!window.api || !deviceId) return;
+    setIsLoadingAtx(true);
+    try {
+      const status = await window.api.getAtxStatus(deviceId);
+      setAtxStatus(status);
+    } catch (err: any) {
+      console.warn('Failed to load ATX status:', err);
+    } finally {
+      setIsLoadingAtx(false);
+    }
+  };
+
+  const handleInitAtx = async () => {
+    const devId = selectedDeviceId || 'phone_virtual';
+    if (!window.api) return;
+    setIsLoadingAtx(true);
+    try {
+      const res = await window.api.initAtxAgent(devId);
+      if (res.success) {
+        addToast({ type: 'success', title: 'ATX Agent Initialized', message: res.message });
+      } else {
+        addToast({ type: 'warn', title: 'ATX Agent Notice', message: res.message });
+      }
+      await loadAtxStatus(devId);
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Init ATX Failed', message: err.message });
+    } finally {
+      setIsLoadingAtx(false);
+    }
+  };
+
+  const handleDumpHierarchy = async () => {
+    const devId = selectedDeviceId || 'phone_virtual';
+    if (!window.api) return;
+    setIsDumpingHierarchy(true);
+    try {
+      const res = await window.api.dumpAtxHierarchy(devId);
+      if (res.success) {
+        setAtxHierarchy(res.elements);
+        addToast({
+          type: 'info',
+          title: 'Screen UI Hierarchy Dumped',
+          message: `Parsed ${res.elements.length} UI elements from device screen.`,
+        });
+      } else {
+        addToast({ type: 'error', title: 'Hierarchy Dump Failed', message: res.error });
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Hierarchy Dump Error', message: err.message });
+    } finally {
+      setIsDumpingHierarchy(false);
+    }
+  };
+
+  const handleAtxTap = async (x: number, y: number) => {
+    const devId = selectedDeviceId || 'phone_virtual';
+    if (!window.api) return;
+    try {
+      const res = await window.api.atxTap(devId, x, y);
+      if (res.success) {
+        addToast({ type: 'info', title: `Tapped (${x}, ${y})`, message: res.message });
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Tap Failed', message: err.message });
+    }
+  };
+
+  const handleAtxSwipe = async (direction: 'up' | 'down' | 'left' | 'right') => {
+    const devId = selectedDeviceId || 'phone_virtual';
+    if (!window.api) return;
+    let sx = 540, sy = 1200, ex = 540, ey = 600;
+    if (direction === 'up') {
+      sx = 540; sy = 1400; ex = 540; ey = 600;
+    } else if (direction === 'down') {
+      sx = 540; sy = 600; ex = 540; ey = 1400;
+    } else if (direction === 'left') {
+      sx = 800; sy = 1000; ex = 200; ey = 1000;
+    } else if (direction === 'right') {
+      sx = 200; sy = 1000; ex = 800; ey = 1000;
+    }
+
+    try {
+      const res = await window.api.atxSwipe(devId, sx, sy, ex, ey, 300);
+      if (res.success) {
+        addToast({ type: 'info', title: `Swiped ${direction.toUpperCase()}` });
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Swipe Failed', message: err.message });
+    }
+  };
+
+  const handleAtxInputText = async () => {
+    if (!manualText.trim()) return;
+    const devId = selectedDeviceId || 'phone_virtual';
+    if (!window.api) return;
+    try {
+      const res = await window.api.atxInputText(devId, manualText);
+      if (res.success) {
+        addToast({ type: 'success', title: 'Text Injected to Phone Screen' });
+        setManualText('');
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Input Text Failed', message: err.message });
+    }
+  };
+
+  const handleAtxPressKey = async (key: 'home' | 'back' | 'enter' | 'power') => {
+    const devId = selectedDeviceId || 'phone_virtual';
+    if (!window.api) return;
+    try {
+      const res = await window.api.atxPressKey(devId, key);
+      if (res.success) {
+        addToast({ type: 'info', title: `Key '${key.toUpperCase()}' Sent` });
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Key Press Failed', message: err.message });
+    }
+  };
+
+  const handleRunAtxPublish = async (platformToRun?: SocialPlatform) => {
+    const targetPlatform = platformToRun || previewPlatform || selectedPlatforms[0] || 'youtube';
+    const targetDevId = selectedDeviceId || 'phone_virtual';
+    const targetAsset = assets.find((a) => a.id === selectedAssetId);
+
+    if (!targetAsset) {
+      addToast({ type: 'warn', title: 'Please select a video asset first' });
+      return;
+    }
+
+    setIsAutomatingPublish(true);
+    addToast({
+      type: 'info',
+      title: `Starting ATX Automation...`,
+      message: `Executing hands-free ${targetPlatform.toUpperCase()} posting steps on phone`,
+    });
+
+    try {
+      const res = await window.api.atxAutomatePublish({
+        deviceId: targetDevId,
+        platform: targetPlatform as 'youtube' | 'tiktok' | 'facebook',
+        videoPath: targetAsset.filePath,
+        title: postTitle || targetAsset.title || 'Viral Video',
+        caption: postCaption,
+        hashtags: postHashtags.split(/\s+/).filter(Boolean),
+      });
+
+      setAtxResult(res);
+
+      if (res.success) {
+        addToast({
+          type: 'success',
+          title: `ATX ${targetPlatform.toUpperCase()} Post Completed!`,
+          message: res.postUrl ? `Live at: ${res.postUrl}` : res.message,
+        });
+      } else {
+        addToast({
+          type: 'error',
+          title: `ATX Automation Encountered Issue`,
+          message: res.message,
+        });
+      }
+
+      await loadData();
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'ATX Automation Error', message: err.message });
+    } finally {
+      setIsAutomatingPublish(false);
+    }
+  };
+
   const loadData = async () => {
     if (window.api) {
       const aList = await window.api.getMediaAssets();
@@ -135,6 +333,10 @@ export const PublishCenterView: React.FC = () => {
         setSelectedDeviceId(dList[0].id);
       }
 
+      if (curDevId) {
+        loadAtxStatus(curDevId);
+      }
+
       runMultiPostCheck(selectedPlatforms, checkQuery, curAssetId, curDevId);
     }
   };
@@ -153,6 +355,9 @@ export const PublishCenterView: React.FC = () => {
       if (dList.length > 0 && !selectedDeviceId) {
         devId = dList[0].id;
         setSelectedDeviceId(dList[0].id);
+      }
+      if (devId) {
+        loadAtxStatus(devId);
       }
       addToast({
         type: 'info',
@@ -303,6 +508,23 @@ export const PublishCenterView: React.FC = () => {
           }
         } catch (jobErr: any) {
           errors.push(`${plat.toUpperCase()}: ${jobErr.message}`);
+        }
+      }
+
+      // If ATX automation is requested, run ATX automated sequence for the primary platform to record real-time steps
+      if (useAtxAutomation && selectedAsset) {
+        try {
+          const atxRes = await window.api.atxAutomatePublish({
+            deviceId: selectedDeviceId || 'phone_virtual',
+            platform: selectedPlatforms[0] as 'youtube' | 'tiktok' | 'facebook',
+            videoPath: selectedAsset.filePath,
+            title: postTitle || selectedAsset.title,
+            caption: postCaption,
+            hashtags: postHashtags.split(/\s+/).filter(Boolean),
+          });
+          setAtxResult(atxRes);
+        } catch (atxErr: any) {
+          console.warn('ATX step execution notice:', atxErr);
         }
       }
 
@@ -461,6 +683,7 @@ export const PublishCenterView: React.FC = () => {
                 onChange={(e) => {
                   setSelectedDeviceId(e.target.value);
                   runMultiPostCheck(selectedPlatforms, checkQuery, selectedAssetId, e.target.value);
+                  loadAtxStatus(e.target.value);
                 }}
               >
                 {devices.length === 0 ? (
@@ -515,6 +738,72 @@ export const PublishCenterView: React.FC = () => {
                   </div>
                 </div>
               )}
+
+              {/* ATX Android Automation Engine Pill & Controls */}
+              <div className="pt-2 border-t border-studio-750/70 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-studio-200 flex items-center gap-1.5">
+                    <Bot size={13} className="text-brand-400" />
+                    ATX Automation Engine
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span
+                      className={`text-[9px] font-mono px-2 py-0.5 rounded-full border ${
+                        atxStatus?.isRunning
+                          ? atxStatus.mode === 'atx_rpc'
+                            ? 'bg-purple-950/40 border-purple-500/40 text-purple-300'
+                            : atxStatus.mode === 'adb_bridge'
+                            ? 'bg-cyan-950/40 border-cyan-500/40 text-cyan-300'
+                            : 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                          : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
+                      }`}
+                    >
+                      {atxStatus?.isRunning
+                        ? atxStatus.mode === 'atx_rpc'
+                          ? 'ATX RPC (7912)'
+                          : atxStatus.mode === 'adb_bridge'
+                          ? 'UIAutomator2 Bridge'
+                          : 'Simulated Engine'
+                        : 'ATX Offline'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={handleInitAtx}
+                      disabled={isLoadingAtx}
+                      className="text-[10px] text-brand-400 hover:text-brand-300 flex items-center gap-0.5"
+                      title="Initialize or reload ATX agent daemon"
+                    >
+                      <RefreshCw size={10} className={isLoadingAtx ? 'animate-spin' : ''} />
+                      Init
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between gap-2 pt-0.5">
+                  <label className="flex items-center gap-1.5 cursor-pointer text-[10px] text-studio-300">
+                    <input
+                      type="checkbox"
+                      checked={useAtxAutomation}
+                      onChange={(e) => setUseAtxAutomation(e.target.checked)}
+                      className="accent-brand-500 rounded"
+                    />
+                    <span>Hands-free ATX auto-post</span>
+                  </label>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-[10px] h-7 px-2"
+                    icon={<MousePointer size={11} />}
+                    onClick={() => {
+                      setIsAtxInspectorOpen(true);
+                      handleDumpHierarchy();
+                    }}
+                  >
+                    Inspect Screen UI (ATX)
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -744,6 +1033,20 @@ export const PublishCenterView: React.FC = () => {
               ? `Schedule Post (${selectedPlatforms.length} Platform${selectedPlatforms.length > 1 ? 's' : ''})`
               : `Push to Phone & Post (${selectedPlatforms.length} Platform${selectedPlatforms.length > 1 ? 's' : ''})`}
           </Button>
+
+          {/* Secondary Direct ATX Post Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full mt-2 border-brand-500/30 text-brand-300 hover:bg-brand-500/10"
+            loading={isAutomatingPublish}
+            icon={<Bot size={13} className="text-brand-400" />}
+            onClick={() => handleRunAtxPublish()}
+          >
+            {isAutomatingPublish
+              ? 'Executing Hands-Free ATX Posting...'
+              : `Run Hands-Free ATX Post (${previewPlatform.toUpperCase()})`}
+          </Button>
         </div>
       </div>
 
@@ -854,8 +1157,137 @@ export const PublishCenterView: React.FC = () => {
             </div>
           </div>
 
-          {/* Publishing History & Jobs Table */}
+          {/* Publishing History & ATX Sequence */}
           <div className="flex-1 w-full space-y-4">
+            {/* Live ATX Automation Sequence & Steps Log */}
+            <Card
+              title="ATX Hands-Free Automation Sequence"
+              subtitle={
+                atxResult
+                  ? `Automated posting steps for ${atxResult.platform.toUpperCase()} via ATX`
+                  : 'Automates screen wake, app launch, media picking, caption typing, and posting on phone'
+              }
+              headerAction={
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-[10px] h-7"
+                    icon={<MousePointer size={12} />}
+                    onClick={() => {
+                      setIsAtxInspectorOpen(true);
+                      handleDumpHierarchy();
+                    }}
+                  >
+                    Inspect Screen UI
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="text-[10px] h-7"
+                    loading={isAutomatingPublish}
+                    icon={<Bot size={12} />}
+                    onClick={() => handleRunAtxPublish()}
+                  >
+                    Test ATX Sequence
+                  </Button>
+                </div>
+              }
+            >
+              {atxResult ? (
+                <div className="space-y-3 text-xs">
+                  <div className="flex items-center justify-between p-2.5 rounded-lg bg-studio-900 border border-studio-800">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-studio-100 flex items-center gap-1.5">
+                        <CheckCircle2 size={14} className={atxResult.success ? 'text-emerald-400' : 'text-rose-400'} />
+                        {atxResult.platform.toUpperCase()} Mobile Pipeline
+                      </span>
+                      <Badge variant={atxResult.success ? 'success' : 'danger'} size="sm">
+                        {atxResult.success ? 'Completed' : 'Failed'}
+                      </Badge>
+                    </div>
+                    <span className="text-[10px] text-studio-400 font-mono">
+                      {atxResult.steps.length} steps executed
+                    </span>
+                  </div>
+
+                  {/* Step-by-step progress cards */}
+                  <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                    {atxResult.steps.map((st, idx) => (
+                      <div
+                        key={idx}
+                        className="p-2.5 rounded-lg bg-studio-900/90 border border-studio-800 flex items-start justify-between gap-3 text-xs"
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className="font-bold text-brand-400 font-mono text-[11px] shrink-0 mt-0.5">
+                            #{idx + 1}
+                          </span>
+                          <div>
+                            <span className="font-semibold text-studio-200 block">{st.step}</span>
+                            <span className="text-[11px] text-studio-400">{st.message}</span>
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end shrink-0 gap-1">
+                          <span
+                            className={`text-[9px] px-1.5 py-0.5 rounded font-mono uppercase font-bold ${
+                              st.status === 'completed'
+                                ? 'bg-emerald-950/60 text-emerald-300 border border-emerald-800/40'
+                                : st.status === 'running'
+                                ? 'bg-cyan-950/60 text-cyan-300 border border-cyan-800/40'
+                                : st.status === 'failed'
+                                ? 'bg-rose-950/60 text-rose-300 border border-rose-800/40'
+                                : 'bg-studio-800 text-studio-400'
+                            }`}
+                          >
+                            {st.status}
+                          </span>
+                          <span className="text-[9px] text-studio-500 font-mono">{st.timestamp}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {atxResult.postUrl && (
+                    <div className="p-2.5 rounded-lg bg-brand-950/30 border border-brand-500/30 flex items-center justify-between text-xs">
+                      <span className="text-brand-300 font-medium truncate flex items-center gap-1.5">
+                        <ExternalLink size={13} />
+                        Live Post Link: <strong className="text-white">{atxResult.postUrl}</strong>
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-[11px] text-brand-400 hover:text-brand-300 h-6 px-2"
+                        onClick={() => window.api?.openExternalUrl(atxResult.postUrl!)}
+                      >
+                        Open
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-studio-900/50 border border-studio-800 text-center space-y-2 py-6">
+                  <Bot size={28} className="mx-auto text-brand-400/70" />
+                  <p className="text-xs font-semibold text-studio-200">
+                    Hands-Free ATX Posting Ready
+                  </p>
+                  <p className="text-[11px] text-studio-400 max-w-md mx-auto">
+                    When you click "Push to Phone & Post", ATX executes the real-time automation sequence on your connected device: waking the screen, launching YouTube/TikTok/Facebook, selecting the clip from gallery, typing your title and hashtags, and confirming the post.
+                  </p>
+                  <div className="pt-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      loading={isAutomatingPublish}
+                      icon={<Bot size={13} />}
+                      onClick={() => handleRunAtxPublish()}
+                    >
+                      Run ATX Post Sequence ({previewPlatform.toUpperCase()})
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </Card>
+
             <Card title="Recent Publish History" subtitle="Tracked uploads, post IDs, and status">
               {publishJobs.length === 0 ? (
                 <div className="text-center py-8 text-xs text-studio-500">
@@ -957,6 +1389,159 @@ export const PublishCenterView: React.FC = () => {
             <p>• Curated trending tags without duplicate hashtag spam</p>
             <p>• Pinned comment conversation starter</p>
             <p>• AI disclosure tagging for transparency</p>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ATX Remote Screen Inspector & Touchpad Modal */}
+      <Modal
+        isOpen={isAtxInspectorOpen}
+        onClose={() => setIsAtxInspectorOpen(false)}
+        title="ATX Screen UI Inspector & Remote Touchpad"
+        subtitle={`Connected Device: ${devices.find((d) => d.id === selectedDeviceId)?.model || 'Device'} • Engine: ${atxStatus?.details || 'Active'}`}
+        maxWidth="xl"
+        footer={
+          <div className="flex items-center justify-between w-full text-xs">
+            <span className="text-studio-400">
+              {atxHierarchy.length} UI elements parsed from active phone screen
+            </span>
+            <Button variant="secondary" size="sm" onClick={() => setIsAtxInspectorOpen(false)}>
+              Close Inspector
+            </Button>
+          </div>
+        }
+      >
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6 text-xs max-h-[75vh] overflow-hidden">
+          {/* Left 5 Cols: Gesture Controller & Keys */}
+          <div className="md:col-span-5 space-y-4 overflow-y-auto pr-1">
+            <div className="p-3 bg-studio-900 rounded-xl border border-studio-800 space-y-3">
+              <span className="text-studio-200 font-bold block flex items-center gap-1.5">
+                <MousePointer size={13} className="text-brand-400" />
+                Directional Swipes
+              </span>
+              <div className="grid grid-cols-3 gap-1.5 max-w-[190px] mx-auto py-1">
+                <div />
+                <Button variant="secondary" size="sm" icon={<ArrowUp size={14} />} onClick={() => handleAtxSwipe('up')} />
+                <div />
+                <Button variant="secondary" size="sm" icon={<ArrowLeft size={14} />} onClick={() => handleAtxSwipe('left')} />
+                <Button variant="primary" size="sm" onClick={() => handleAtxTap(manualTapX, manualTapY)}>Tap</Button>
+                <Button variant="secondary" size="sm" icon={<ArrowRight size={14} />} onClick={() => handleAtxSwipe('right')} />
+                <div />
+                <Button variant="secondary" size="sm" icon={<ArrowDown size={14} />} onClick={() => handleAtxSwipe('down')} />
+                <div />
+              </div>
+            </div>
+
+            {/* Hardware Keys */}
+            <div className="p-3 bg-studio-900 rounded-xl border border-studio-800 space-y-2">
+              <span className="text-studio-200 font-bold block">Hardware Keys</span>
+              <div className="grid grid-cols-4 gap-1.5">
+                <Button variant="secondary" size="sm" onClick={() => handleAtxPressKey('back')}>
+                  Back
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => handleAtxPressKey('home')}>
+                  Home
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => handleAtxPressKey('enter')}>
+                  Enter
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => handleAtxPressKey('power')}>
+                  Wake
+                </Button>
+              </div>
+            </div>
+
+            {/* Manual Coordinate Tap */}
+            <div className="p-3 bg-studio-900 rounded-xl border border-studio-800 space-y-2">
+              <span className="text-studio-200 font-bold block">Coordinate Tap (X, Y)</span>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  placeholder="X"
+                  value={manualTapX}
+                  onChange={(e) => setManualTapX(parseInt(e.target.value) || 0)}
+                  className="w-20 bg-studio-950 border border-studio-700 rounded-lg px-2 py-1 text-studio-100 text-xs font-mono"
+                />
+                <input
+                  type="number"
+                  placeholder="Y"
+                  value={manualTapY}
+                  onChange={(e) => setManualTapY(parseInt(e.target.value) || 0)}
+                  className="w-20 bg-studio-950 border border-studio-700 rounded-lg px-2 py-1 text-studio-100 text-xs font-mono"
+                />
+                <Button variant="primary" size="sm" onClick={() => handleAtxTap(manualTapX, manualTapY)}>
+                  Tap (X, Y)
+                </Button>
+              </div>
+            </div>
+
+            {/* Text Injector */}
+            <div className="p-3 bg-studio-900 rounded-xl border border-studio-800 space-y-2">
+              <span className="text-studio-200 font-bold block">Inject Text into Active Input</span>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Type text to send to phone..."
+                  className="flex-1 bg-studio-950 border border-studio-700 rounded-lg px-2.5 py-1 text-studio-100 text-xs focus:ring-1 focus:ring-brand-500"
+                  value={manualText}
+                  onChange={(e) => setManualText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleAtxInputText();
+                  }}
+                />
+                <Button variant="secondary" size="sm" onClick={handleAtxInputText}>
+                  Send
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Right 7 Cols: Detected UI Elements Hierarchy */}
+          <div className="md:col-span-7 flex flex-col h-full overflow-hidden border border-studio-800 rounded-xl bg-studio-900/60 p-3 space-y-2.5">
+            <div className="flex items-center justify-between pb-2 border-b border-studio-800 shrink-0">
+              <span className="font-bold text-studio-100 flex items-center gap-1.5">
+                <Layers size={13} className="text-brand-400" />
+                Parsed Screen Hierarchy ({atxHierarchy.length} Elements)
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<RefreshCw size={12} className={isDumpingHierarchy ? 'animate-spin' : ''} />}
+                loading={isDumpingHierarchy}
+                onClick={handleDumpHierarchy}
+              >
+                Dump Screen
+              </Button>
+            </div>
+
+            {atxHierarchy.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center p-8 text-center text-studio-500">
+                <MousePointer size={28} className="mb-2 opacity-50" />
+                <p>Click "Dump Screen" to inspect interactive UI elements on the phone.</p>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto space-y-1.5 pr-1 max-h-[50vh]">
+                {atxHierarchy.map((el, i) => (
+                  <div
+                    key={i}
+                    onClick={() => handleAtxTap(el.center.x, el.center.y)}
+                    className="p-2 bg-studio-950 hover:bg-studio-800 border border-studio-800 hover:border-brand-500/50 rounded-lg cursor-pointer transition-all flex items-center justify-between text-xs group"
+                  >
+                    <div className="truncate mr-2">
+                      <span className="font-semibold text-studio-200 block truncate">
+                        {el.text || el.description || el.resourceId || el.className}
+                      </span>
+                      <span className="text-[10px] text-studio-500 font-mono block truncate">
+                        {el.resourceId || el.className}
+                      </span>
+                    </div>
+                    <span className="text-[10px] font-mono text-studio-400 bg-studio-900 px-2 py-0.5 rounded border border-studio-800 group-hover:bg-brand-500 group-hover:text-white transition-colors shrink-0">
+                      ({el.center.x}, {el.center.y})
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </Modal>
