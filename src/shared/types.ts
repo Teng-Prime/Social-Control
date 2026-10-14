@@ -607,6 +607,11 @@ export interface FlowConnectionInfo {
   notes: string;
 }
 
+export interface FlowConnectOptions {
+  mode?: 'interactive' | 'external' | 'google_sso';
+  email?: string;
+}
+
 export interface CaptionGenerationResult {
   variations: CaptionVariation[];
   platformLimitNotes: string;
@@ -673,9 +678,11 @@ export interface IElectronAPI {
   renderProjectVideo: (projectId: string) => Promise<{ jobId: string }>;
   renderFinalVideo: (projectId: string, options?: { resolution?: string; aspectRatio?: string; mixAudio?: boolean; burnedSubtitles?: boolean }) => Promise<{ jobId: string; outputPath: string; assetId?: string }>;
   getFlowConnectionStatus: () => Promise<FlowConnectionInfo>;
-  connectGoogleFlow: () => Promise<FlowConnectionInfo>;
+  connectGoogleFlow: (options?: FlowConnectOptions) => Promise<FlowConnectionInfo>;
+  verifyGoogleFlowAccount: (email: string) => Promise<FlowConnectionInfo>;
   checkFlowConnection: () => Promise<FlowConnectionInfo>;
   disconnectGoogleFlow: () => Promise<FlowConnectionInfo>;
+  onFlowConnectionChanged?: (callback: (info: FlowConnectionInfo) => void) => () => void;
 
   // Social Accounts & Publishing
   getSocialAccounts: () => Promise<SocialAccount[]>;

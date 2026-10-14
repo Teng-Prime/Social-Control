@@ -6,6 +6,7 @@ import { Badge } from '../../../components/common/Badge';
 import { Modal } from '../../../components/common/Modal';
 import { EmptyState } from '../../../components/common/EmptyState';
 import { useAppStore } from '../../../stores/useAppStore';
+import { GoogleGIcon } from '../FlowConnectionCard';
 import {
   Film,
   Plus,
@@ -54,7 +55,30 @@ export const Step3VideoPrompts: React.FC<Step3VideoPromptsProps> = ({
   const [flowPackage, setFlowPackage] = useState<any>(null);
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState<string | null>(null);
   const [isGeneratingSceneVideo, setIsGeneratingSceneVideo] = useState<string | null>(null);
+  const [isConnectingFlowModal, setIsConnectingFlowModal] = useState<boolean>(false);
   const [configModalScene, setConfigModalScene] = useState<Scene | null>(null);
+
+  const handleConnectFlowFromModal = async () => {
+    if (!window.api) return;
+    setIsConnectingFlowModal(true);
+    try {
+      const info = await window.api.connectGoogleFlow({ mode: 'interactive' });
+      if (flowPackage) {
+        setFlowPackage({ ...flowPackage, connectionInfo: info });
+      }
+      if (info.status === 'connected') {
+        addToast({
+          type: 'success',
+          title: 'Google Flow Connected',
+          message: info.connectedEmail ? `Signed in as ${info.connectedEmail}` : 'Connected successfully.',
+        });
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Sign-In Failed', message: err.message });
+    } finally {
+      setIsConnectingFlowModal(false);
+    }
+  };
 
   const activeScene = scenes.find((s) => s.id === activeSceneId) || scenes[0];
   const primaryChar = selectedCharacters[0];
@@ -624,23 +648,55 @@ ${scene.narration}
           }
         >
           <div className="space-y-4 text-xs">
-            {/* Status notice */}
-            <div className="p-3 bg-brand-500/10 border border-brand-500/20 rounded-xl flex items-center justify-between">
-              <div>
-                <span className="font-bold text-studio-100 block">Browser-Assisted Flow Mode</span>
-                <span className="text-[11px] text-studio-400">
-                  Google Flow operates at flow.google without a public third-party REST API.
-                </span>
+            {/* Status notice & Continue with Google */}
+            {flowPackage.connectionInfo?.status === 'connected' ? (
+              <div className="p-3 bg-emerald-950/30 border border-emerald-500/40 rounded-xl flex items-center justify-between">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-900/60 border border-emerald-500/50 flex items-center justify-center shrink-0">
+                    <GoogleGIcon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-emerald-200 block text-xs">
+                      Google Flow AI Connected
+                    </span>
+                    <span className="text-[11px] font-mono text-emerald-400">
+                      {flowPackage.connectionInfo.connectedEmail || 'Active Google Session'}
+                    </span>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<ExternalLink size={12} />}
+                  onClick={() => window.api?.openExternalUrl('https://flow.google/')}
+                >
+                  Open Flow Workspace
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                icon={<ExternalLink size={12} />}
-                onClick={() => window.api?.openExternalUrl('https://flow.google/')}
-              >
-                Open Flow Web
-              </Button>
-            </div>
+            ) : (
+              <div className="p-3 bg-studio-900 border border-studio-750 rounded-xl flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-7 h-7 rounded-lg bg-studio-800 border border-studio-700 flex items-center justify-center shrink-0">
+                    <GoogleGIcon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <span className="font-bold text-studio-100 block">Google Flow AI: Connect Account</span>
+                    <span className="text-[11px] text-studio-400">
+                      Sign in with Google to create scenes matching your reference photo.
+                    </span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleConnectFlowFromModal}
+                  disabled={isConnectingFlowModal}
+                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl font-semibold text-xs transition-all shadow-subtle bg-white hover:bg-slate-100 text-slate-900 border border-slate-200 active:scale-95 disabled:opacity-60 cursor-pointer shrink-0"
+                >
+                  <GoogleGIcon className="w-3.5 h-3.5 shrink-0" />
+                  <span>{isConnectingFlowModal ? 'Connecting...' : 'Continue with Google'}</span>
+                </button>
+              </div>
+            )}
 
             {/* Character Reference Photo Keyframe Card */}
             {flowPackage.referencePhoto && (

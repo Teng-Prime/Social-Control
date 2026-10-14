@@ -478,8 +478,12 @@ export function registerIpcHandlers(): void {
     return flowService.getFlowConnectionStatus();
   });
 
-  ipcMain.handle('connectGoogleFlow', async () => {
-    return flowService.connectGoogleFlow();
+  ipcMain.handle('connectGoogleFlow', async (_, options?: any) => {
+    return flowService.connectGoogleFlow(options);
+  });
+
+  ipcMain.handle('verifyGoogleFlowAccount', async (_, email: string) => {
+    return flowService.verifyGoogleFlowAccount(email);
   });
 
   ipcMain.handle('checkFlowConnection', async () => {

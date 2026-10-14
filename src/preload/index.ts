@@ -62,9 +62,15 @@ const api: IElectronAPI = {
   generateSceneVideo: (sceneId, options) => ipcRenderer.invoke('generateSceneVideo', sceneId, options),
   generateAllSceneVideos: (projectId) => ipcRenderer.invoke('generateAllSceneVideos', projectId),
   getFlowConnectionStatus: () => ipcRenderer.invoke('getFlowConnectionStatus'),
-  connectGoogleFlow: () => ipcRenderer.invoke('connectGoogleFlow'),
+  connectGoogleFlow: (options) => ipcRenderer.invoke('connectGoogleFlow', options),
+  verifyGoogleFlowAccount: (email) => ipcRenderer.invoke('verifyGoogleFlowAccount', email),
   checkFlowConnection: () => ipcRenderer.invoke('checkFlowConnection'),
   disconnectGoogleFlow: () => ipcRenderer.invoke('disconnectGoogleFlow'),
+  onFlowConnectionChanged: (callback) => {
+    const handler = (_: any, info: any) => callback(info);
+    ipcRenderer.on('flowConnectionChanged', handler);
+    return () => ipcRenderer.removeListener('flowConnectionChanged', handler);
+  },
 
   // Social Accounts & Publishing
   getSocialAccounts: () => ipcRenderer.invoke('getSocialAccounts'),

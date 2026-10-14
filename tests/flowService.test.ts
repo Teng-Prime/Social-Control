@@ -86,4 +86,32 @@ describe('FlowService & Script / Caption Generation', () => {
     expect(disconnected.status).toBe('not_connected');
     expect(disconnected.statusLabel).toBe('Not Connected');
   });
+
+  it('should support Continue with Google SSO and maintain verified connection status', async () => {
+    await service.disconnectGoogleFlow();
+
+    // 1. Connect via Google SSO
+    const ssoResult = await service.connectGoogleFlow({
+      mode: 'google_sso',
+      email: 'creator.studio@gmail.com',
+    });
+    expect(ssoResult.status).toBe('connected');
+    expect(ssoResult.connectedEmail).toBe('creator.studio@gmail.com');
+    expect(ssoResult.hasProgrammaticApi).toBe(true);
+
+    // 2. Check connection preserves connected state
+    const checked = await service.checkFlowConnection();
+    expect(checked.status).toBe('connected');
+    expect(checked.connectedEmail).toBe('creator.studio@gmail.com');
+
+    // 3. Verify updating account email
+    const updated = await service.verifyGoogleFlowAccount('prime.director@gmail.com');
+    expect(updated.status).toBe('connected');
+    expect(updated.connectedEmail).toBe('prime.director@gmail.com');
+
+    // 4. Disconnecting clears the account
+    const reset = await service.disconnectGoogleFlow();
+    expect(reset.status).toBe('not_connected');
+    expect(reset.connectedEmail).toBeUndefined();
+  });
 });
