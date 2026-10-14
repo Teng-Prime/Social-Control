@@ -162,3 +162,4 @@ Social Earnings Studio connects directly to Android phones and emulators using t
 
 ## 📄 License
 MIT License. Built for professional AI content creation.
+"# Social-Control" 
