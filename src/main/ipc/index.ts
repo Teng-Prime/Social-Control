@@ -6,6 +6,7 @@ import { storageService } from '../services/storageService';
 import { ffmpegService } from '../services/ffmpegService';
 import { adbService } from '../services/adbService';
 import { flowService } from '../services/flowService';
+import { atxAutomationService } from '../services/atxAutomationService';
 import { characterImageGenerator } from '../services/characterImageGenerator';
 import { socialPublisher } from '../services/social/socialPublisher';
 import { queueService } from '../services/queueService';
@@ -577,6 +578,39 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('openPhoneSettings', async (_, deviceId: string, settingType: 'accounts' | 'wifi' | 'developer') => {
     return adbService.openSettings(deviceId, settingType);
+  });
+
+  // ATX Android Automation Engine
+  ipcMain.handle('getAtxStatus', async (_, deviceId: string) => {
+    return atxAutomationService.getAtxStatus(deviceId);
+  });
+
+  ipcMain.handle('initAtxAgent', async (_, deviceId: string) => {
+    return atxAutomationService.initAtxAgent(deviceId);
+  });
+
+  ipcMain.handle('dumpAtxHierarchy', async (_, deviceId: string) => {
+    return atxAutomationService.dumpHierarchy(deviceId);
+  });
+
+  ipcMain.handle('atxTap', async (_, deviceId: string, x: number, y: number) => {
+    return atxAutomationService.tap(deviceId, x, y);
+  });
+
+  ipcMain.handle('atxSwipe', async (_, deviceId: string, sx: number, sy: number, ex: number, ey: number, durationMs?: number) => {
+    return atxAutomationService.swipe(deviceId, sx, sy, ex, ey, durationMs);
+  });
+
+  ipcMain.handle('atxInputText', async (_, deviceId: string, text: string) => {
+    return atxAutomationService.inputText(deviceId, text);
+  });
+
+  ipcMain.handle('atxPressKey', async (_, deviceId: string, key: 'home' | 'back' | 'enter' | 'power') => {
+    return atxAutomationService.pressKey(deviceId, key);
+  });
+
+  ipcMain.handle('atxAutomatePublish', async (_, params) => {
+    return atxAutomationService.automatePublish(params);
   });
 
   // 13. Automation Queue

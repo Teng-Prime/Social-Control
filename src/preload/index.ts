@@ -90,6 +90,17 @@ const api: IElectronAPI = {
   requestPhoneAdbRoot: (deviceId) => ipcRenderer.invoke('requestPhoneAdbRoot', deviceId),
   openPhoneSettings: (deviceId, settingType) => ipcRenderer.invoke('openPhoneSettings', deviceId, settingType),
 
+  // ATX Automation Engine
+  getAtxStatus: (deviceId) => ipcRenderer.invoke('getAtxStatus', deviceId),
+  initAtxAgent: (deviceId) => ipcRenderer.invoke('initAtxAgent', deviceId),
+  dumpAtxHierarchy: (deviceId) => ipcRenderer.invoke('dumpAtxHierarchy', deviceId),
+  atxTap: (deviceId, x, y) => ipcRenderer.invoke('atxTap', deviceId, x, y),
+  atxSwipe: (deviceId, sx, sy, ex, ey, durationMs) => ipcRenderer.invoke('atxSwipe', deviceId, sx, sy, ex, ey, durationMs),
+  atxInputText: (deviceId, text) => ipcRenderer.invoke('atxInputText', deviceId, text),
+  atxPressKey: (deviceId, key) => ipcRenderer.invoke('atxPressKey', deviceId, key),
+  atxAutomatePublish: (params) => ipcRenderer.invoke('atxAutomatePublish', params),
+
+
   // Task Queue
   getQueueItems: (filter) => ipcRenderer.invoke('getQueueItems', filter),
   cancelQueueItem: (id) => ipcRenderer.invoke('cancelQueueItem', id),

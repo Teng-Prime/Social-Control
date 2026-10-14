@@ -34,6 +34,10 @@ import {
   Sparkles,
   Lock,
   Unlock,
+  ArrowUp,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
 } from 'lucide-react';
 import {
   Device,
@@ -42,6 +46,9 @@ import {
   PhoneSetupDiagnostic,
   LocalAppPackageInfo,
   AppInstallResult,
+  AtxAgentStatus,
+  AtxUiNode,
+  AtxAutomatePostResult,
 } from '../../../shared/types';
 
 export const PhoneControlView: React.FC = () => {
@@ -54,7 +61,7 @@ export const PhoneControlView: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);
 
   // Active View Tab
-  const [activeTab, setActiveTab] = useState<'setup' | 'transfer' | 'control'>('setup');
+  const [activeTab, setActiveTab] = useState<'setup' | 'transfer' | 'control' | 'atx'>('setup');
 
   // Phone Setup & Diagnostics State
   const [diagnostic, setDiagnostic] = useState<PhoneSetupDiagnostic | null>(null);
@@ -62,6 +69,22 @@ export const PhoneControlView: React.FC = () => {
   const [installingPackage, setInstallingPackage] = useState<string | null>(null);
   const [isBatchInstalling, setIsBatchInstalling] = useState(false);
   const [appFilter, setAppFilter] = useState<'all' | 'missing' | 'installed'>('all');
+
+  // ATX Automation State
+  const [atxStatus, setAtxStatus] = useState<AtxAgentStatus | null>(null);
+  const [isLoadingAtx, setIsLoadingAtx] = useState(false);
+  const [atxHierarchy, setAtxHierarchy] = useState<AtxUiNode[]>([]);
+  const [isDumpingHierarchy, setIsDumpingHierarchy] = useState(false);
+  const [atxPlatform, setAtxPlatform] = useState<'youtube' | 'tiktok' | 'facebook'>('youtube');
+  const [atxTitle, setAtxTitle] = useState('New Viral Story Video #Shorts');
+  const [atxCaption, setAtxCaption] = useState('Watch this incredible story unfolded! #story #viral #entertainment');
+  const [atxHashtags, setAtxHashtags] = useState('#story #viral #shorts #trending');
+  const [atxResult, setAtxResult] = useState<AtxAutomatePostResult | null>(null);
+  const [isAutomatingPublish, setIsAutomatingPublish] = useState(false);
+  const [manualTapX, setManualTapX] = useState<number>(540);
+  const [manualTapY, setManualTapY] = useState<number>(1200);
+  const [manualText, setManualText] = useState<string>('');
+
 
   // Modals & Wizards
   const [isWizardOpen, setIsWizardOpen] = useState(false);
@@ -117,10 +140,169 @@ export const PhoneControlView: React.FC = () => {
     try {
       const diag = await window.api.getPhoneSetupDiagnostic(deviceId);
       setDiagnostic(diag);
+      await loadAtxStatus(deviceId);
     } catch (err: any) {
       addToast({ type: 'warn', title: 'Diagnostic check notice', message: err.message });
     } finally {
       setIsLoadingDiagnostic(false);
+    }
+  };
+
+  const loadAtxStatus = async (deviceId: string) => {
+    if (!window.api) return;
+    setIsLoadingAtx(true);
+    try {
+      const status = await window.api.getAtxStatus(deviceId);
+      setAtxStatus(status);
+    } catch (err: any) {
+      console.warn('Failed to get ATX status', err);
+    } finally {
+      setIsLoadingAtx(false);
+    }
+  };
+
+  const handleInitAtx = async () => {
+    const devId = selectedDevice?.id || diagnostic?.deviceId || 'virtual_device';
+    setIsLoadingAtx(true);
+    try {
+      if (window.api) {
+        const res = await window.api.initAtxAgent(devId);
+        if (res.success) {
+          addToast({ type: 'success', title: 'ATX Agent Initialized', message: res.message });
+        } else {
+          addToast({ type: 'warn', title: 'ATX Init Response', message: res.message });
+        }
+        await loadAtxStatus(devId);
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'ATX Init Failed', message: err.message });
+    } finally {
+      setIsLoadingAtx(false);
+    }
+  };
+
+  const handleDumpHierarchy = async () => {
+    const devId = selectedDevice?.id || diagnostic?.deviceId || 'virtual_device';
+    setIsDumpingHierarchy(true);
+    try {
+      if (window.api) {
+        const res = await window.api.dumpAtxHierarchy(devId);
+        if (res.success) {
+          setAtxHierarchy(res.elements);
+          addToast({
+            type: 'info',
+            title: 'UI Hierarchy Inspected',
+            message: `Detected ${res.elements.length} clickable & focusable UI elements on current screen.`,
+          });
+        } else {
+          addToast({ type: 'warn', title: 'Dump Hierarchy', message: res.error || 'Failed to parse UI hierarchy' });
+        }
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Hierarchy Dump Failed', message: err.message });
+    } finally {
+      setIsDumpingHierarchy(false);
+    }
+  };
+
+  const handleAtxTap = async (x: number, y: number) => {
+    const devId = selectedDevice?.id || diagnostic?.deviceId || 'virtual_device';
+    try {
+      if (window.api) {
+        const res = await window.api.atxTap(devId, x, y);
+        addToast({ type: 'info', title: 'Tap Action', message: res.message });
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Tap Failed', message: err.message });
+    }
+  };
+
+  const handleAtxSwipe = async (direction: 'up' | 'down' | 'left' | 'right') => {
+    const devId = selectedDevice?.id || diagnostic?.deviceId || 'virtual_device';
+    const swipeCoords: Record<string, [number, number, number, number]> = {
+      up: [540, 1600, 540, 600],
+      down: [540, 600, 540, 1600],
+      left: [900, 1200, 200, 1200],
+      right: [200, 1200, 900, 1200],
+    };
+    const [sx, sy, ex, ey] = swipeCoords[direction];
+    try {
+      if (window.api) {
+        const res = await window.api.atxSwipe(devId, sx, sy, ex, ey, 350);
+        addToast({ type: 'info', title: `Swipe ${direction.toUpperCase()}`, message: res.message });
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Swipe Failed', message: err.message });
+    }
+  };
+
+  const handleAtxInputText = async () => {
+    if (!manualText.trim()) return;
+    const devId = selectedDevice?.id || diagnostic?.deviceId || 'virtual_device';
+    try {
+      if (window.api) {
+        const res = await window.api.atxInputText(devId, manualText);
+        addToast({ type: 'info', title: 'Input Text', message: res.message });
+        setManualText('');
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Input Text Failed', message: err.message });
+    }
+  };
+
+  const handleAtxPressKey = async (key: 'home' | 'back' | 'enter' | 'power') => {
+    const devId = selectedDevice?.id || diagnostic?.deviceId || 'virtual_device';
+    try {
+      if (window.api) {
+        const res = await window.api.atxPressKey(devId, key);
+        addToast({ type: 'info', title: `Key ${key.toUpperCase()}`, message: res.message });
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Press Key Failed', message: err.message });
+    }
+  };
+
+  const handleRunAtxPublish = async () => {
+    const devId = selectedDevice?.id || diagnostic?.deviceId || 'virtual_device';
+    setIsAutomatingPublish(true);
+    setAtxResult(null);
+
+    try {
+      if (window.api) {
+        addToast({
+          type: 'info',
+          title: `Starting ATX ${atxPlatform.toUpperCase()} Automation...`,
+          message: 'Hands-free automated posting executing on device.',
+        });
+
+        const res = await window.api.atxAutomatePublish({
+          deviceId: devId,
+          platform: atxPlatform,
+          videoPath: selectedAssetForTransfer || '/sdcard/Movies/SocialEarningsStudio/video.mp4',
+          title: atxTitle,
+          caption: atxCaption,
+          hashtags: atxHashtags.split(' ').map((h) => h.trim()).filter(Boolean),
+        });
+
+        setAtxResult(res);
+        if (res.success) {
+          addToast({
+            type: 'success',
+            title: `ATX ${atxPlatform.toUpperCase()} Post Succeeded!`,
+            message: res.message,
+          });
+        } else {
+          addToast({
+            type: 'error',
+            title: `ATX Automation Error`,
+            message: res.message,
+          });
+        }
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Automation Failed', message: err.message });
+    } finally {
+      setIsAutomatingPublish(false);
     }
   };
 
@@ -131,6 +313,7 @@ export const PhoneControlView: React.FC = () => {
   const handleDeviceSelect = (dev: Device) => {
     setSelectedDevice(dev);
     loadDiagnostic(dev.id);
+    loadAtxStatus(dev.id);
   };
 
   const handleInstallSingleApp = async (app: LocalAppPackageInfo) => {
@@ -414,6 +597,19 @@ export const PhoneControlView: React.FC = () => {
           >
             <Monitor size={13} />
             Screen & Launcher
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('atx')}
+            className={`px-3 py-1.5 rounded-lg font-medium transition-all flex items-center gap-1.5 ${
+              activeTab === 'atx'
+                ? 'bg-brand-500 text-white shadow-sm'
+                : 'text-studio-400 hover:text-studio-200'
+            }`}
+          >
+            <Sparkles size={13} className={activeTab === 'atx' ? 'text-white' : 'text-amber-400'} />
+            ATX Automation
           </button>
         </div>
       </div>
@@ -988,6 +1184,340 @@ export const PhoneControlView: React.FC = () => {
               ))}
             </div>
           </Card>
+        </div>
+      )}
+
+      {/* TAB 4: ATX ANDROID AUTOMATION */}
+      {activeTab === 'atx' && (
+        <div className="space-y-6">
+          {/* ATX Engine Status Banner */}
+          <div className="p-4 rounded-2xl bg-gradient-to-r from-studio-850 via-studio-800 to-studio-850 border border-studio-700 shadow-subtle flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                <Sparkles size={20} />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-bold text-studio-100 text-sm">
+                    ATX (Android Test eXtension) Automation Engine
+                  </h3>
+                  <Badge
+                    variant={atxStatus?.isRunning ? 'success' : 'warning'}
+                    size="sm"
+                    dot
+                  >
+                    {atxStatus?.mode === 'atx_rpc'
+                      ? 'JSON-RPC Mode (Port 7912)'
+                      : atxStatus?.mode === 'adb_bridge'
+                      ? 'UIAutomator2 ADB Bridge'
+                      : 'Simulated Engine'}
+                  </Badge>
+                </div>
+                <p className="text-xs text-studio-400 mt-0.5">
+                  {atxStatus?.details || 'Probing ATX daemon and UIAutomator service on phone...'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<RefreshCw size={13} className={isLoadingAtx ? 'animate-spin' : ''} />}
+                loading={isLoadingAtx}
+                onClick={handleInitAtx}
+              >
+                Reconnect ATX
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                icon={<Terminal size={13} />}
+                loading={isDumpingHierarchy}
+                onClick={handleDumpHierarchy}
+              >
+                Inspect Screen UI
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Left 7 Columns: Hands-Free Social Media Automated Posting */}
+            <div className="lg:col-span-7 space-y-6">
+              <Card
+                title="Hands-Free Social Media Automated Posting"
+                subtitle="ATX automatically opens the app, selects video, inputs title & hashtags, and taps post"
+              >
+                <div className="space-y-4 text-xs">
+                  {/* Platform Pills */}
+                  <div>
+                    <label className="block text-xs font-semibold text-studio-300 mb-1.5">
+                      Target Social Platform
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAtxPlatform('youtube')}
+                        className={`p-2.5 rounded-xl border flex items-center justify-center gap-2 font-medium transition-all ${
+                          atxPlatform === 'youtube'
+                            ? 'bg-red-500/10 border-red-500/50 text-red-300'
+                            : 'bg-studio-900 border-studio-800 text-studio-400 hover:text-studio-200'
+                        }`}
+                      >
+                        <span className="w-2 h-2 rounded-full bg-red-500" />
+                        YouTube Shorts
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setAtxPlatform('tiktok')}
+                        className={`p-2.5 rounded-xl border flex items-center justify-center gap-2 font-medium transition-all ${
+                          atxPlatform === 'tiktok'
+                            ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-300'
+                            : 'bg-studio-900 border-studio-800 text-studio-400 hover:text-studio-200'
+                        }`}
+                      >
+                        <span className="w-2 h-2 rounded-full bg-cyan-400" />
+                        TikTok
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setAtxPlatform('facebook')}
+                        className={`p-2.5 rounded-xl border flex items-center justify-center gap-2 font-medium transition-all ${
+                          atxPlatform === 'facebook'
+                            ? 'bg-blue-500/10 border-blue-500/50 text-blue-300'
+                            : 'bg-studio-900 border-studio-800 text-studio-400 hover:text-studio-200'
+                        }`}
+                      >
+                        <span className="w-2 h-2 rounded-full bg-blue-500" />
+                        Facebook Reels
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Video Selector */}
+                  <div>
+                    <label className="block text-xs font-semibold text-studio-300 mb-1.5">
+                      Video to Post
+                    </label>
+                    <select
+                      className="w-full bg-studio-900 border border-studio-750 rounded-lg p-2.5 text-studio-100 text-xs focus:ring-1 focus:ring-brand-500"
+                      value={selectedAssetForTransfer}
+                      onChange={(e) => setSelectedAssetForTransfer(e.target.value)}
+                    >
+                      {libraryAssets.length === 0 && <option value="">No videos in library yet</option>}
+                      {libraryAssets.map((asset) => (
+                        <option key={asset.id} value={asset.filePath}>
+                          🎬 {asset.fileName} ({asset.width}x{asset.height} • {asset.durationSeconds}s)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Title & Caption */}
+                  <div className="grid grid-cols-1 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-studio-300 mb-1">
+                        Post Title
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full bg-studio-900 border border-studio-750 rounded-lg p-2.5 text-studio-100 text-xs focus:ring-1 focus:ring-brand-500"
+                        value={atxTitle}
+                        onChange={(e) => setAtxTitle(e.target.value)}
+                        placeholder="Video Title..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-studio-300 mb-1">
+                        Caption / Description
+                      </label>
+                      <textarea
+                        rows={2}
+                        className="w-full bg-studio-900 border border-studio-750 rounded-lg p-2 text-studio-100 text-xs focus:ring-1 focus:ring-brand-500"
+                        value={atxCaption}
+                        onChange={(e) => setAtxCaption(e.target.value)}
+                        placeholder="Description..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-studio-300 mb-1">
+                        Hashtags
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full bg-studio-900 border border-studio-750 rounded-lg p-2 text-studio-100 text-xs focus:ring-1 focus:ring-brand-500"
+                        value={atxHashtags}
+                        onChange={(e) => setAtxHashtags(e.target.value)}
+                        placeholder="#shorts #viral #story"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Submit Automation Button */}
+                  <div className="pt-2">
+                    <Button
+                      variant="primary"
+                      size="md"
+                      className="w-full"
+                      icon={<Sparkles size={16} />}
+                      loading={isAutomatingPublish}
+                      disabled={isAutomatingPublish}
+                      onClick={handleRunAtxPublish}
+                    >
+                      {isAutomatingPublish
+                        ? `Executing ATX ${atxPlatform.toUpperCase()} Automation...`
+                        : `Execute Hands-Free ${atxPlatform.toUpperCase()} Post via ATX`}
+                    </Button>
+                  </div>
+
+                  {/* Real-time Execution Steps Log */}
+                  {atxResult && (
+                    <div className="p-3.5 bg-studio-900 rounded-xl border border-studio-800 space-y-2.5 mt-3">
+                      <div className="flex items-center justify-between border-b border-studio-800 pb-2">
+                        <span className="font-semibold text-studio-200 flex items-center gap-1.5">
+                          <CheckCircle2 size={13} className="text-emerald-400" />
+                          ATX Automation Sequence ({atxResult.platform.toUpperCase()})
+                        </span>
+                        <Badge variant={atxResult.success ? 'success' : 'danger'} size="sm">
+                          {atxResult.success ? 'Completed' : 'Failed'}
+                        </Badge>
+                      </div>
+
+                      <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                        {atxResult.steps.map((st, idx) => (
+                          <div key={idx} className="flex items-start justify-between text-[11px] py-1 border-b border-studio-850/50">
+                            <span className="font-medium text-studio-300">{st.step}</span>
+                            <span className="text-studio-500 font-mono text-[10px]">{st.timestamp}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {atxResult.postUrl && (
+                        <div className="pt-2 text-[11px] text-brand-300 font-mono truncate">
+                          Post Link: {atxResult.postUrl}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </Card>
+            </div>
+
+            {/* Right 5 Columns: Screen UI Inspector & Quick Touchpad */}
+            <div className="lg:col-span-5 space-y-6">
+              {/* Remote Touchpad & Input Controller */}
+              <Card
+                title="Remote Gesture Touchpad"
+                subtitle="Direct hardware keys, directional swipes, and coordinate taps"
+              >
+                <div className="space-y-4 text-xs">
+                  {/* Directional Swipes */}
+                  <div>
+                    <span className="text-studio-400 font-semibold block mb-2">Directional Swipe</span>
+                    <div className="grid grid-cols-3 gap-1.5 max-w-[200px] mx-auto">
+                      <div />
+                      <Button variant="secondary" size="sm" icon={<ArrowUp size={14} />} onClick={() => handleAtxSwipe('up')} />
+                      <div />
+                      <Button variant="secondary" size="sm" icon={<ArrowLeft size={14} />} onClick={() => handleAtxSwipe('left')} />
+                      <Button variant="outline" size="sm" onClick={() => handleAtxTap(manualTapX, manualTapY)}>Tap</Button>
+                      <Button variant="secondary" size="sm" icon={<ArrowRight size={14} />} onClick={() => handleAtxSwipe('right')} />
+                      <div />
+                      <Button variant="secondary" size="sm" icon={<ArrowDown size={14} />} onClick={() => handleAtxSwipe('down')} />
+                      <div />
+                    </div>
+                  </div>
+
+                  {/* Hardware Keys */}
+                  <div className="pt-2 border-t border-studio-800">
+                    <span className="text-studio-400 font-semibold block mb-2">Hardware Keys</span>
+                    <div className="grid grid-cols-4 gap-2">
+                      <Button variant="secondary" size="sm" onClick={() => handleAtxPressKey('back')}>
+                        Back
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={() => handleAtxPressKey('home')}>
+                        Home
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={() => handleAtxPressKey('enter')}>
+                        Enter
+                      </Button>
+                      <Button variant="secondary" size="sm" onClick={() => handleAtxPressKey('power')}>
+                        Wake
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Text Injector */}
+                  <div className="pt-2 border-t border-studio-800">
+                    <span className="text-studio-400 font-semibold block mb-1.5">Inject Text into Active Input</span>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        placeholder="Type text to send to phone..."
+                        className="flex-1 bg-studio-900 border border-studio-750 rounded-lg px-2.5 py-1.5 text-studio-100 text-xs focus:ring-1 focus:ring-brand-500"
+                        value={manualText}
+                        onChange={(e) => setManualText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleAtxInputText();
+                        }}
+                      />
+                      <Button variant="secondary" size="sm" onClick={handleAtxInputText}>
+                        Send
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              {/* Detected UI Elements Hierarchy */}
+              <Card
+                title="Detected UI Elements"
+                subtitle={`${atxHierarchy.length} UI elements parsed from window hierarchy`}
+                action={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={<RefreshCw size={12} className={isDumpingHierarchy ? 'animate-spin' : ''} />}
+                    loading={isDumpingHierarchy}
+                    onClick={handleDumpHierarchy}
+                  >
+                    Refresh
+                  </Button>
+                }
+              >
+                {atxHierarchy.length === 0 ? (
+                  <div className="text-center py-6 text-xs text-studio-500">
+                    Click "Inspect Screen UI" to parse all buttons and inputs on the active phone screen.
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+                    {atxHierarchy.map((el, i) => (
+                      <div
+                        key={i}
+                        onClick={() => handleAtxTap(el.center.x, el.center.y)}
+                        className="p-2 bg-studio-900 hover:bg-studio-800 border border-studio-800 hover:border-brand-500/50 rounded-lg cursor-pointer transition-all flex items-center justify-between text-xs group"
+                      >
+                        <div className="truncate mr-2">
+                          <span className="font-semibold text-studio-200 block truncate">
+                            {el.text || el.description || el.resourceId || el.className}
+                          </span>
+                          <span className="text-[10px] text-studio-500 font-mono block truncate">
+                            {el.resourceId || el.className}
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-mono text-studio-400 bg-studio-800 px-1.5 py-0.5 rounded group-hover:bg-brand-500 group-hover:text-white transition-colors shrink-0">
+                          ({el.center.x}, {el.center.y})
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </Card>
+            </div>
+          </div>
         </div>
       )}
 

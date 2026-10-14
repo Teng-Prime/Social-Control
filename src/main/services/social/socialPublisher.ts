@@ -11,6 +11,7 @@ import { socialAccountRepo } from '../../database/repositories/socialAccountRepo
 import { mediaAssetRepo } from '../../database/repositories/mediaAssetRepository';
 import { deviceRepo } from '../../database/repositories/deviceRepository';
 import { adbService } from '../adbService';
+import { atxAutomationService } from '../atxAutomationService';
 import { logger } from '../../logger';
 import fs from 'fs';
 import path from 'path';
@@ -242,10 +243,42 @@ export class SocialPublisherService {
         const transfer = await adbService.transferFile(device.id, filePath);
         destinationPath = transfer.destinationPath;
 
-        publishJobRepo.update(job.id, { progress: 85 });
-        appLaunched = await adbService.launchApp(device.id, targetApp.packageName);
+        publishJobRepo.update(job.id, { progress: 70 });
+
+        // Trigger ATX Android Automation for hands-free publishing
+        logger.info('SocialPublisher', `Triggering ATX automation on ${device.model} for ${job.platform}`);
+        const atxResult = await atxAutomationService.automatePublish({
+          deviceId: device.id,
+          platform: job.platform as 'youtube' | 'tiktok' | 'facebook',
+          videoPath: destinationPath,
+          title: job.title,
+          caption: job.caption,
+          hashtags: job.hashtags,
+        });
+
+        publishJobRepo.update(job.id, { progress: 95 });
+        appLaunched = true;
+
+        if (atxResult.success) {
+          publishJobRepo.update(job.id, {
+            status: 'published',
+            progress: 100,
+            remotePostId: atxResult.postId || `atx_${job.platform}_${Date.now()}`,
+            remotePostUrl: atxResult.postUrl || `Phone: ${destinationPath}`,
+            errorMessage: undefined,
+          });
+
+          mediaAssetRepo.update(job.mediaAssetId, { folder: 'Published' });
+
+          return {
+            success: true,
+            remotePostId: atxResult.postId || `atx_${job.platform}_${Date.now()}`,
+            remotePostUrl: atxResult.postUrl || `Phone: ${destinationPath}`,
+            message: `Video uploaded & published via ATX on ${device.model}! ${atxResult.message}`,
+          };
+        }
       } catch (err: any) {
-        logger.warn('SocialPublisher', `ADB transfer failed: ${err.message}. Fallback to simulated staging.`);
+        logger.warn('SocialPublisher', `ATX automation step failed: ${err.message}. Falling back to standard staging.`);
       }
     }
 

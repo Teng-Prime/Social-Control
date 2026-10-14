@@ -293,6 +293,80 @@ export interface BatchInstallResult {
   results: AppInstallResult[];
 }
 
+// ==========================================
+// ATX (Android Test eXtension) Automation
+// ==========================================
+export interface AtxUiBounds {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
+export interface AtxUiNode {
+  text: string;
+  resourceId: string;
+  className: string;
+  description: string;
+  bounds: AtxUiBounds;
+  center: { x: number; y: number };
+  clickable: boolean;
+  enabled: boolean;
+  scrollable: boolean;
+}
+
+export interface AtxElementSelector {
+  text?: string;
+  textContains?: string;
+  resourceId?: string;
+  description?: string;
+  descriptionContains?: string;
+  className?: string;
+  clickable?: boolean;
+}
+
+export interface AtxAgentStatus {
+  isRunning: boolean;
+  port: number;
+  mode: 'atx_rpc' | 'adb_bridge' | 'simulated';
+  details: string;
+  version?: string;
+}
+
+export interface AtxActionResult {
+  success: boolean;
+  action: string;
+  message: string;
+  durationMs?: number;
+  element?: AtxUiNode;
+}
+
+export interface AtxAutomatePostStep {
+  step: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  message: string;
+  timestamp: string;
+}
+
+export interface AtxAutomatePostParams {
+  deviceId: string;
+  platform: 'youtube' | 'tiktok' | 'facebook';
+  videoPath: string;
+  title: string;
+  caption: string;
+  hashtags?: string[];
+}
+
+export interface AtxAutomatePostResult {
+  success: boolean;
+  platform: string;
+  message: string;
+  steps: AtxAutomatePostStep[];
+  postId?: string;
+  postUrl?: string;
+}
+
+
 export interface TransferJob {
   id: string;
   deviceId: string;
@@ -547,6 +621,17 @@ export interface IElectronAPI {
   installAllAppsOnPhone: (deviceId: string) => Promise<BatchInstallResult>;
   requestPhoneAdbRoot: (deviceId: string) => Promise<{ success: boolean; message: string }>;
   openPhoneSettings: (deviceId: string, settingType: 'accounts' | 'wifi' | 'developer') => Promise<{ success: boolean; message: string }>;
+
+  // ATX Android Automation Engine
+  getAtxStatus: (deviceId: string) => Promise<AtxAgentStatus>;
+  initAtxAgent: (deviceId: string) => Promise<AtxActionResult>;
+  dumpAtxHierarchy: (deviceId: string) => Promise<{ success: boolean; elements: AtxUiNode[]; error?: string }>;
+  atxTap: (deviceId: string, x: number, y: number) => Promise<AtxActionResult>;
+  atxSwipe: (deviceId: string, sx: number, sy: number, ex: number, ey: number, durationMs?: number) => Promise<AtxActionResult>;
+  atxInputText: (deviceId: string, text: string) => Promise<AtxActionResult>;
+  atxPressKey: (deviceId: string, key: 'home' | 'back' | 'enter' | 'power') => Promise<AtxActionResult>;
+  atxAutomatePublish: (params: AtxAutomatePostParams) => Promise<AtxAutomatePostResult>;
+
 
   // Automation Task Queue
   getQueueItems: (filter?: { status?: TaskStatus }) => Promise<TaskQueueItem[]>;
