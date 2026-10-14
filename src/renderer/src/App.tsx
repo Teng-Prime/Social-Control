@@ -33,9 +33,8 @@ export const App: React.FC = () => {
       case 'dashboard':
         return <DashboardView />;
       case 'ai-studio':
-        return <AIStudioView />;
       case 'characters':
-        return <CharactersView />;
+        return <AIStudioView />;
       case 'story-projects':
         return <StoryProjectsView />;
       case 'video-library':

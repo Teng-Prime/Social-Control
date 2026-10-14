@@ -31,10 +31,64 @@ export interface Character {
   updatedAt: string;
 }
 
+export type StoryGenre =
+  | 'mystery'
+  | 'emotional'
+  | 'drama'
+  | 'comedy'
+  | 'romance'
+  | 'horror'
+  | 'adventure'
+  | 'moral';
+
+export interface VoiceSettings {
+  provider: string;
+  voice: string;
+  language: string;
+  gender: 'male' | 'female' | 'neutral';
+  speed: number;
+  pitch: number;
+  volume: number;
+  audioPath?: string;
+}
+
+export interface MusicSettings {
+  trackId: string;
+  trackTitle: string;
+  audioPath?: string;
+  mood: string;
+  volume: number;
+  trimStart: number;
+  trimEnd: number;
+  fadeIn: boolean;
+  fadeOut: boolean;
+  loop: boolean;
+  ducking: boolean;
+}
+
+export interface SoundEffectItem {
+  id: string;
+  sceneId?: string;
+  name: string;
+  category?: string;
+  audioPath?: string;
+  volume: number;
+  startTime: number;
+  duration: number;
+}
+
+export interface SubtitleSettings {
+  enabled: boolean;
+  style: 'minimal' | 'boxed' | 'highlight' | 'tiktok';
+  text: string;
+  srtPath?: string;
+}
+
 export interface Scene {
   id: string;
   projectId: string;
   sceneNumber: number;
+  title?: string;
   scriptText: string;
   narration: string;
   characterId?: string;
@@ -43,6 +97,14 @@ export interface Scene {
   generationPrompt: string;
   duration: number; // in seconds
   videoPath?: string;
+  audioPath?: string;
+  visualDescription?: string;
+  cameraAngle?: string;
+  lighting?: string;
+  actions?: string;
+  environment?: string;
+  soundEffectSuggestion?: string;
+  negativePrompt?: string;
   status: 'draft' | 'generating' | 'ready' | 'approved' | 'failed';
   error?: string;
 }
@@ -50,7 +112,7 @@ export interface Scene {
 export interface StoryProject {
   id: string;
   title: string;
-  genre: 'mystery' | 'comedy' | 'romance' | 'adventure' | 'emotional' | 'horror' | 'educational';
+  genre: StoryGenre;
   aspectRatio: '9:16' | '16:9' | '1:1';
   targetDuration: number;
   language: string;
@@ -62,6 +124,19 @@ export interface StoryProject {
   ending: string;
   continuityNotes: string;
   scenes: Scene[];
+  selectedCharacterIds?: string[];
+  storyIdea?: string;
+  targetAudience?: string;
+  platform?: 'tiktok' | 'youtube' | 'facebook';
+  storyTone?: string;
+  customInstructions?: string;
+  voiceSettings?: VoiceSettings;
+  musicSettings?: MusicSettings;
+  soundEffects?: SoundEffectItem[];
+  subtitlesSettings?: SubtitleSettings;
+  finalVideoPath?: string;
+  currentStep?: number;
+  metadata?: Record<string, any>;
   createdAt: string;
   updatedAt: string;
 }
@@ -315,7 +390,14 @@ export interface IElectronAPI {
   deleteScene: (id: string) => Promise<boolean>;
   reorderScenes: (projectId: string, sceneIds: string[]) => Promise<boolean>;
   generateScript: (prompt: string, genre: string, lengthMinutes: number) => Promise<{ hook: string; intro: string; scenes: Array<{ scriptText: string; narration: string; prompt: string }>; climax: string; ending: string }>;
+  generateStoryIdeas: (topic: string, genre: string, characterNames?: string[]) => Promise<string[]>;
+  generateHook: (topic: string, genre: string, tone: string) => Promise<string>;
+  transformStoryScript: (options: { script: string; hook: string; action: 'rewrite' | 'improve_hook' | 'shorten' | 'expand' | 'continue'; genre: string }) => Promise<{ hook: string; script: string; climax?: string; ending?: string }>;
+  generateFullStory: (options: { prompt: string; genre: string; targetDuration: number; platform?: string; tone?: string; targetAudience?: string; characterIds?: string[]; customInstructions?: string }) => Promise<{ hook: string; intro: string; scenes: Array<{ title: string; scriptText: string; narration: string; prompt: string; duration: number; visualDescription: string; cameraAngle: string; lighting: string; actions: string; environment: string; soundEffectSuggestion: string; negativePrompt: string }>; climax: string; ending: string }>;
+  generateVoiceover: (projectId: string, text: string, voiceSettings: VoiceSettings) => Promise<{ audioPath: string; duration: number }>;
+  getBuiltinAudioLibrary: () => Promise<{ music: Array<{ id: string; title: string; mood: string; genre: string; duration: number; path: string }>; soundEffects: Array<{ id: string; name: string; category: string; duration: number; path: string }> }>;
   renderProjectVideo: (projectId: string) => Promise<{ jobId: string }>;
+  renderFinalVideo: (projectId: string, options?: { resolution?: string; aspectRatio?: string; mixAudio?: boolean; burnedSubtitles?: boolean }) => Promise<{ jobId: string; outputPath: string; assetId?: string }>;
   getFlowConnectionStatus: () => Promise<FlowConnectionInfo>;
   connectGoogleFlow: () => Promise<FlowConnectionInfo>;
   checkFlowConnection: () => Promise<FlowConnectionInfo>;

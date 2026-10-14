@@ -275,6 +275,41 @@ export function registerIpcHandlers(): void {
     });
   });
 
+  ipcMain.handle('generateStoryIdeas', async (_, topic: string, genre: string, characterNames?: string[]) => {
+    return flowService.generateStoryIdeas(topic, genre, characterNames);
+  });
+
+  ipcMain.handle('generateHook', async (_, topic: string, genre: string, tone: string) => {
+    return flowService.generateHook(topic, genre, tone);
+  });
+
+  ipcMain.handle('transformStoryScript', async (_, options: any) => {
+    return flowService.transformStoryScript(options);
+  });
+
+  ipcMain.handle('generateFullStory', async (_, options: any) => {
+    return flowService.generateFullStory(options);
+  });
+
+  ipcMain.handle('generateVoiceover', async (_, projectId: string, text: string, voiceSettings: any) => {
+    const res = await flowService.generateVoiceoverAudio(projectId, text, voiceSettings);
+    // Persist to project
+    const project = projectRepo.getById(projectId);
+    if (project) {
+      projectRepo.update(projectId, {
+        voiceSettings: {
+          ...voiceSettings,
+          audioPath: res.audioPath,
+        },
+      });
+    }
+    return res;
+  });
+
+  ipcMain.handle('getBuiltinAudioLibrary', async () => {
+    return flowService.getBuiltinAudioLibrary();
+  });
+
   ipcMain.handle('renderProjectVideo', async (_, projectId: string) => {
     const project = projectRepo.getById(projectId);
     if (!project) throw new Error('Project not found');
@@ -304,6 +339,81 @@ export function registerIpcHandlers(): void {
     });
 
     return { jobId: task.id };
+  });
+
+  ipcMain.handle('renderFinalVideo', async (_, projectId: string, options: any = {}) => {
+    const project = projectRepo.getById(projectId);
+    if (!project) throw new Error('Project not found');
+
+    const videoClips = project.scenes
+      .map(s => s.videoPath)
+      .filter((p): p is string => Boolean(p && fs.existsSync(p)));
+
+    if (videoClips.length === 0) {
+      throw new Error('No video clips found. Please generate or import at least one scene clip before final export.');
+    }
+
+    const exportsFolder = storageService.getFolder('Exports');
+    const outName = `${project.title.replace(/[^a-zA-Z0-9_-]/g, '_')}_${Date.now()}.mp4`;
+    const outPath = path.join(exportsFolder, outName);
+
+    // Audio mixing parameters
+    const voiceAudio = project.voiceSettings?.audioPath;
+    const musicAudio = project.musicSettings?.audioPath;
+    const musicVol = project.musicSettings?.ducking ? 0.2 : (project.musicSettings?.volume ?? 30) / 100;
+    const voiceVol = (project.voiceSettings?.volume ?? 100) / 100;
+
+    await ffmpegService.assembleScenes({
+      videoClips,
+      outputFilePath: outPath,
+      aspectRatio: options.aspectRatio || project.aspectRatio || '9:16',
+      audioFilePath: voiceAudio,
+      bgMusicPath: musicAudio,
+      bgMusicVolume: musicVol,
+      voiceVolume: voiceVol,
+    });
+
+    // Probe metadata & generate thumbnail
+    const meta = await ffmpegService.probeMedia(outPath);
+    const thumbPath = await ffmpegService.generateThumbnail(outPath);
+    const stats = fs.statSync(outPath);
+
+    // Automatically register exported video directly in Video Library
+    const asset = mediaAssetRepo.create({
+      id: 'asset_' + Math.random().toString(36).substring(2, 11),
+      title: `${project.title} (Final Render)`,
+      filePath: outPath,
+      fileName: outName,
+      fileSize: stats.size,
+      duration: meta.duration,
+      width: meta.width,
+      height: meta.height,
+      aspectRatio: meta.aspectRatio,
+      format: meta.format,
+      thumbnailPath: thumbPath,
+      tags: ['rendered', 'ai-story', project.genre],
+      folder: 'ReadyToPublish',
+      isFavorite: true,
+      projectId: project.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+
+    // Update project with final video path and status
+    projectRepo.update(projectId, {
+      finalVideoPath: outPath,
+      status: 'exported',
+    });
+
+    activityLogRepo.create({
+      id: Math.random().toString(36).substring(2, 11),
+      level: 'info',
+      category: 'VideoRenderer',
+      message: `Rendered and registered final video: ${outName}`,
+      createdAt: new Date().toISOString(),
+    });
+
+    return { jobId: 'completed', outputPath: outPath, assetId: asset.id };
   });
 
   // Google Flow Connection

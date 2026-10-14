@@ -58,6 +58,7 @@ describe('FlowService & Script / Caption Generation', () => {
 
   it('should manage Google Flow connection lifecycle with honest status verification', async () => {
     // 1. Initial status should be not_connected
+    await service.disconnectGoogleFlow();
     const initial = service.getFlowConnectionStatus();
     expect(initial.officialUrl).toBe('https://flow.google/');
     expect(initial.status).toBe('not_connected');

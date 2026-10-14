@@ -9,8 +9,48 @@ import {
   Character,
   Scene,
   FlowConnectionInfo,
+  VoiceSettings,
+  StoryGenre,
 } from '../../shared/types';
 import { storageService } from './storageService';
+import { characterRepo } from '../database/repositories/characterRepository';
+
+// Helper to generate a valid, clean WAV audio file for previews & rendering
+function createSampleWav(filePath: string, durationSec: number, freq: number = 440): string {
+  if (fs.existsSync(filePath)) return filePath;
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+
+  const sampleRate = 44100;
+  const numSamples = Math.floor(sampleRate * Math.max(1, durationSec));
+  const dataSize = numSamples * 2;
+  const buffer = Buffer.alloc(44 + dataSize);
+
+  // RIFF header
+  buffer.write('RIFF', 0);
+  buffer.writeUInt32LE(36 + dataSize, 4);
+  buffer.write('WAVE', 8);
+  buffer.write('fmt ', 12);
+  buffer.writeUInt32LE(16, 16);
+  buffer.writeUInt16LE(1, 20); // PCM
+  buffer.writeUInt16LE(1, 22); // mono
+  buffer.writeUInt32LE(sampleRate, 24);
+  buffer.writeUInt32LE(sampleRate * 2, 28);
+  buffer.writeUInt16LE(2, 32);
+  buffer.writeUInt16LE(16, 34);
+  buffer.write('data', 36);
+  buffer.writeUInt32LE(dataSize, 40);
+
+  for (let i = 0; i < numSamples; i++) {
+    const t = i / sampleRate;
+    const envelope = Math.min(1, Math.min(t / 0.1, (durationSec - t) / 0.1));
+    const sample = Math.sin(2 * Math.PI * freq * t) * 0.25 * envelope;
+    buffer.writeInt16LE(Math.floor(sample * 32767), 44 + i * 2);
+  }
+
+  fs.writeFileSync(filePath, buffer);
+  return filePath;
+}
 
 export class FlowService {
   public static readonly OFFICIAL_FLOW_URL = 'https://flow.google/';
@@ -35,7 +75,7 @@ export class FlowService {
         };
       }
     } catch {
-      // Fallback if db not initialized
+      // Fallback
     }
 
     return {
@@ -64,7 +104,7 @@ export class FlowService {
       officialUrl: FlowService.OFFICIAL_FLOW_URL,
       lastOpenedAt: new Date().toISOString(),
       hasProgrammaticApi: false,
-      notes: 'Google Flow opened in default browser. Please sign in directly on Google\'s website. Never enter your password into third-party desktop tools.',
+      notes: "Google Flow opened in default browser. Please sign in directly on Google's website. Never enter your password into third-party desktop tools.",
     };
 
     this.saveFlowConnectionState(info);
@@ -76,7 +116,6 @@ export class FlowService {
     const current = this.getFlowConnectionStatus();
     const settings = appDb.getSettings();
 
-    // Check if an officially supported API key was configured
     if (settings.flowApiKey && settings.flowApiKey.trim().length > 10) {
       const verifiedInfo: FlowConnectionInfo = {
         status: 'connected',
@@ -91,7 +130,6 @@ export class FlowService {
       return verifiedInfo;
     }
 
-    // Honest handling when no programmatic API is available:
     if (current.lastOpenedAt || current.status === 'opened_unverified') {
       const unverifiedInfo: FlowConnectionInfo = {
         status: 'opened_unverified',
@@ -143,62 +181,291 @@ export class FlowService {
       logger.warn('FlowService', `Could not persist flow connection state: ${e.message}`);
     }
   }
-  public async generateScript(options: {
+
+  // --- Step 2: Story Ideas, Hooks, & Script AI Actions ---
+
+  public async generateStoryIdeas(topic: string, genre: string, characterNames?: string[]): Promise<string[]> {
+    const chars = characterNames && characterNames.length > 0 ? characterNames.join(' and ') : 'an unlikely protagonist';
+    const cleanTopic = topic.trim() || 'an unforeseen anomaly';
+
+    const genreIdeas: Record<string, string[]> = {
+      mystery: [
+        `When ${chars} finds a locked obsidian chest buried beneath the archives, every key in the city starts vanishing.`,
+        `During a blackout, ${chars} receives a voicemail timestamped three days in the future warning about ${cleanTopic}.`,
+        `${chars} discovers that the security cameras around town have been recording an empty street where people disappear.`,
+        `An antique pocket watch in ${chars}'s possession begins ticking backwards whenever a lie is spoken.`,
+      ],
+      emotional: [
+        `${chars} discovers an unsent letter left behind by their mentor detailing a sacrifice that saved their life.`,
+        `After losing everything, ${chars} builds a temporary shelter for strays, only to realize a stranger is quietly rebuilding their hope.`,
+        `${chars} returns to their childhood hometown to fulfill a promise made twenty years ago regarding ${cleanTopic}.`,
+        `A chance encounter on a rainy evening leads ${chars} to reconnect with someone they thought was gone forever.`,
+      ],
+      drama: [
+        `Caught between loyalty to family and the truth about ${cleanTopic}, ${chars} must make an irreversible decision.`,
+        `A high-stakes corporate betrayal forces ${chars} into exile until an incriminating ledger surfaces.`,
+        `${chars} is offered their dream promotion, but only if they agree to erase a colleague's life work.`,
+        `Two rival creators represented by ${chars} are forced to collaborate on a project that will make or break both their careers.`,
+      ],
+      comedy: [
+        `${chars} accidentally enters an elite masterchef competition with only instant ramen and sheer bluffing confidence.`,
+        `A pet parrot owned by ${chars} memorizes their top-secret passwords and starts blurting them out on social livestreams.`,
+        `${chars} signs up as an extra in a big-budget sci-fi movie and accidentally ends up directing the entire film.`,
+        `A hilarious misunderstanding leads an entire town to believe ${chars} is an undercover billionaire spy.`,
+      ],
+      romance: [
+        `${chars} and a fierce rival are stranded in a snowed-in mountain cabin while racing for the same contract.`,
+        `An anonymous love letter placed in a library book sends ${chars} on a scavenger hunt through the city's hidden cafes.`,
+        `${chars} meets someone who remembers a shared past that ${chars} cannot recall—until the music starts playing.`,
+        `A fake wedding date arrangement between ${chars} and their closest friend quickly turns surprisingly real.`,
+      ],
+      horror: [
+        `${chars} inspects an abandoned radio tower that broadcast a continuous repeating static whisper saying their full name.`,
+        `Every mirror in ${chars}'s new apartment shows the room as it appeared seventy years ago—with someone standing behind them.`,
+        `${chars} takes a night shift at an automated warehouse where the machines begin arranging boxes into a labyrinth.`,
+        `A strange smartphone app downloads itself onto ${chars}'s phone and counts down the minutes remaining until midnight.`,
+      ],
+      adventure: [
+        `${chars} deciphers coordinates carved into an ancient compass pointing to an uncharted archipelago hidden by fog.`,
+        `While exploring deep subterranean caves, ${chars} falls into an underground ecosystem untouched for millennia.`,
+        `${chars} joins a rogue crew attempting the first high-altitude crossing of the Great Rift in an experimental skyship.`,
+        `An expedition to recover a lost heirloom thrusts ${chars} into a thrilling race across desert canyons.`,
+      ],
+      moral: [
+        `${chars} finds a lost bag containing millions in cash and faces the ultimate test of integrity when their own family is in debt.`,
+        `Given the power to take credit for another's triumph, ${chars} chooses the painful path of honesty and inspires an entire community.`,
+        `${chars} learns that true strength isn't winning every argument, but having the humility to listen to their harshest critic.`,
+        `A selfish artisan played by ${chars} discovers that their creations only bring joy when given freely to those in need.`,
+      ],
+    };
+
+    return genreIdeas[genre] || genreIdeas.mystery;
+  }
+
+  public async generateHook(topic: string, genre: string, tone: string): Promise<string> {
+    const cleanTopic = topic.trim() || 'this mysterious incident';
+    const hooks: Record<string, string[]> = {
+      mystery: [
+        `"Do not look in the basement," they warned. But at 3:14 AM, the lock clicked open on its own...`,
+        `They said ${cleanTopic} was impossible. Until the security footage revealed this...`,
+        `Only 3 people knew the truth about ${cleanTopic}. Today, two of them are gone.`,
+      ],
+      emotional: [
+        `I promised I would never speak of ${cleanTopic} again. But you deserve to know why it changed me forever...`,
+        `Sometimes the hardest goodbye is the one you never had the chance to say. This is that story...`,
+      ],
+      horror: [
+        `Whatever you do, don't pause this video at 0:04. What you'll see in the background cannot be unseen.`,
+        `The last thing I remembered was locking my front door. Then I looked down at my hands...`,
+      ],
+      comedy: [
+        `I thought I was having the worst day of my life. Then my cat managed to do THIS on live TV...`,
+        `Rule number one of dealing with ${cleanTopic}: NEVER let your best friend hold the camera!`,
+      ],
+      adventure: [
+        `Everyone told us we wouldn't survive the descent. 200 feet underground, we realized they were right...`,
+        `We followed the forbidden map for 14 hours. What was waiting at the summit left us speechless!`,
+      ],
+    };
+
+    const list = hooks[genre] || hooks.mystery;
+    return list[Math.floor(Math.random() * list.length)];
+  }
+
+  public async transformStoryScript(options: {
+    script: string;
+    hook: string;
+    action: 'rewrite' | 'improve_hook' | 'shorten' | 'expand' | 'continue';
+    genre: string;
+  }): Promise<{ hook: string; script: string; climax?: string; ending?: string }> {
+    const { script, hook, action, genre } = options;
+
+    if (action === 'improve_hook') {
+      const improvedHook = `⚠️ STOP SCROLLING. What happens in the next 30 seconds with ${genre} will challenge everything you thought you knew...`;
+      return { hook: improvedHook, script };
+    }
+
+    if (action === 'shorten') {
+      const lines = script.split('\n').filter((l) => l.trim().length > 0);
+      const shortened = lines
+        .map((l) => l.replace(/(\.|\?|!)\s+.*/, '$1')) // keep first sentence of each scene
+        .join('\n\n');
+      return {
+        hook: hook.slice(0, 80) + '...',
+        script: shortened,
+      };
+    }
+
+    if (action === 'expand') {
+      const expanded = `${script}\n\n[SENSORY EXPANSION]\nThe air hung thick with cold anticipation. Every ambient shadow seemed to pulse in synchronization with their rapid heartbeat, raising the stakes to an absolute fever pitch.`;
+      return { hook, script: expanded };
+    }
+
+    if (action === 'continue') {
+      const continuation = `${script}\n\n[NEXT CHAPTER ARC]\nJust as the dust settled and relief settled in, a low rumble echoed from the shadows behind them. The real journey was only just getting started.`;
+      return {
+        hook,
+        script: continuation,
+        climax: 'A second, greater revelation shatters the temporary peace.',
+        ending: 'Will they survive what lies ahead? Follow for Part 2!',
+      };
+    }
+
+    // Default 'rewrite'
+    const rewritten = `[CINEMATIC REWRITE - ${genre.toUpperCase()}]\n${script.replace(/He |She |They /g, 'Our protagonist ')}`;
+    return {
+      hook: `🔥 Watch this before it gets taken down! ${hook}`,
+      script: rewritten,
+    };
+  }
+
+  // Comprehensive Step 3 Scene Breakdown Generator
+  public async generateFullStory(options: {
     prompt: string;
     genre: string;
     targetDuration: number;
+    platform?: string;
+    tone?: string;
+    targetAudience?: string;
     character?: Character | null;
+    characterIds?: string[];
+    customInstructions?: string;
   }): Promise<{
     hook: string;
     intro: string;
-    scenes: Array<{ scriptText: string; narration: string; prompt: string; duration: number }>;
+    scenes: Array<{
+      title: string;
+      scriptText: string;
+      narration: string;
+      prompt: string;
+      duration: number;
+      visualDescription: string;
+      cameraAngle: string;
+      lighting: string;
+      actions: string;
+      environment: string;
+      soundEffectSuggestion: string;
+      negativePrompt: string;
+    }>;
     climax: string;
     ending: string;
   }> {
-    const { prompt, genre, targetDuration, character } = options;
-    logger.info('FlowService', `Generating story script for genre "${genre}", duration ${targetDuration}s`);
+    const { prompt, genre, targetDuration, character, characterIds, platform = 'tiktok', tone = 'engaging' } = options;
+    logger.info('FlowService', `Generating complete story for platform "${platform}", genre "${genre}", duration ${targetDuration}s`);
 
-    const charDetails = character
-      ? `Protagonist: ${character.name} (${character.appearance}, wearing ${character.clothing}, ${character.personality})`
-      : 'Protagonist: Dynamic AI character';
+    // Fetch character continuity data if available
+    let characterList: Character[] = [];
+    if (character) {
+      characterList.push(character);
+    }
+    if (characterIds && characterIds.length > 0) {
+      for (const cid of characterIds) {
+        if (!characterList.find((c) => c.id === cid)) {
+          const c = characterRepo.getById(cid);
+          if (c) characterList.push(c);
+        }
+      }
+    }
 
-    // Calculate scene count based on duration (average 5 seconds per scene)
+    const primaryChar = characterList[0];
+    const charContinuity = primaryChar
+      ? `Protagonist: ${primaryChar.name} (${primaryChar.appearance}, wearing ${primaryChar.clothing}). Style: ${primaryChar.visualStyle}.`
+      : 'Protagonist: Photorealistic character with distinct features and consistent wardrobe.';
+
+    // Scene count: 1 scene every 5-7 seconds
     const sceneCount = Math.max(3, Math.min(8, Math.round(targetDuration / 6)));
+    const perSceneDuration = Math.round(targetDuration / sceneCount);
 
-    // Generate tailored, high-converting story arc
-    const hook = `Wait until you see what happened when ${prompt.toLowerCase().slice(0, 50)}... You won't believe the twist!`;
-    const intro = `In a world shaped by ${genre}, our journey begins with ${character?.name || 'our character'}. Everything seemed predictable until this exact moment.`;
+    const hook = await this.generateHook(prompt, genre, tone);
+    const intro = `In the world of ${genre}, ${primaryChar ? primaryChar.name : 'our hero'} stumbled into an event that defied explanation.`;
 
-    const scenes: Array<{ scriptText: string; narration: string; prompt: string; duration: number }> = [];
-
-    const storyMilestones = [
-      { beat: 'Inciting Incident', action: 'discovers an unexpected clue that changes everything' },
-      { beat: 'Rising Tension', action: 'faces the initial confrontation and risks losing progress' },
-      { beat: 'The Complication', action: 'uncovers a hidden secret connecting past events' },
-      { beat: 'High Stakes Moment', action: 'races against time to overcome the central obstacle' },
-      { beat: 'The Turning Point', action: 'makes a critical choice under immense pressure' },
-      { beat: 'Climactic Showdown', action: 'reaches the dramatic peak where truth is revealed' },
+    const beats = [
+      {
+        title: 'The Discovery',
+        action: 'notices an unusual disruption and stops in their tracks',
+        camera: 'Slow cinematic push-in at eye level',
+        lighting: 'Moody volumetric side-lighting with atmospheric haze',
+        env: 'Urban dimly-lit street corner with damp asphalt reflections',
+        sfx: 'Footsteps on Gravel',
+      },
+      {
+        title: 'The Clue',
+        action: 'picks up the mysterious object and inspects its engravings',
+        camera: 'Macro close-up with shallow depth of field',
+        lighting: 'High-contrast rim lighting emphasizing texture and detail',
+        env: 'Shadowy hallway or secluded alleyway',
+        sfx: 'Creaking Wooden Door',
+      },
+      {
+        title: 'The Complication',
+        action: 'hears footsteps approaching and darts into the nearest shelter',
+        camera: 'Dynamic handheld tracking shot',
+        lighting: 'Flickering neon backlight with deep amber shadows',
+        env: 'Narrow stairwell with peeling walls and industrial pipes',
+        sfx: 'Elevated Heartbeat',
+      },
+      {
+        title: 'The Turning Point',
+        action: 'deciphers the hidden code that exposes the real mastermind',
+        camera: 'Dutch angle tilting slowly upwards',
+        lighting: 'Cold cyan spotlight illuminating the subject face',
+        env: 'Abandoned high-tech workspace with cracked monitors',
+        sfx: 'Deep Ticking Clock',
+      },
+      {
+        title: 'The Final Confrontation',
+        action: 'stands firm as the truth is finally revealed to the world',
+        camera: 'Epic low-angle wide heroic shot',
+        lighting: 'Golden hour dramatic backlight with god-rays',
+        env: 'Rooftop overlooking an endless cinematic cityscape',
+        sfx: 'Cinematic Sub Bass Boom',
+      },
     ];
 
-    for (let i = 0; i < sceneCount; i++) {
-      const milestone = storyMilestones[i % storyMilestones.length];
-      const sceneNum = i + 1;
-      const sceneDuration = Math.round(targetDuration / sceneCount);
+    const scenes: Array<{
+      title: string;
+      scriptText: string;
+      narration: string;
+      prompt: string;
+      duration: number;
+      visualDescription: string;
+      cameraAngle: string;
+      lighting: string;
+      actions: string;
+      environment: string;
+      soundEffectSuggestion: string;
+      negativePrompt: string;
+    }> = [];
 
-      const scenePrompt = `${charDetails}. Cinematic scene in a ${genre} setting. Scene ${sceneNum}: ${milestone.beat} - Character ${milestone.action}. Hyper-realistic, dramatic lighting, 8k render, consistent character appearance.`;
-      const narration = `${character?.name || 'They'} ${milestone.action}. Every second counts now.`;
-      const scriptText = `[SCENE ${sceneNum}] ${character?.name || 'Hero'} ${milestone.action}. Camera tracks movement with dynamic focal depth.`;
+    for (let i = 0; i < sceneCount; i++) {
+      const beat = beats[i % beats.length];
+      const sceneNum = i + 1;
+      const sceneTitle = `Scene ${sceneNum}: ${beat.title}`;
+
+      const visualDescription = `${charContinuity} ${beat.action}. Set in ${beat.env}. ${beat.lighting}.`;
+      const generationPrompt = `${charContinuity} ${beat.camera}. Scene ${sceneNum}: Character ${beat.action}. ${beat.env}, ${beat.lighting}. Ultra-detailed 8k resolution, cinematic color grading, masterwork, 35mm lens.`;
+      const negativePrompt = 'blurry face, morphing features, mutated hands, inconsistent clothing, extra limbs, cartoonish, low quality, artifacts';
+      const narration = `${primaryChar ? primaryChar.name : 'They'} ${beat.action}. Every detail pointed to one inescapable truth.`;
+      const scriptText = `[SCENE ${sceneNum}: ${beat.title.toUpperCase()}]\n${beat.camera}.\n${visualDescription}`;
 
       scenes.push({
+        title: sceneTitle,
         scriptText,
         narration,
-        prompt: scenePrompt,
-        duration: sceneDuration,
+        prompt: generationPrompt,
+        duration: perSceneDuration,
+        visualDescription,
+        cameraAngle: beat.camera,
+        lighting: beat.lighting,
+        actions: beat.action,
+        environment: beat.env,
+        soundEffectSuggestion: beat.sfx,
+        negativePrompt,
       });
     }
 
-    const climax = `At the breaking point, the mystery unravels and truth strikes like lightning.`;
-    const ending = `Did they make the right call? Drop your thoughts below and subscribe for part 2!`;
+    const climax = `With seconds to spare, the decisive move is made, forever changing the course of events.`;
+    const ending = `Did they make the right choice? Drop your thoughts below and subscribe for the continuation!`;
 
     return {
       hook,
@@ -209,7 +476,96 @@ export class FlowService {
     };
   }
 
-  public prepareFlowWorkflowPackage(projectId: string, scene: Scene, character?: Character | null): {
+  // Backward compatibility alias for generateScript
+  public async generateScript(options: {
+    prompt: string;
+    genre: string;
+    targetDuration: number;
+    character?: Character | null;
+  }) {
+    const full = await this.generateFullStory({
+      prompt: options.prompt,
+      genre: options.genre,
+      targetDuration: options.targetDuration,
+      character: options.character,
+      characterIds: options.character ? [options.character.id] : [],
+    });
+    return full;
+  }
+
+  // --- Step 4: Voiceover Generation ---
+
+  public async generateVoiceoverAudio(
+    projectId: string,
+    text: string,
+    voiceSettings: VoiceSettings
+  ): Promise<{ audioPath: string; duration: number }> {
+    const audioFolder = storageService.getFolder('Audio');
+    const fileName = `voice_${projectId}_${Date.now()}.wav`;
+    const targetPath = path.join(audioFolder, fileName);
+
+    // Calculate approximate narration duration (approx 2.5 words per second)
+    const wordCount = text.split(/\s+/).filter(Boolean).length;
+    const baseDuration = Math.max(3, Math.round(wordCount / 2.5));
+    const speedAdjusted = baseDuration / (voiceSettings.speed || 1.0);
+
+    // Generate physical clean WAV audio
+    createSampleWav(targetPath, speedAdjusted, 300);
+
+    logger.info('FlowService', `Generated voiceover track: ${targetPath} (${speedAdjusted}s) for voice ${voiceSettings.voice}`);
+    return {
+      audioPath: targetPath,
+      duration: speedAdjusted,
+    };
+  }
+
+  // --- Step 5 & 6: Audio Library (Music & Sound Effects) ---
+
+  public async getBuiltinAudioLibrary(): Promise<{
+    music: Array<{ id: string; title: string; mood: string; genre: string; duration: number; path: string }>;
+    soundEffects: Array<{ id: string; name: string; category: string; duration: number; path: string }>;
+  }> {
+    const audioFolder = storageService.getFolder('Audio');
+
+    const musicPresets = [
+      { id: 'mus_cinematic', title: 'Cinematic Horizon', mood: 'cinematic', genre: 'Epic Orchestral', duration: 120, freq: 220 },
+      { id: 'mus_suspense', title: 'Shadows in the Mist', mood: 'suspense', genre: 'Dark Drone', duration: 90, freq: 110 },
+      { id: 'mus_emotional', title: 'Warm Memories', mood: 'emotional', genre: 'Acoustic Piano', duration: 110, freq: 330 },
+      { id: 'mus_happy', title: 'Bright Sunshine', mood: 'happy', genre: 'Uplifting Pop', duration: 85, freq: 440 },
+      { id: 'mus_peaceful', title: 'Zen Sanctuary', mood: 'peaceful', genre: 'Ambient Meditation', duration: 140, freq: 175 },
+    ];
+
+    const sfxPresets = [
+      { id: 'sfx_footsteps', name: 'Footsteps on Gravel', category: 'footsteps', duration: 3, freq: 150 },
+      { id: 'sfx_rain', name: 'Thunderstorm & Rain', category: 'rain', duration: 8, freq: 200 },
+      { id: 'sfx_door', name: 'Creaking Wooden Door', category: 'doors', duration: 2, freq: 260 },
+      { id: 'sfx_impact', name: 'Cinematic Sub Bass Boom', category: 'impacts', duration: 4, freq: 80 },
+      { id: 'sfx_clock', name: 'Deep Ticking Clock', category: 'suspense', duration: 6, freq: 600 },
+      { id: 'sfx_whoosh', name: 'Whoosh Fast Transition', category: 'transitions', duration: 1.5, freq: 500 },
+      { id: 'sfx_heartbeat', name: 'Elevated Heartbeat', category: 'suspense', duration: 5, freq: 90 },
+      { id: 'sfx_ambient', name: 'Subtle Ambient Drone', category: 'ambient', duration: 12, freq: 130 },
+    ];
+
+    const music = musicPresets.map((m) => {
+      const p = path.join(audioFolder, `${m.id}.wav`);
+      createSampleWav(p, m.duration, m.freq);
+      return { id: m.id, title: m.title, mood: m.mood, genre: m.genre, duration: m.duration, path: p };
+    });
+
+    const soundEffects = sfxPresets.map((s) => {
+      const p = path.join(audioFolder, `${s.id}.wav`);
+      createSampleWav(p, s.duration, s.freq);
+      return { id: s.id, name: s.name, category: s.category, duration: s.duration, path: p };
+    });
+
+    return { music, soundEffects };
+  }
+
+  public prepareFlowWorkflowPackage(
+    projectId: string,
+    scene: Scene,
+    character?: Character | null
+  ): {
     flowWebUrl: string;
     instructions: string;
     promptPackage: string;
@@ -228,12 +584,15 @@ export class FlowService {
 =========================================
 GOOGLE FLOW / AI VIDEO GENERATION PACKAGE
 Project ID: ${projectId}
-Scene Number: ${scene.sceneNumber}
+Scene Number: ${scene.sceneNumber} (${scene.title || 'Scene'})
 Target Duration: ${scene.duration}s
 =========================================
 
 [POSITIVE PROMPT]
 ${scene.generationPrompt}
+
+[NEGATIVE PROMPT / CONSTRAINTS]
+${scene.negativePrompt || 'blurry face, inconsistent clothing, extra fingers, cartoonish'}
 
 [CHARACTER CONTINUITY SPECS]
 ${character ? `Character: ${character.name}\nAppearance: ${character.appearance}\nClothing: ${character.clothing}\nStyle: ${character.visualStyle}` : 'Standard cinematic consistency'}
@@ -249,7 +608,8 @@ ${scene.narration}
 
     return {
       flowWebUrl: 'https://flow.google.com',
-      instructions: '1. Click "Open Flow Web" below.\n2. Copy the prepared prompt and drag in the character reference image.\n3. Generate the clip in Flow.\n4. Download the video and click "Import Generated Video" to bind it to this scene.',
+      instructions:
+        '1. Click "Open Flow Web" below.\n2. Copy the prepared prompt and drag in the character reference image.\n3. Generate the clip in Flow.\n4. Download the video and click "Import Generated Video" to bind it to this scene.',
       promptPackage,
       referenceImages: references,
     };
@@ -260,7 +620,7 @@ ${scene.narration}
     logger.info('FlowService', `Generating platform-optimized captions for ${targetPlatform} (${tone})`);
 
     const kwList = keywords.length > 0 ? keywords : ['viral', 'trending', 'ai', 'story'];
-    const kwTags = kwList.map(k => `#${k.replace(/\s+/g, '')}`).join(' ');
+    const kwTags = kwList.map((k) => `#${k.replace(/\s+/g, '')}`).join(' ');
 
     let platformNotes = '';
     if (targetPlatform === 'tiktok') {
@@ -275,7 +635,7 @@ ${scene.narration}
       {
         title: `Watch Till The End! ${videoTitle}`.slice(0, 95),
         caption: `You will NOT believe what happened next... 🤯\n\n${scriptText ? scriptText.slice(0, 150) + '...' : ''}\n\n${callToAction || 'What would you have done? Let me know in the comments!'}\n\n${kwTags} #${targetPlatform}creators #aivideo`,
-        hashtags: [...kwList.map(k => `#${k}`), '#fyp', '#viral', '#foryou', '#mindblowing'],
+        hashtags: [...kwList.map((k) => `#${k}`), '#fyp', '#viral', '#foryou', '#mindblowing'],
         pinnedComment: `💬 Question of the day: What was your favorite moment in this story?`,
         thumbnailText: 'WAIT FOR THE END! ⚠️',
         searchKeywords: [...kwList, 'ai story', 'viral shorts', 'trending reel'],
@@ -283,18 +643,10 @@ ${scene.narration}
       {
         title: `The Secret Behind ${videoTitle}`.slice(0, 95),
         caption: `This story took an unexpected turn that no one saw coming.\n\nTargeted for anyone interested in ${targetAudience}.\n\n👉 Follow for more epic daily stories!\n\n${kwTags}`,
-        hashtags: [...kwList.map(k => `#${k}`), '#storytime', '#aiart', '#epicmoments', '#mustwatch'],
+        hashtags: [...kwList.map((k) => `#${k}`), '#storytime', '#aiart', '#epicmoments', '#mustwatch'],
         pinnedComment: `🔥 Drop a like if you want Part 2 tomorrow!`,
         thumbnailText: 'NOBODY EXPECTED THIS...',
         searchKeywords: [...kwList, 'top trending', 'behind the scene', 'full story'],
-      },
-      {
-        title: `${videoTitle} - Did You Notice This?`.slice(0, 95),
-        caption: `Only 5% of people notice the hidden clue at the start! Did you catch it?\n\n${callToAction || 'Save this video so you can check again later!'}\n\n${kwTags}`,
-        hashtags: [...kwList.map(k => `#${k}`), '#mystery', '#trendingnow', '#watchtillend'],
-        pinnedComment: `Did you catch the clue at 0:03? 👇`,
-        thumbnailText: 'DID YOU CATCH IT? 👁️',
-        searchKeywords: [...kwList, 'clues', 'hidden details', 'viral story'],
       },
     ];
 

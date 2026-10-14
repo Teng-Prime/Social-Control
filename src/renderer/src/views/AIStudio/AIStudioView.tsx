@@ -1,875 +1,458 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
+import { Character, Scene, StoryProject } from '../../../../shared/types';
 import { useAppStore } from '../../stores/useAppStore';
-import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
-import { Input } from '../../components/common/Input';
-import { Select } from '../../components/common/Select';
 import { Badge } from '../../components/common/Badge';
-import { Modal } from '../../components/common/Modal';
 import { EmptyState } from '../../components/common/EmptyState';
+
+// Studio Layout Sub-components
+import { ProjectSidebar } from './ProjectSidebar';
+import { ProjectInspector } from './ProjectInspector';
+
+// 7 Guided Creation Steps
+import { Step1Character } from './steps/Step1Character';
+import { Step2StoryHook } from './steps/Step2StoryHook';
+import { Step3VideoPrompts } from './steps/Step3VideoPrompts';
+import { Step4Voiceover } from './steps/Step4Voiceover';
+import { Step5BackgroundMusic } from './steps/Step5BackgroundMusic';
+import { Step6SoundEffects } from './steps/Step6SoundEffects';
+import { Step7FinalExport } from './steps/Step7FinalExport';
+
 import {
+  Users,
   Sparkles,
   Film,
-  Plus,
-  Play,
-  RotateCcw,
-  CheckCircle,
-  ExternalLink,
-  Upload,
+  Mic,
+  Music,
+  Volume2,
+  Video,
+  ArrowLeft,
   ArrowRight,
-  Layers,
-  Wand2,
-  Trash2,
-  Copy,
-  ChevronDown,
-  Users,
+  Save,
+  CheckCircle2,
+  AlertCircle,
+  FolderOpen,
 } from 'lucide-react';
-import { Character, Scene, StoryProject, FlowConnectionInfo } from '../../../shared/types';
-import { FlowConnectionCard } from './FlowConnectionCard';
 
 export const AIStudioView: React.FC = () => {
-  const { addToast, setCurrentSection } = useAppStore();
+  const { addToast } = useAppStore();
 
   const [projects, setProjects] = useState<StoryProject[]>([]);
-  const [characters, setCharacters] = useState<Character[]>([]);
   const [activeProject, setActiveProject] = useState<StoryProject | null>(null);
-  const [activeScene, setActiveScene] = useState<Scene | null>(null);
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [currentStep, setCurrentStep] = useState<number>(1);
+  const [isProjectsPanelOpen, setIsProjectsPanelOpen] = useState<boolean>(true);
+  const [isAutosaving, setIsAutosaving] = useState<boolean>(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
-  // Script Generator Modal
-  const [isScriptModalOpen, setIsScriptModalOpen] = useState(false);
-  const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false);
-  const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
-  const [flowPackage, setFlowPackage] = useState<any>(null);
-  const [isGeneratingScript, setIsGeneratingScript] = useState(false);
-  const [isRendering, setIsRendering] = useState(false);
-
-  // Form State
-  const [newProjectForm, setNewProjectForm] = useState({
-    title: 'Mystery of the Midnight Signal',
-    genre: 'mystery' as const,
-    aspectRatio: '9:16' as const,
-    targetDuration: 60,
-    language: 'en',
-    voice: 'en-US-Standard-C',
-    hook: '',
-    intro: '',
-    climax: '',
-    ending: '',
-    continuityNotes: 'Protagonist wears charcoal bomber jacket. Dim neon lighting.',
-  });
-
-  const [scriptPrompt, setScriptPrompt] = useState('An urban explorer finds an encrypted drive in an abandoned underground research lab');
-  const [scriptGenre, setScriptGenre] = useState('mystery');
-  const [selectedCharId, setSelectedCharId] = useState<string>('');
-
-  const loadData = async () => {
-    if (window.api) {
+  // Load all projects and characters on mount
+  const loadStudioData = async (preferredProjectId?: string) => {
+    if (!window.api) return;
+    try {
       const pList = await window.api.getProjects();
       const cList = await window.api.getCharacters();
       setProjects(pList);
       setCharacters(cList);
 
-      if (pList.length > 0 && !activeProject) {
-        setActiveProject(pList[0]);
-        if (pList[0].scenes.length > 0) {
-          setActiveScene(pList[0].scenes[0]);
+      if (pList.length > 0) {
+        const found = preferredProjectId ? pList.find((p) => p.id === preferredProjectId) : null;
+        const target = found || activeProject ? pList.find((p) => p.id === activeProject?.id) || pList[0] : pList[0];
+        setActiveProject(target);
+        if (target.currentStep) {
+          setCurrentStep(target.currentStep);
         }
+      } else {
+        // If no projects exist, initialize default starter project
+        const created = await window.api.createProject({
+          title: 'The Silent Signal',
+          genre: 'mystery',
+          aspectRatio: '9:16',
+          targetDuration: 60,
+          language: 'en',
+          voice: 'en-US-Standard-C',
+          status: 'draft',
+          currentStep: 1,
+        });
+        setProjects([created]);
+        setActiveProject(created);
+        setCurrentStep(1);
       }
+    } catch (e: any) {
+      console.error('Failed to load studio data', e);
     }
   };
 
   useEffect(() => {
-    loadData();
+    loadStudioData();
   }, []);
 
-  const handleCreateProject = async () => {
-    if (window.api) {
-      const created = await window.api.createProject(newProjectForm);
-      addToast({ type: 'success', title: 'Project Created', message: created.title });
-      setIsNewProjectModalOpen(false);
-      await loadData();
-      setActiveProject(created);
-    }
-  };
-
-  const handleRunScriptGenerator = async () => {
+  // Update active project in database and state
+  const handleUpdateActiveProject = async (updates: Partial<StoryProject>) => {
     if (!activeProject || !window.api) return;
-    setIsGeneratingScript(true);
+    setIsAutosaving(true);
     try {
-      const script = await window.api.generateScript(scriptPrompt, scriptGenre, activeProject.targetDuration);
-
-      // Update project story outline
       const updated = await window.api.updateProject(activeProject.id, {
-        hook: script.hook,
-        intro: script.intro,
-        climax: script.climax,
-        ending: script.ending,
-        status: 'scripted',
+        ...updates,
+        currentStep,
       });
-
-      // Clear old scenes and insert generated ones
-      for (const oldScene of activeProject.scenes) {
-        await window.api.deleteScene(oldScene.id);
-      }
-
-      for (let i = 0; i < script.scenes.length; i++) {
-        const s = script.scenes[i];
-        await window.api.createScene({
-          projectId: activeProject.id,
-          sceneNumber: i + 1,
-          scriptText: s.scriptText,
-          narration: s.narration,
-          generationPrompt: s.prompt,
-          duration: s.duration,
-          status: 'draft',
-          characterId: selectedCharId || undefined,
-        });
-      }
-
-      const refreshed = await window.api.getProjectById(activeProject.id);
-      setActiveProject(refreshed);
-      if (refreshed?.scenes.length) setActiveScene(refreshed.scenes[0]);
-
-      addToast({
-        type: 'success',
-        title: 'Story Script Generated',
-        message: `Created ${script.scenes.length} cinematic storyboard scenes.`,
-      });
-      setIsScriptModalOpen(false);
+      setActiveProject(updated);
+      setProjects((prev) => prev.map((p) => (p.id === updated.id ? updated : p)));
     } catch (err: any) {
-      addToast({ type: 'error', title: 'Script generation failed', message: err.message });
+      addToast({ type: 'error', title: 'Autosave Failed', message: err.message });
     } finally {
-      setIsGeneratingScript(false);
+      setIsAutosaving(false);
     }
   };
 
-  const handleOpenFlowAssistant = async (scene: Scene) => {
+  // Toggle Character Selection
+  const handleToggleCharacter = async (charId: string) => {
     if (!activeProject) return;
-
-    // Check actual integration status first
-    let connectionInfo: FlowConnectionInfo | null = null;
-    if (window.api) {
-      connectionInfo = await window.api.getFlowConnectionStatus();
+    const current = activeProject.selectedCharacterIds || [];
+    let updatedIds: string[];
+    if (current.includes(charId)) {
+      updatedIds = current.filter((id) => id !== charId);
+    } else {
+      updatedIds = [...current, charId];
     }
-
-    const char = characters.find((c) => c.id === scene.characterId);
-    const flowText = `
-[GOOGLE FLOW SCENE PROMPT]
-Project: ${activeProject.title}
-Scene: ${scene.sceneNumber} (${scene.duration}s)
-
-${scene.generationPrompt}
-
-[CONTINUITY]
-${activeProject.continuityNotes}
-${char ? `Character Continuity: ${char.name} (${char.appearance}, ${char.clothing})` : ''}
-
-[NARRATION]
-${scene.narration}
-`.trim();
-
-    setFlowPackage({
-      url: connectionInfo?.officialUrl || 'https://flow.google/',
-      prompt: flowText,
-      sceneId: scene.id,
-      connectionStatus: connectionInfo?.status || 'not_connected',
-      statusLabel: connectionInfo?.statusLabel || 'Not Connected',
-      connectedEmail: connectionInfo?.connectedEmail,
-      hasProgrammaticApi: Boolean(connectionInfo?.hasProgrammaticApi),
-      notes: connectionInfo?.notes,
-    });
-    setIsFlowModalOpen(true);
+    await handleUpdateActiveProject({ selectedCharacterIds: updatedIds });
   };
 
-  const handleImportSceneVideo = async (sceneId: string) => {
-    if (window.api) {
-      const file = await window.api.openFileDialog(['mp4', 'mov', 'webm']);
-      if (file) {
-        // Also import into Video Library so it's tracked in local library
-        try {
-          await window.api.importMediaAsset(file, 'Drafts');
-        } catch {
-          // If already in library, ignore duplicate import error
-        }
+  // Step Validation Check
+  const validateStep = (stepNumber: number): { valid: boolean; reason?: string } => {
+    if (!activeProject) return { valid: false, reason: 'No active project' };
 
-        await window.api.updateScene(sceneId, {
-          videoPath: file,
-          status: 'ready',
-        });
-        addToast({
-          type: 'success',
-          title: 'Scene Clip Imported',
-          message: 'Video added to library and bound to storyboard scene.',
-        });
-        const refreshed = await window.api.getProjectById(activeProject!.id);
-        setActiveProject(refreshed);
-        const updatedScene = refreshed?.scenes.find((s) => s.id === sceneId);
-        if (updatedScene) setActiveScene(updatedScene);
+    if (stepNumber === 1) {
+      // Step 1: Character
+      if (!activeProject.selectedCharacterIds || activeProject.selectedCharacterIds.length === 0) {
+        return {
+          valid: false,
+          reason: 'No character selected. Please select or create an AI protagonist to continue.',
+        };
+      }
+    } else if (stepNumber === 2) {
+      // Step 2: Story Idea & Hook
+      if (!activeProject.hook?.trim()) {
+        return {
+          valid: false,
+          reason: 'Opening hook is missing. Click "Generate Hook" or write an approved hook to proceed.',
+        };
+      }
+    } else if (stepNumber === 3) {
+      // Step 3: Video Prompts
+      if (!activeProject.scenes || activeProject.scenes.length === 0) {
+        return {
+          valid: false,
+          reason: 'No story scenes defined. Click "Add Scene" or "Generate Full Story" in Step 2.',
+        };
       }
     }
+
+    return { valid: true };
   };
 
-  const handleRenderFinalVideo = async () => {
-    if (!activeProject || !window.api) return;
-
-    const readyClips = activeProject.scenes.filter((s) => s.videoPath);
-    if (readyClips.length === 0) {
-      addToast({
-        type: 'warn',
-        title: 'No Scene Clips Ready',
-        message: 'Import or generate video clips for your scenes before assembling the final story.',
-      });
+  // Navigation handlers
+  const handleGoNext = () => {
+    const check = validateStep(currentStep);
+    if (!check.valid) {
+      setValidationError(check.reason || 'Please complete current step requirements.');
+      addToast({ type: 'warn', title: 'Step Incomplete', message: check.reason });
       return;
     }
-
-    setIsRendering(true);
-    try {
-      const res = await window.api.renderProjectVideo(activeProject.id);
-      addToast({
-        type: 'info',
-        title: 'Rendering Queued',
-        message: `Assembling ${readyClips.length} clips with FFmpeg in task queue.`,
-      });
-      setCurrentSection('automation-queue');
-    } catch (err: any) {
-      addToast({ type: 'error', title: 'Render Failed', message: err.message });
-    } finally {
-      setIsRendering(false);
+    setValidationError(null);
+    if (currentStep < 7) {
+      const next = currentStep + 1;
+      setCurrentStep(next);
+      handleUpdateActiveProject({ currentStep: next });
     }
   };
 
-  return (
-    <div className="flex h-full select-none overflow-hidden">
-      {/* Panel 1 (Left): Project & Configuration Settings */}
-      <div className="w-80 border-r border-studio-800 bg-studio-900/50 flex flex-col shrink-0">
-        <div className="p-4 border-b border-studio-800 flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold text-studio-100 flex items-center gap-2">
-              <Film size={16} className="text-brand-400" />
-              Story Project
-            </h3>
-            <p className="text-[11px] text-studio-400">Configuration & Outline</p>
-          </div>
-          <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={() => setIsNewProjectModalOpen(true)}>
-            New
-          </Button>
-        </div>
+  const handleGoBack = () => {
+    setValidationError(null);
+    if (currentStep > 1) {
+      const prev = currentStep - 1;
+      setCurrentStep(prev);
+      handleUpdateActiveProject({ currentStep: prev });
+    }
+  };
 
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
-          {projects.length > 0 && (
-            <div>
-              <label className="text-studio-400 block mb-1">Active Project</label>
-              <select
-                className="w-full bg-studio-850 border border-studio-750 rounded-lg p-2 text-studio-100 text-xs"
-                value={activeProject?.id || ''}
-                onChange={(e) => {
-                  const p = projects.find((proj) => proj.id === e.target.value);
-                  if (p) {
-                    setActiveProject(p);
-                    if (p.scenes.length) setActiveScene(p.scenes[0]);
-                  }
-                }}
+  const handleStepClick = (stepIndex: number) => {
+    setValidationError(null);
+    setCurrentStep(stepIndex);
+    handleUpdateActiveProject({ currentStep: stepIndex });
+  };
+
+  const handleCreateNewProject = async (data: Partial<StoryProject>) => {
+    if (!window.api) return;
+    const created = await window.api.createProject({
+      title: data.title || 'Untitled Story',
+      genre: data.genre || 'mystery',
+      aspectRatio: data.aspectRatio || '9:16',
+      targetDuration: data.targetDuration || 60,
+      language: 'en',
+      voice: 'en-US-Standard-C',
+      status: 'draft',
+      currentStep: 1,
+    });
+    setProjects([created, ...projects]);
+    setActiveProject(created);
+    setCurrentStep(1);
+    addToast({ type: 'success', title: 'Project Created', message: created.title });
+  };
+
+  const handleDeleteProject = async (id: string) => {
+    if (!window.api) return;
+    await window.api.deleteProject(id);
+    const remaining = projects.filter((p) => p.id !== id);
+    setProjects(remaining);
+    if (activeProject?.id === id) {
+      setActiveProject(remaining[0] || null);
+      setCurrentStep(remaining[0]?.currentStep || 1);
+    }
+    addToast({ type: 'info', title: 'Project Deleted' });
+  };
+
+  const stepsConfig = [
+    { num: 1, title: 'Character', icon: <Users size={14} /> },
+    { num: 2, title: 'Story & Hook', icon: <Sparkles size={14} /> },
+    { num: 3, title: 'Prompts', icon: <Film size={14} /> },
+    { num: 4, title: 'Voice-over', icon: <Mic size={14} /> },
+    { num: 5, title: 'Music', icon: <Music size={14} /> },
+    { num: 6, title: 'Sound FX', icon: <Volume2 size={14} /> },
+    { num: 7, title: 'Final Video', icon: <Video size={14} /> },
+  ];
+
+  const selectedChars = characters.filter((c) =>
+    activeProject?.selectedCharacterIds?.includes(c.id)
+  );
+
+  return (
+    <div className="flex h-full select-none overflow-hidden bg-studio-900">
+      {/* 1. Left Project Navigation Panel */}
+      <ProjectSidebar
+        projects={projects}
+        activeProject={activeProject}
+        onSelectProject={(p) => {
+          setActiveProject(p);
+          setCurrentStep(p.currentStep || 1);
+          setValidationError(null);
+        }}
+        onCreateProject={handleCreateNewProject}
+        onDeleteProject={handleDeleteProject}
+        isOpen={isProjectsPanelOpen}
+        onToggle={() => setIsProjectsPanelOpen(!isProjectsPanelOpen)}
+      />
+
+      {/* 2. Main Guided Workspace */}
+      <div className="flex-1 flex flex-col h-full overflow-hidden">
+        {/* Step Progress Stepper Bar */}
+        <div className="px-6 py-3 border-b border-studio-800 bg-studio-950/70 shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none">
+              {stepsConfig.map((s, idx) => {
+                const isActive = currentStep === s.num;
+                const isPassed = currentStep > s.num;
+
+                return (
+                  <React.Fragment key={s.num}>
+                    <button
+                      onClick={() => handleStepClick(s.num)}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 ${
+                        isActive
+                          ? 'bg-brand-500 text-white shadow-subtle'
+                          : isPassed
+                          ? 'bg-studio-850 text-studio-200 hover:bg-studio-800 border border-studio-750'
+                          : 'bg-studio-900 text-studio-500 hover:text-studio-300 border border-studio-800/80'
+                      }`}
+                    >
+                      <span className={isActive ? 'text-white' : isPassed ? 'text-emerald-400' : 'text-studio-500'}>
+                        {isPassed ? <CheckCircle2 size={13} /> : s.icon}
+                      </span>
+                      <span>
+                        {s.num}. {s.title}
+                      </span>
+                    </button>
+
+                    {idx < stepsConfig.length - 1 && (
+                      <div className="w-4 h-0.5 bg-studio-800 shrink-0" />
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
+
+            {/* Autosave Status */}
+            <div className="text-[11px] text-studio-500 flex items-center gap-1.5 shrink-0 ml-4 font-mono">
+              <span className={`w-2 h-2 rounded-full ${isAutosaving ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}`} />
+              <span>{isAutosaving ? 'Saving Draft...' : 'Autosaved'}</span>
+            </div>
+          </div>
+
+          {/* Validation Warning Notice */}
+          {validationError && (
+            <div className="mt-2.5 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between text-xs text-amber-300">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={15} className="text-amber-400 shrink-0" />
+                <span>{validationError}</span>
+              </div>
+              <button
+                onClick={() => setValidationError(null)}
+                className="text-amber-400 hover:text-amber-200 font-bold ml-3"
               >
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.title} ({p.genre})
-                  </option>
-                ))}
-              </select>
+                ✕
+              </button>
             </div>
           )}
+        </div>
 
+        {/* Guided Step Active Content */}
+        <div className="flex-1 overflow-y-auto p-6">
           {activeProject ? (
             <>
-              <div className="grid grid-cols-2 gap-2 p-3 bg-studio-850 rounded-lg border border-studio-800 text-[11px]">
-                <div>
-                  <span className="text-studio-500 block">Genre</span>
-                  <span className="text-studio-200 capitalize font-medium">{activeProject.genre}</span>
-                </div>
-                <div>
-                  <span className="text-studio-500 block">Aspect Ratio</span>
-                  <span className="text-studio-200 font-mono">{activeProject.aspectRatio}</span>
-                </div>
-                <div>
-                  <span className="text-studio-500 block">Target Duration</span>
-                  <span className="text-studio-200 font-mono">{activeProject.targetDuration}s</span>
-                </div>
-                <div>
-                  <span className="text-studio-500 block">Status</span>
-                  <span className="text-brand-400 uppercase font-semibold">{activeProject.status}</span>
-                </div>
-              </div>
-
-              {/* Story Pipeline Step Buttons */}
-              <div className="space-y-2 pt-2">
-                <Button
-                  variant="primary"
-                  size="sm"
-                  className="w-full"
-                  icon={<Wand2 size={14} />}
-                  onClick={() => setIsScriptModalOpen(true)}
-                >
-                  Generate AI Story Script
-                </Button>
-
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="w-full"
-                  icon={<Layers size={14} />}
-                  loading={isRendering}
-                  onClick={handleRenderFinalVideo}
-                >
-                  Assemble & Render Full Video
-                </Button>
-              </div>
-
-              {/* Story Outline Summary */}
-              <div className="space-y-2 pt-3 border-t border-studio-800">
-                <span className="text-studio-400 font-semibold block text-[11px] uppercase tracking-wider">
-                  Story Outline Arc
-                </span>
-                <div className="p-2.5 bg-studio-850/70 rounded-lg border border-studio-800 text-[11px] space-y-1.5">
-                  <div>
-                    <span className="text-brand-400 font-semibold">Hook:</span>{' '}
-                    <span className="text-studio-300">{activeProject.hook || 'Not generated yet'}</span>
-                  </div>
-                  <div>
-                    <span className="text-cyan-400 font-semibold">Climax:</span>{' '}
-                    <span className="text-studio-300">{activeProject.climax || 'Not generated yet'}</span>
-                  </div>
-                  <div>
-                    <span className="text-emerald-400 font-semibold">Ending:</span>{' '}
-                    <span className="text-studio-300">{activeProject.ending || 'Not generated yet'}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Continuity Guard */}
-              <div className="space-y-1 pt-2">
-                <label className="text-studio-400 font-semibold text-[11px] uppercase tracking-wider block">
-                  Continuity Guard Notes
-                </label>
-                <textarea
-                  rows={3}
-                  className="w-full bg-studio-850 border border-studio-750 rounded-lg p-2 text-studio-200 text-xs"
-                  value={activeProject.continuityNotes}
-                  onChange={async (e) => {
-                    const val = e.target.value;
-                    setActiveProject({ ...activeProject, continuityNotes: val });
-                    if (window.api) await window.api.updateProject(activeProject.id, { continuityNotes: val });
-                  }}
-                  placeholder="Keep clothing, lighting, and face consistent..."
+              {currentStep === 1 && (
+                <Step1Character
+                  characters={characters}
+                  selectedCharacterIds={activeProject.selectedCharacterIds || []}
+                  onToggleCharacter={handleToggleCharacter}
+                  onRefreshCharacters={() => loadStudioData(activeProject.id)}
+                  project={activeProject}
+                  onUpdateProject={handleUpdateActiveProject}
                 />
-              </div>
+              )}
+
+              {currentStep === 2 && (
+                <Step2StoryHook
+                  project={activeProject}
+                  selectedCharacters={selectedChars}
+                  onUpdateProject={handleUpdateActiveProject}
+                  onGenerateFullScenes={async () => {
+                    await loadStudioData(activeProject.id);
+                  }}
+                />
+              )}
+
+              {currentStep === 3 && (
+                <Step3VideoPrompts
+                  project={activeProject}
+                  scenes={activeProject.scenes || []}
+                  selectedCharacters={selectedChars}
+                  onRefreshProject={() => loadStudioData(activeProject.id)}
+                  onUpdateProject={handleUpdateActiveProject}
+                />
+              )}
+
+              {currentStep === 4 && (
+                <Step4Voiceover
+                  project={activeProject}
+                  onRefreshProject={() => loadStudioData(activeProject.id)}
+                  onUpdateProject={handleUpdateActiveProject}
+                />
+              )}
+
+              {currentStep === 5 && (
+                <Step5BackgroundMusic
+                  project={activeProject}
+                  onRefreshProject={() => loadStudioData(activeProject.id)}
+                  onUpdateProject={handleUpdateActiveProject}
+                />
+              )}
+
+              {currentStep === 6 && (
+                <Step6SoundEffects
+                  project={activeProject}
+                  onRefreshProject={() => loadStudioData(activeProject.id)}
+                  onUpdateProject={handleUpdateActiveProject}
+                />
+              )}
+
+              {currentStep === 7 && (
+                <Step7FinalExport
+                  project={activeProject}
+                  onRefreshProject={() => loadStudioData(activeProject.id)}
+                  onUpdateProject={handleUpdateActiveProject}
+                  onResetToNewProject={() => {
+                    handleCreateNewProject({ title: 'New Story Adventure' });
+                  }}
+                />
+              )}
             </>
-          ) : (
-            <div className="text-center py-8 text-studio-500">Create a project to begin.</div>
-          )}
-        </div>
-      </div>
-
-      {/* Panel 2 (Center): Storyboard Scenes & Pipeline */}
-      <div className="flex-1 flex flex-col overflow-hidden bg-studio-950">
-        <div className="px-6 py-4 border-b border-studio-800 bg-studio-900/60 flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-semibold text-studio-100 flex items-center gap-2">
-              <Layers size={16} className="text-brand-400" />
-              Storyboard Timeline ({activeProject?.scenes.length ?? 0} Scenes)
-            </h3>
-            <p className="text-[11px] text-studio-400">
-              Story → Script → Character Continuity → Flow Generation → FFmpeg Assembly
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<Plus size={14} />}
-              onClick={async () => {
-                if (activeProject && window.api) {
-                  const s = await window.api.createScene({
-                    projectId: activeProject.id,
-                    sceneNumber: activeProject.scenes.length + 1,
-                    scriptText: 'New storyboard scene',
-                    narration: 'Narration voiceover line...',
-                    generationPrompt: 'Cinematic shot, character in focus',
-                    duration: 5.0,
-                    status: 'draft',
-                  });
-                  const refreshed = await window.api.getProjectById(activeProject.id);
-                  setActiveProject(refreshed);
-                  setActiveScene(s);
-                }
-              }}
-            >
-              Add Scene
-            </Button>
-          </div>
-        </div>
-
-        {/* Storyboard Cards Flow */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
-          {/* Prominent Google Flow Provider Connection Card */}
-          <FlowConnectionCard className="mb-2" />
-
-          {activeProject?.scenes && activeProject.scenes.length > 0 ? (
-            activeProject.scenes.map((scene) => {
-              const isSelected = activeScene?.id === scene.id;
-              const hasVideo = Boolean(scene.videoPath);
-
-              return (
-                <div
-                  key={scene.id}
-                  onClick={() => setActiveScene(scene)}
-                  className={`p-4 rounded-xl border transition-all cursor-pointer flex flex-col md:flex-row gap-4 ${
-                    isSelected
-                      ? 'bg-studio-850 border-brand-500/50 shadow-subtle'
-                      : 'bg-studio-900 border-studio-800 hover:border-studio-700'
-                  }`}
-                >
-                  {/* Scene Preview Box */}
-                  <div className="w-36 h-28 bg-studio-950 rounded-lg overflow-hidden shrink-0 border border-studio-800 relative flex items-center justify-center">
-                    {hasVideo ? (
-                      <div className="relative w-full h-full">
-                        <video
-                          src={`file://${scene.videoPath?.replace(/\\/g, '/')}`}
-                          className="w-full h-full object-cover"
-                        />
-                        <span className="absolute bottom-1 right-1 px-1.5 py-0.5 rounded bg-emerald-500/90 text-white text-[9px] font-semibold flex items-center gap-1">
-                          <CheckCircle size={10} /> Ready
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="text-center p-2">
-                        <Film size={22} className="text-studio-600 mx-auto mb-1" />
-                        <span className="text-[10px] text-studio-500 block">Pending Clip</span>
-                      </div>
-                    )}
-                    <span className="absolute top-1 left-1 px-1.5 py-0.5 rounded bg-black/70 text-studio-200 text-[10px] font-mono">
-                      #{scene.sceneNumber}
-                    </span>
-                  </div>
-
-                  {/* Scene Content Details */}
-                  <div className="flex-1 min-w-0 space-y-1.5 text-xs">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-studio-100">Scene {scene.sceneNumber}</span>
-                        <Badge variant={hasVideo ? 'success' : 'neutral'} size="sm">
-                          {hasVideo ? 'Clip Ready' : 'Prompt Prepared'}
-                        </Badge>
-                        <span className="text-studio-400 font-mono text-[11px]">{scene.duration}s</span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          icon={<Sparkles size={13} />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleOpenFlowAssistant(scene);
-                          }}
-                        >
-                          Generate with Flow
-                        </Button>
-
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          icon={<Upload size={13} />}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleImportSceneVideo(scene.id);
-                          }}
-                        >
-                          Import Clip
-                        </Button>
-                      </div>
-                    </div>
-
-                    <p className="text-studio-300 line-clamp-1">{scene.scriptText}</p>
-
-                    <div className="p-2 bg-studio-950/80 rounded border border-studio-800 text-[11px] text-studio-400 font-mono line-clamp-2">
-                      <span className="text-brand-400 font-sans font-semibold">Prompt: </span>
-                      {scene.generationPrompt}
-                    </div>
-
-                    {scene.narration && (
-                      <div className="text-[11px] text-studio-400 italic">
-                        🎙️ Voiceover: "{scene.narration}"
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })
           ) : (
             <EmptyState
-              icon={<Film size={32} />}
-              title="Storyboard is empty"
-              description="Click 'Generate AI Story Script' on the left panel to auto-generate a structured multi-scene narrative tailored to your chosen duration and character."
-              actionText="Generate Story Script"
-              onAction={() => setIsScriptModalOpen(true)}
+              icon={<FolderOpen size={36} />}
+              title="No project selected"
+              description="Open or create a story project from the sidebar to start creating."
+              actionText="Create Project"
+              onAction={() => handleCreateNewProject({ title: 'New Story Project' })}
             />
           )}
         </div>
-      </div>
 
-      {/* Panel 3 (Right): Scene Inspector & Continuity Refiner */}
-      <div className="w-80 border-l border-studio-800 bg-studio-900/50 flex flex-col shrink-0">
-        <div className="p-4 border-b border-studio-800">
-          <h3 className="text-sm font-semibold text-studio-100">Scene Inspector</h3>
-          <p className="text-[11px] text-studio-400">Fine-tune prompts & character links</p>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs">
-          {activeScene ? (
-            <>
-              <div>
-                <label className="text-studio-400 block mb-1">Assigned Character</label>
-                <select
-                  className="w-full bg-studio-850 border border-studio-750 rounded-lg p-2 text-studio-100 text-xs"
-                  value={activeScene.characterId || ''}
-                  onChange={async (e) => {
-                    const charId = e.target.value;
-                    setActiveScene({ ...activeScene, characterId: charId });
-                    if (window.api) {
-                      await window.api.updateScene(activeScene.id, { characterId: charId || undefined });
-                      const refreshed = await window.api.getProjectById(activeProject!.id);
-                      setActiveProject(refreshed);
-                    }
-                  }}
-                >
-                  <option value="">No Character Assigned</option>
-                  {characters.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} {c.isLocked ? '(Locked Profile)' : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="text-studio-400 block mb-1">Duration (Seconds)</label>
-                <Input
-                  type="number"
-                  min={2}
-                  max={30}
-                  value={activeScene.duration}
-                  onChange={async (e) => {
-                    const d = parseFloat(e.target.value) || 5;
-                    setActiveScene({ ...activeScene, duration: d });
-                    if (window.api) await window.api.updateScene(activeScene.id, { duration: d });
-                  }}
-                />
-              </div>
-
-              <div>
-                <label className="text-studio-400 block mb-1">Script & Visual Direction</label>
-                <textarea
-                  rows={3}
-                  className="w-full bg-studio-850 border border-studio-750 rounded-lg p-2 text-studio-200 text-xs"
-                  value={activeScene.scriptText}
-                  onChange={async (e) => {
-                    const txt = e.target.value;
-                    setActiveScene({ ...activeScene, scriptText: txt });
-                    if (window.api) await window.api.updateScene(activeScene.id, { scriptText: txt });
-                  }}
-                />
-              </div>
-
-              <div>
-                <label className="text-studio-400 block mb-1">Narration Voiceover</label>
-                <textarea
-                  rows={2}
-                  className="w-full bg-studio-850 border border-studio-750 rounded-lg p-2 text-studio-200 text-xs"
-                  value={activeScene.narration}
-                  onChange={async (e) => {
-                    const n = e.target.value;
-                    setActiveScene({ ...activeScene, narration: n });
-                    if (window.api) await window.api.updateScene(activeScene.id, { narration: n });
-                  }}
-                />
-              </div>
-
-              <div>
-                <label className="text-studio-400 block mb-1">AI Video Generation Prompt</label>
-                <textarea
-                  rows={4}
-                  className="w-full bg-studio-850 border border-studio-750 rounded-lg p-2 text-studio-200 text-xs font-mono"
-                  value={activeScene.generationPrompt}
-                  onChange={async (e) => {
-                    const p = e.target.value;
-                    setActiveScene({ ...activeScene, generationPrompt: p });
-                    if (window.api) await window.api.updateScene(activeScene.id, { generationPrompt: p });
-                  }}
-                />
-              </div>
-
-              <div className="pt-2">
-                <Button
-                  variant="danger"
-                  size="sm"
-                  className="w-full"
-                  icon={<Trash2 size={13} />}
-                  onClick={async () => {
-                    if (window.api && window.confirm('Delete this scene from storyboard?')) {
-                      await window.api.deleteScene(activeScene.id);
-                      const refreshed = await window.api.getProjectById(activeProject!.id);
-                      setActiveProject(refreshed);
-                      setActiveScene(refreshed?.scenes[0] || null);
-                    }
-                  }}
-                >
-                  Delete Scene
-                </Button>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-10 text-studio-500">Select a scene to inspect.</div>
-          )}
-        </div>
-      </div>
-
-      {/* Script Generator Modal */}
-      <Modal
-        isOpen={isScriptModalOpen}
-        onClose={() => setIsScriptModalOpen(false)}
-        title="AI Story Script Architect"
-        subtitle="Generate a complete multi-scene video narrative tailored to your character and genre"
-        maxWidth="lg"
-        footer={
-          <div className="flex gap-2">
-            <Button variant="secondary" size="sm" onClick={() => setIsScriptModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              loading={isGeneratingScript}
-              icon={<Sparkles size={14} />}
-              onClick={handleRunScriptGenerator}
-            >
-              Generate Script & Storyboard
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-4 text-xs">
-          <div>
-            <label className="block text-xs font-medium text-studio-300 mb-1.5">
-              Story Premise & Core Idea
-            </label>
-            <textarea
-              rows={3}
-              className="w-full bg-studio-900 border border-studio-700/80 rounded-lg p-2.5 text-sm text-studio-100"
-              value={scriptPrompt}
-              onChange={(e) => setScriptPrompt(e.target.value)}
-              placeholder="Describe your story idea or plot twist..."
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Genre"
-              value={scriptGenre}
-              onChange={(e) => setScriptGenre(e.target.value)}
-              options={[
-                { value: 'mystery', label: 'Mystery / Suspense' },
-                { value: 'comedy', label: 'Comedy / Satire' },
-                { value: 'romance', label: 'Romance / Drama' },
-                { value: 'adventure', label: 'Adventure / Action' },
-                { value: 'emotional', label: 'Emotional / Heartfelt' },
-                { value: 'horror', label: 'Horror / Thriller' },
-                { value: 'educational', label: 'Educational / Explainer' },
-              ]}
-            />
-
-            <Select
-              label="Assign Consistent Character"
-              value={selectedCharId}
-              onChange={(e) => setSelectedCharId(e.target.value)}
-              options={[
-                { value: '', label: 'None (Dynamic AI character)' },
-                ...characters.map((c) => ({ value: c.id, label: `${c.name} (${c.isLocked ? 'Locked' : 'Unlocked'})` })),
-              ]}
-            />
-          </div>
-
-          <div className="p-3 bg-studio-900 rounded-lg border border-studio-800 text-studio-400">
-            <p className="font-semibold text-studio-200 mb-1">Story Arc Pipeline:</p>
-            <ul className="list-disc list-inside space-y-0.5 text-[11px]">
-              <li>High-retention 3-second hook</li>
-              <li>Rising tension & scene-by-scene character action</li>
-              <li>Climactic revelation</li>
-              <li>Call to action engagement ending</li>
-            </ul>
-          </div>
-        </div>
-      </Modal>
-
-      {/* Flow AI Guided Assistant Modal */}
-      {isFlowModalOpen && flowPackage && (
-        <Modal
-          isOpen={isFlowModalOpen}
-          onClose={() => setIsFlowModalOpen(false)}
-          title="Google Flow AI Production Assistant"
-          subtitle="Prepare prompts & character references, generate in official Flow workspace, and import"
-          maxWidth="lg"
-          footer={
-            <div className="flex items-center justify-between w-full">
+        {/* 3. Bottom Action Bar (Back, Save Draft, Continue) */}
+        {activeProject && (
+          <div className="h-16 px-6 border-t border-studio-800 bg-studio-950 flex items-center justify-between shrink-0 select-none">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<ArrowLeft size={14} />}
+                onClick={handleGoBack}
+                disabled={currentStep === 1}
+              >
+                Back
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
-                icon={<Copy size={14} />}
+                icon={<Save size={14} />}
                 onClick={() => {
-                  navigator.clipboard.writeText(flowPackage.prompt);
-                  addToast({ type: 'success', title: 'Prompt Copied to Clipboard' });
+                  handleUpdateActiveProject({});
+                  addToast({ type: 'success', title: 'Project Draft Saved' });
                 }}
               >
-                Copy Prompt Package
+                Save Draft
               </Button>
+            </div>
 
-              <div className="flex gap-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={<ExternalLink size={14} />}
-                  onClick={async () => {
-                    if (window.api) await window.api.openExternalUrl('https://flow.google/');
-                  }}
-                >
-                  Open Google Flow (flow.google)
-                </Button>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-studio-500 font-mono">
+                Step {currentStep} of 7: {stepsConfig[currentStep - 1]?.title}
+              </span>
 
+              {currentStep < 7 ? (
                 <Button
                   variant="primary"
                   size="sm"
-                  icon={<Upload size={14} />}
-                  onClick={async () => {
-                    setIsFlowModalOpen(false);
-                    await handleImportSceneVideo(flowPackage.sceneId);
+                  icon={<ArrowRight size={14} />}
+                  onClick={handleGoNext}
+                >
+                  Continue to Next Step
+                </Button>
+              ) : (
+                <Button
+                  variant="success"
+                  size="sm"
+                  icon={<CheckCircle2 size={14} />}
+                  onClick={() => {
+                    addToast({
+                      type: 'success',
+                      title: 'Story Workflow Complete',
+                      message: 'Render and export your final story video.',
+                    });
                   }}
                 >
-                  Import Generated Clip to Library
+                  Workflow Finished
                 </Button>
-              </div>
-            </div>
-          }
-        >
-          <div className="space-y-4 text-xs">
-            {/* Status & Compliance Banner */}
-            <div className="p-3.5 bg-studio-900 rounded-xl border border-studio-800 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-studio-200">Google Flow Integration Status:</span>
-                <Badge
-                  variant={
-                    flowPackage.connectionStatus === 'connected'
-                      ? 'success'
-                      : flowPackage.connectionStatus === 'opened_unverified'
-                      ? 'warning'
-                      : 'neutral'
-                  }
-                  size="sm"
-                  dot
-                >
-                  {flowPackage.statusLabel || 'Not Connected'}
-                </Badge>
-              </div>
-
-              <p className="text-studio-400 text-[11px] leading-relaxed">
-                Google operates Flow as a creative web workspace at <span className="text-studio-200 font-mono">https://flow.google/</span> without public third-party REST APIs or OAuth scopes. This assisted workflow lets you authenticate securely in your default browser, prepare scene prompts and character consistency references with 1 click, and import completed videos directly into your Video Library.
-              </p>
-            </div>
-
-            <div className="p-3 bg-studio-950/80 rounded-xl border border-studio-800 space-y-1.5">
-              <span className="font-semibold text-brand-400 block">Workflow Steps:</span>
-              <ol className="list-decimal list-inside space-y-1 text-studio-300 text-[11px]">
-                <li>Click <strong>Copy Prompt Package</strong> below.</li>
-                <li>Click <strong>Open Google Flow</strong> to launch <span className="font-mono text-studio-200">flow.google</span>.</li>
-                <li>Sign in securely with your Google account (your password is never touched by this app).</li>
-                <li>Paste the prompt and drag in your character reference images.</li>
-                <li>Download the rendered MP4 video and click <strong>Import Generated Clip to Library</strong>.</li>
-              </ol>
-            </div>
-
-            <div>
-              <label className="text-studio-400 font-medium block mb-1">Prepared Scene Prompt & Continuity Package</label>
-              <textarea
-                readOnly
-                rows={8}
-                className="w-full bg-studio-950 border border-studio-800 rounded-lg p-3 text-studio-200 font-mono text-xs"
-                value={flowPackage.prompt}
-              />
+              )}
             </div>
           </div>
-        </Modal>
-      )}
+        )}
+      </div>
 
-      {/* New Project Modal */}
-      <Modal
-        isOpen={isNewProjectModalOpen}
-        onClose={() => setIsNewProjectModalOpen(false)}
-        title="Create Story Project"
-        subtitle="Start a new multi-scene AI video production"
-        maxWidth="md"
-        footer={
-          <div className="flex gap-2">
-            <Button variant="secondary" size="sm" onClick={() => setIsNewProjectModalOpen(false)}>
-              Cancel
-            </Button>
-            <Button variant="primary" size="sm" onClick={handleCreateProject}>
-              Create Project
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-4 text-xs">
-          <Input
-            label="Project Title"
-            value={newProjectForm.title}
-            onChange={(e) => setNewProjectForm({ ...newProjectForm, title: e.target.value })}
-          />
-
-          <div className="grid grid-cols-2 gap-4">
-            <Select
-              label="Genre"
-              value={newProjectForm.genre}
-              onChange={(e) => setNewProjectForm({ ...newProjectForm, genre: e.target.value as any })}
-              options={[
-                { value: 'mystery', label: 'Mystery' },
-                { value: 'comedy', label: 'Comedy' },
-                { value: 'romance', label: 'Romance' },
-                { value: 'adventure', label: 'Adventure' },
-                { value: 'emotional', label: 'Emotional' },
-                { value: 'horror', label: 'Horror' },
-                { value: 'educational', label: 'Educational' },
-              ]}
-            />
-
-            <Select
-              label="Target Aspect Ratio"
-              value={newProjectForm.aspectRatio}
-              onChange={(e) => setNewProjectForm({ ...newProjectForm, aspectRatio: e.target.value as any })}
-              options={[
-                { value: '9:16', label: 'Vertical 9:16' },
-                { value: '16:9', label: 'Horizontal 16:9' },
-                { value: '1:1', label: 'Square 1:1' },
-              ]}
-            />
-          </div>
-
-          <Input
-            label="Target Duration (Seconds)"
-            type="number"
-            value={newProjectForm.targetDuration}
-            onChange={(e) => setNewProjectForm({ ...newProjectForm, targetDuration: parseInt(e.target.value, 10) || 60 })}
-          />
-        </div>
-      </Modal>
+      {/* 4. Right Inspector & Continuity Assistant */}
+      <ProjectInspector
+        project={activeProject}
+        selectedCharacters={selectedChars}
+        currentStep={currentStep}
+      />
     </div>
   );
 };
