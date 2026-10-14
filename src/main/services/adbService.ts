@@ -113,8 +113,23 @@ export class AdbService {
     const result: Device[] = [];
 
     try {
-      const { stdout } = await execAsync(`"${adb}" devices -l`);
-      const lines = stdout.split('\n');
+      let { stdout } = await execAsync(`"${adb}" devices -l`);
+      let lines = stdout.split('\n');
+
+      // If no devices listed, attempt quick auto-connect to local emulator ports (LDPlayer, BlueStacks, Nox, etc.)
+      const attachedLines = lines.slice(1).filter((l) => l.trim().length > 0);
+      if (attachedLines.length === 0) {
+        for (const port of [5555, 62001, 58526]) {
+          try {
+            await execAsync(`"${adb}" connect 127.0.0.1:${port}`, { timeout: 1200 });
+          } catch {}
+        }
+        try {
+          const res2 = await execAsync(`"${adb}" devices -l`, { timeout: 3000 });
+          stdout = res2.stdout;
+          lines = stdout.split('\n');
+        } catch {}
+      }
 
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i].trim();
@@ -136,6 +151,9 @@ export class AdbService {
         const modelMatch = line.match(/model:(\S+)/);
         if (modelMatch) {
           model = modelMatch[1].replace(/_/g, ' ');
+        }
+        if (status === 'unauthorized') {
+          model = `${model} (Unlock Phone & Tap "Allow USB Debugging")`;
         }
 
         let androidVersion = 'Android';
@@ -706,6 +724,33 @@ export class AdbService {
       return { success: false, message: err.message };
     }
   }
+
+  public async restartAdbServer(): Promise<{ success: boolean; message: string }> {
+    const adb = this.getAdbPath();
+    try {
+      await execAsync(`"${adb}" kill-server`, { timeout: 5000 });
+      await execAsync(`"${adb}" start-server`, { timeout: 10000 });
+      return { success: true, message: 'ADB Server restarted successfully.' };
+    } catch (err: any) {
+      return { success: false, message: `Failed to restart ADB server: ${err.message}` };
+    }
+  }
+
+  public async connectWirelessAdb(hostPort: string): Promise<{ success: boolean; message: string }> {
+    const adb = this.getAdbPath();
+    const target = hostPort.trim() || '127.0.0.1:5555';
+    try {
+      const { stdout } = await execAsync(`"${adb}" connect ${target}`, { timeout: 8000 });
+      const lower = stdout.toLowerCase();
+      if (lower.includes('connected to') || lower.includes('already connected')) {
+        return { success: true, message: stdout.trim() };
+      }
+      return { success: false, message: stdout.trim() || `Could not connect to ${target}` };
+    } catch (err: any) {
+      return { success: false, message: `Connect error: ${err.message}` };
+    }
+  }
+
 
   public async transferFile(
     deviceId: string,

@@ -580,6 +580,15 @@ export function registerIpcHandlers(): void {
     return adbService.openSettings(deviceId, settingType);
   });
 
+  ipcMain.handle('restartAdbServer', async () => {
+    return adbService.restartAdbServer();
+  });
+
+  ipcMain.handle('connectWirelessAdb', async (_, hostPort: string) => {
+    return adbService.connectWirelessAdb(hostPort);
+  });
+
+
   // ATX Android Automation Engine
   ipcMain.handle('getAtxStatus', async (_, deviceId: string) => {
     return atxAutomationService.getAtxStatus(deviceId);

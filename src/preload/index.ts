@@ -89,6 +89,8 @@ const api: IElectronAPI = {
   installAllAppsOnPhone: (deviceId) => ipcRenderer.invoke('installAllAppsOnPhone', deviceId),
   requestPhoneAdbRoot: (deviceId) => ipcRenderer.invoke('requestPhoneAdbRoot', deviceId),
   openPhoneSettings: (deviceId, settingType) => ipcRenderer.invoke('openPhoneSettings', deviceId, settingType),
+  restartAdbServer: () => ipcRenderer.invoke('restartAdbServer'),
+  connectWirelessAdb: (hostPort) => ipcRenderer.invoke('connectWirelessAdb', hostPort),
 
   // ATX Automation Engine
   getAtxStatus: (deviceId) => ipcRenderer.invoke('getAtxStatus', deviceId),

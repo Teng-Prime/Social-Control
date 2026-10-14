@@ -621,6 +621,8 @@ export interface IElectronAPI {
   installAllAppsOnPhone: (deviceId: string) => Promise<BatchInstallResult>;
   requestPhoneAdbRoot: (deviceId: string) => Promise<{ success: boolean; message: string }>;
   openPhoneSettings: (deviceId: string, settingType: 'accounts' | 'wifi' | 'developer') => Promise<{ success: boolean; message: string }>;
+  restartAdbServer: () => Promise<{ success: boolean; message: string }>;
+  connectWirelessAdb: (hostPort: string) => Promise<{ success: boolean; message: string }>;
 
   // ATX Android Automation Engine
   getAtxStatus: (deviceId: string) => Promise<AtxAgentStatus>;

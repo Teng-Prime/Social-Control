@@ -88,11 +88,16 @@ export const PhoneControlView: React.FC = () => {
 
   // Modals & Wizards
   const [isWizardOpen, setIsWizardOpen] = useState(false);
+  const [isTroubleshootOpen, setIsTroubleshootOpen] = useState(false);
+  const [customAdbHost, setCustomAdbHost] = useState('127.0.0.1:5555');
+  const [isConnectingAdb, setIsConnectingAdb] = useState(false);
+  const [isRestartingAdb, setIsRestartingAdb] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
   const [screenshotBase64, setScreenshotBase64] = useState<string | null>(null);
   const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
   const [selectedAssetForTransfer, setSelectedAssetForTransfer] = useState<string>('');
   const [isTransferring, setIsTransferring] = useState(false);
+
 
   const fetchDevices = async () => {
     setIsScanning(true);
@@ -306,6 +311,46 @@ export const PhoneControlView: React.FC = () => {
     }
   };
 
+  const handleConnectAdb = async (target?: string) => {
+    const hostPort = target || customAdbHost;
+    setIsConnectingAdb(true);
+    try {
+      if (window.api) {
+        const res = await window.api.connectWirelessAdb(hostPort);
+        if (res.success) {
+          addToast({ type: 'success', title: 'ADB Connected', message: res.message });
+          await fetchDevices();
+        } else {
+          addToast({ type: 'warn', title: 'Connection Response', message: res.message });
+        }
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Connection Failed', message: err.message });
+    } finally {
+      setIsConnectingAdb(false);
+    }
+  };
+
+  const handleRestartAdb = async () => {
+    setIsRestartingAdb(true);
+    try {
+      if (window.api) {
+        const res = await window.api.restartAdbServer();
+        if (res.success) {
+          addToast({ type: 'info', title: 'ADB Daemon Reset', message: res.message });
+          await fetchDevices();
+        } else {
+          addToast({ type: 'warn', title: 'Notice', message: res.message });
+        }
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Restart Failed', message: err.message });
+    } finally {
+      setIsRestartingAdb(false);
+    }
+  };
+
+
   useEffect(() => {
     fetchDevices();
   }, []);
@@ -496,6 +541,15 @@ export const PhoneControlView: React.FC = () => {
           <Button
             variant="outline"
             size="sm"
+            icon={<Settings size={14} />}
+            onClick={() => setIsTroubleshootOpen(true)}
+          >
+            Troubleshoot & Connect
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
             icon={<RefreshCw size={13} className={isLoadingDiagnostic ? 'animate-spin' : ''} />}
             onClick={() => {
               if (selectedDevice) loadDiagnostic(selectedDevice.id);
@@ -529,6 +583,38 @@ export const PhoneControlView: React.FC = () => {
           </Button>
         </div>
       </div>
+
+      {/* Device Not Detected Warning & Quick Actions Banner */}
+      {devices.length === 0 && (
+        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="text-amber-400 shrink-0 mt-0.5" size={18} />
+            <div>
+              <span className="font-bold text-amber-200 block">No Android Device Detected</span>
+              <span className="text-amber-300/80">
+                Plug in your phone via USB with USB Debugging enabled, or auto-connect to LDPlayer / local emulator.
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={isConnectingAdb}
+              onClick={() => handleConnectAdb('127.0.0.1:5555')}
+            >
+              Connect LDPlayer (5555)
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsTroubleshootOpen(true)}
+            >
+              Fix Connection
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Device Selector & Navigation Tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-studio-850 rounded-2xl border border-studio-750">
@@ -1630,6 +1716,133 @@ export const PhoneControlView: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+      </Modal>
+
+      {/* Connection Troubleshooting Modal */}
+      <Modal
+        isOpen={isTroubleshootOpen}
+        onClose={() => setIsTroubleshootOpen(false)}
+        title="Device Connection & ADB Troubleshooting"
+        subtitle="Quick tools to connect physical phones or local Android emulators (LDPlayer, BlueStacks, Nox)"
+        maxWidth="lg"
+      >
+        <div className="space-y-5 text-xs">
+          {/* Quick Connect Actions */}
+          <div className="p-4 rounded-xl bg-studio-900 border border-studio-800 space-y-3">
+            <h4 className="font-bold text-studio-100 flex items-center gap-2">
+              <Terminal size={14} className="text-brand-400" />
+              1-Click Emulator & Wireless Connect
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={isConnectingAdb}
+                onClick={() => handleConnectAdb('127.0.0.1:5555')}
+              >
+                Connect LDPlayer (127.0.0.1:5555)
+              </Button>
+
+              <Button
+                variant="secondary"
+                size="sm"
+                loading={isConnectingAdb}
+                onClick={() => handleConnectAdb('127.0.0.1:62001')}
+              >
+                Connect Nox / MEmu (62001)
+              </Button>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1">
+              <input
+                type="text"
+                placeholder="Custom IP:Port (e.g. 192.168.1.50:5555)"
+                value={customAdbHost}
+                onChange={(e) => setCustomAdbHost(e.target.value)}
+                className="flex-1 bg-studio-850 border border-studio-750 rounded-lg px-3 py-1.5 text-xs text-studio-100 focus:ring-1 focus:ring-brand-500"
+              />
+              <Button
+                variant="primary"
+                size="sm"
+                loading={isConnectingAdb}
+                onClick={() => handleConnectAdb(customAdbHost)}
+              >
+                Connect
+              </Button>
+            </div>
+
+            <div className="pt-2 border-t border-studio-800 flex items-center justify-between">
+              <span className="text-studio-400 text-[11px]">ADB daemon frozen or unresponsive?</span>
+              <Button
+                variant="outline"
+                size="sm"
+                loading={isRestartingAdb}
+                onClick={handleRestartAdb}
+              >
+                Restart ADB Server
+              </Button>
+            </div>
+          </div>
+
+          {/* Physical Phone Checklist */}
+          <div className="space-y-3">
+            <h4 className="font-bold text-studio-100 flex items-center gap-2">
+              <Smartphone size={14} className="text-emerald-400" />
+              Physical Phone USB Checklist
+            </h4>
+            <div className="space-y-2 text-studio-300">
+              <div className="p-3 bg-studio-900 rounded-lg border border-studio-800 flex items-start gap-2.5">
+                <span className="font-bold text-brand-400">1.</span>
+                <div>
+                  <strong className="text-studio-100 block">Use a High-Quality Data Cable</strong>
+                  <span className="text-studio-400 text-[11px]">
+                    Many USB cables only supply power and cannot transfer data. Make sure your computer plays a connection chime when plugging it in.
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-studio-900 rounded-lg border border-studio-800 flex items-start gap-2.5">
+                <span className="font-bold text-brand-400">2.</span>
+                <div>
+                  <strong className="text-studio-100 block">Set Phone USB Mode to "File Transfer (MTP)"</strong>
+                  <span className="text-studio-400 text-[11px]">
+                    Swipe down notifications on your phone screen, tap <em>"Charging this device via USB"</em>, and switch it to <strong>File Transfer / MTP</strong>.
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-studio-900 rounded-lg border border-studio-800 flex items-start gap-2.5">
+                <span className="font-bold text-brand-400">3.</span>
+                <div>
+                  <strong className="text-studio-100 block">Enable USB Debugging in Developer Options</strong>
+                  <span className="text-studio-400 text-[11px]">
+                    Go to <strong>Settings → About phone → Tap 'Build number' 7 times</strong>, then go to <strong>Developer options</strong> and toggle ON <strong>USB Debugging</strong>.
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-studio-900 rounded-lg border border-studio-800 flex items-start gap-2.5">
+                <span className="font-bold text-brand-400">4.</span>
+                <div>
+                  <strong className="text-studio-100 block">Authorize RSA Fingerprint on Phone Screen</strong>
+                  <span className="text-studio-400 text-[11px]">
+                    Look at your phone screen for the prompt: <em>"Allow USB debugging from this computer?"</em>. Check <strong>Always allow</strong> and tap <strong>OK</strong>.
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-3 bg-studio-900 rounded-lg border border-studio-800 flex items-start gap-2.5">
+                <span className="font-bold text-brand-400">5.</span>
+                <div>
+                  <strong className="text-studio-100 block">If Using LDPlayer Emulator</strong>
+                  <span className="text-studio-400 text-[11px]">
+                    In LDPlayer, open <strong>Settings (Gear icon) → Other Settings → Set "ADB Debugging" to "Open Local Connection"</strong>, then restart LDPlayer.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </Modal>
     </div>
