@@ -27,6 +27,9 @@ import {
   Image as ImageIcon,
   FolderOpen,
   UserCheck,
+  Sliders,
+  Settings,
+  PlayCircle,
 } from 'lucide-react';
 
 interface Step3VideoPromptsProps {
@@ -50,10 +53,48 @@ export const Step3VideoPrompts: React.FC<Step3VideoPromptsProps> = ({
   const [isFlowModalOpen, setIsFlowModalOpen] = useState(false);
   const [flowPackage, setFlowPackage] = useState<any>(null);
   const [isGeneratingPrompt, setIsGeneratingPrompt] = useState<string | null>(null);
+  const [isGeneratingSceneVideo, setIsGeneratingSceneVideo] = useState<string | null>(null);
+  const [configModalScene, setConfigModalScene] = useState<Scene | null>(null);
 
   const activeScene = scenes.find((s) => s.id === activeSceneId) || scenes[0];
   const primaryChar = selectedCharacters[0];
   const defaultRefPhoto = primaryChar?.references.find((r) => r.isPrimary)?.imagePath || primaryChar?.references[0]?.imagePath;
+
+  const handleGenerateSceneVideo = async (sceneId: string) => {
+    if (!window.api) return;
+    setIsGeneratingSceneVideo(sceneId);
+    try {
+      await window.api.generateSceneVideo(sceneId);
+      await onRefreshProject();
+      addToast({
+        type: 'success',
+        title: 'AI Scene Video Generated',
+        message: 'Video clip assembled and ready to play.',
+      });
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Video generation failed', message: err.message });
+    } finally {
+      setIsGeneratingSceneVideo(null);
+    }
+  };
+
+  const handleGenerateAllSceneVideos = async () => {
+    if (!window.api) return;
+    setIsGeneratingSceneVideo('all');
+    try {
+      const res = await window.api.generateAllSceneVideos(project.id);
+      await onRefreshProject();
+      addToast({
+        type: 'success',
+        title: 'All Scene Videos Generated',
+        message: `Assembled ${res.generatedCount} AI scene videos.`,
+      });
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Batch generation failed', message: err.message });
+    } finally {
+      setIsGeneratingSceneVideo(null);
+    }
+  };
 
   // Reorder Scenes
   const handleMoveScene = async (index: number, direction: 'up' | 'down') => {
@@ -221,7 +262,17 @@ ${scene.narration}
         </div>
 
         <div className="flex items-center gap-2">
-          <Button variant="primary" size="sm" icon={<Plus size={14} />} onClick={handleAddScene}>
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Sparkles size={14} />}
+            onClick={handleGenerateAllSceneVideos}
+            disabled={isGeneratingSceneVideo === 'all' || scenes.length === 0}
+          >
+            {isGeneratingSceneVideo === 'all' ? 'Generating All Videos...' : 'Generate All Scene Videos (AI)'}
+          </Button>
+
+          <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={handleAddScene}>
             Add Scene
           </Button>
         </div>
@@ -317,7 +368,19 @@ ${scene.narration}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1.5">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<Settings size={13} />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfigModalScene(sc);
+                    }}
+                    className="h-7 text-xs px-2.5 bg-studio-800 hover:bg-studio-700 text-studio-200"
+                  >
+                    Config
+                  </Button>
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -460,44 +523,69 @@ ${scene.narration}
 
                 {/* Right: Video Clip Preview & Generation Actions */}
                 <div className="lg:col-span-5 flex flex-col justify-between p-3 rounded-xl bg-studio-950/70 border border-studio-800">
-                  <div className="aspect-video bg-studio-900 rounded-lg overflow-hidden border border-studio-800 relative flex items-center justify-center">
+                  <div className="aspect-video bg-studio-900 rounded-lg overflow-hidden border border-studio-800 relative flex items-center justify-center group">
                     {hasVideo ? (
                       <video
                         src={`file://${sc.videoPath!.replace(/\\/g, '/')}`}
                         controls
+                        poster={currentRefPhoto ? `file://${currentRefPhoto.replace(/\\/g, '/')}` : undefined}
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="text-center p-3 text-studio-500">
-                        <Film size={24} className="mx-auto mb-1 opacity-50" />
-                        <span className="text-[11px] block">No video clip attached</span>
-                        <span className="text-[9px] text-studio-600">
-                          Generate with Flow or import from PC
-                        </span>
+                      <div className="relative w-full h-full flex flex-col items-center justify-center p-3 text-center">
+                        {currentRefPhoto ? (
+                          <>
+                            <img
+                              src={`file://${currentRefPhoto.replace(/\\/g, '/')}`}
+                              alt="Thumbnail Reference"
+                              className="absolute inset-0 w-full h-full object-cover opacity-25"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-studio-950 via-studio-950/60 to-transparent" />
+                          </>
+                        ) : null}
+                        <div className="relative z-10">
+                          <Film size={24} className="mx-auto mb-1 text-studio-400 opacity-60" />
+                          <span className="text-[11px] font-medium text-studio-300 block">Sample Video / Keyframe</span>
+                          <span className="text-[9px] text-studio-500">Generate AI clip or import</span>
+                        </div>
                       </div>
                     )}
                   </div>
 
-                  <div className="flex gap-2 mt-3">
+                  <div className="flex flex-col gap-1.5 mt-3">
                     <Button
                       variant="primary"
                       size="sm"
-                      className="flex-1"
+                      className="w-full bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white shadow-subtle"
                       icon={<Sparkles size={13} />}
-                      onClick={() => handleOpenFlowModal(sc)}
+                      loading={isGeneratingSceneVideo === sc.id}
+                      onClick={() => handleGenerateSceneVideo(sc.id)}
                     >
-                      Generate with Flow
+                      {hasVideo ? 'Regenerate AI Video' : '✨ Generate Scene Video (AI)'}
                     </Button>
 
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      icon={<Upload size={13} />}
-                      onClick={() => handleImportSceneVideo(sc.id)}
-                      title="Import local clip directly"
-                    >
-                      Import
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1 text-[11px]"
+                        icon={<ExternalLink size={12} />}
+                        onClick={() => handleOpenFlowModal(sc)}
+                      >
+                        Flow Studio
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-[11px]"
+                        icon={<Upload size={12} />}
+                        onClick={() => handleImportSceneVideo(sc.id)}
+                        title="Import local clip directly"
+                      >
+                        Import MP4
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -627,6 +715,139 @@ ${scene.narration}
                 value={flowPackage.promptPackage}
                 className="w-full bg-studio-950 font-mono text-[11px] text-studio-200 border border-studio-800 rounded-xl p-3 focus:outline-none"
               />
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Scene Configuration Modal */}
+      {configModalScene && (
+        <Modal
+          isOpen={Boolean(configModalScene)}
+          onClose={() => setConfigModalScene(null)}
+          title={`Configure Scene ${configModalScene.sceneNumber}: ${configModalScene.title || 'Untitled'}`}
+          subtitle="Customize visual style, camera movements, lighting, and timeline duration"
+          maxWidth="lg"
+          footer={
+            <div className="flex justify-end gap-2 w-full">
+              <Button variant="secondary" size="sm" onClick={() => setConfigModalScene(null)}>
+                Done
+              </Button>
+            </div>
+          }
+        >
+          <div className="space-y-4 text-xs">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-studio-400 block mb-1">Scene Title</label>
+                <input
+                  type="text"
+                  value={configModalScene.title || ''}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setConfigModalScene({ ...configModalScene, title: val });
+                    handleUpdateScene(configModalScene.id, { title: val });
+                  }}
+                  className="w-full bg-studio-900 border border-studio-750 rounded-lg px-2.5 py-1.5 text-studio-200"
+                />
+              </div>
+
+              <div>
+                <label className="text-studio-400 block mb-1">Duration (Seconds)</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={configModalScene.duration}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value) || 5;
+                    setConfigModalScene({ ...configModalScene, duration: val });
+                    handleUpdateScene(configModalScene.id, { duration: val });
+                  }}
+                  className="w-full bg-studio-900 border border-studio-750 rounded-lg px-2.5 py-1.5 text-studio-200"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-studio-400 block mb-1">Camera Angle / Movement</label>
+                <input
+                  type="text"
+                  value={configModalScene.cameraAngle || ''}
+                  placeholder="e.g. Low angle slow pan, cinematic tracking shot"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setConfigModalScene({ ...configModalScene, cameraAngle: val });
+                    handleUpdateScene(configModalScene.id, { cameraAngle: val });
+                  }}
+                  className="w-full bg-studio-900 border border-studio-750 rounded-lg px-2.5 py-1.5 text-studio-200"
+                />
+              </div>
+
+              <div>
+                <label className="text-studio-400 block mb-1">Lighting & Ambiance</label>
+                <input
+                  type="text"
+                  value={configModalScene.lighting || ''}
+                  placeholder="e.g. Moody neon cyberpunk, golden hour backlight"
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setConfigModalScene({ ...configModalScene, lighting: val });
+                    handleUpdateScene(configModalScene.id, { lighting: val });
+                  }}
+                  className="w-full bg-studio-900 border border-studio-750 rounded-lg px-2.5 py-1.5 text-studio-200"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="text-studio-400 block mb-1">Suggested SFX Cue</label>
+              <input
+                type="text"
+                value={configModalScene.soundEffectSuggestion || ''}
+                placeholder="e.g. Dramatic bass drop, ticking clock, door creak"
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setConfigModalScene({ ...configModalScene, soundEffectSuggestion: val });
+                  handleUpdateScene(configModalScene.id, { soundEffectSuggestion: val });
+                }}
+                className="w-full bg-studio-900 border border-studio-750 rounded-lg px-2.5 py-1.5 text-studio-200"
+              />
+            </div>
+
+            <div>
+              <label className="text-studio-400 block mb-1">AI Video Generation Prompt</label>
+              <textarea
+                rows={3}
+                value={configModalScene.generationPrompt}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setConfigModalScene({ ...configModalScene, generationPrompt: val });
+                  handleUpdateScene(configModalScene.id, { generationPrompt: val });
+                }}
+                className="w-full bg-studio-900 border border-studio-750 rounded-lg px-2.5 py-2 font-mono text-[11px] text-brand-200"
+              />
+            </div>
+
+            <div className="p-3 bg-studio-950 rounded-xl border border-studio-800 flex items-center justify-between">
+              <div>
+                <span className="text-xs font-semibold text-studio-200 block">AI Scene Video Assembly</span>
+                <span className="text-[11px] text-studio-400">Generate high-definition MP4 clip using reference keyframe</span>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<Sparkles size={13} />}
+                loading={isGeneratingSceneVideo === configModalScene.id}
+                onClick={async () => {
+                  await handleGenerateSceneVideo(configModalScene.id);
+                  const updated = scenes.find(s => s.id === configModalScene.id);
+                  if (updated) setConfigModalScene(updated);
+                }}
+              >
+                {configModalScene.videoPath ? 'Regenerate Video' : 'Generate Video (AI)'}
+              </Button>
             </div>
           </div>
         </Modal>

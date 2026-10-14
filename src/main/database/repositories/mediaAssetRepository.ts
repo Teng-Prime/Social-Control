@@ -76,8 +76,9 @@ export class MediaAssetRepository {
     };
   }
 
-  public create(asset: MediaAsset): MediaAsset {
+  public create(asset: Partial<MediaAsset> & { title: string; filePath: string }): MediaAsset {
     const db = appDb.getRawDb();
+    const id = asset.id || `asset_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     const stmt = db.prepare(`
       INSERT INTO media_assets (
         id, title, file_path, file_name, file_size, duration, width, height,
@@ -91,24 +92,24 @@ export class MediaAssetRepository {
     `);
 
     stmt.run(
-      asset.id,
+      id,
       asset.title,
       asset.filePath,
-      asset.fileName,
-      asset.fileSize,
-      asset.duration,
-      asset.width,
-      asset.height,
-      asset.aspectRatio,
-      asset.format,
-      asset.thumbnailPath,
+      asset.fileName || '',
+      asset.fileSize || 0,
+      asset.duration || 0,
+      asset.width || 0,
+      asset.height || 0,
+      asset.aspectRatio || '9:16',
+      asset.format || 'mp4',
+      asset.thumbnailPath || '',
       JSON.stringify(asset.tags || []),
-      asset.folder,
+      asset.folder || 'Drafts',
       asset.isFavorite ? 1 : 0,
       asset.projectId || null
     );
 
-    return this.getById(asset.id)!;
+    return this.getById(id)!;
   }
 
   public update(id: string, updates: Partial<MediaAsset>): MediaAsset {

@@ -122,6 +122,7 @@ export interface StoryProject {
   intro: string;
   climax: string;
   ending: string;
+  endingHook?: string;
   continuityNotes: string;
   scenes: Scene[];
   selectedCharacterIds?: string[];
@@ -664,6 +665,11 @@ export interface IElectronAPI {
   generateFullStory: (options: { prompt: string; genre: string; targetDuration: number; platform?: string; tone?: string; targetAudience?: string; characterIds?: string[]; customInstructions?: string }) => Promise<{ hook: string; intro: string; scenes: Array<{ title: string; scriptText: string; narration: string; prompt: string; duration: number; visualDescription: string; cameraAngle: string; lighting: string; actions: string; environment: string; soundEffectSuggestion: string; negativePrompt: string }>; climax: string; ending: string }>;
   generateVoiceover: (projectId: string, text: string, voiceSettings: VoiceSettings) => Promise<{ audioPath: string; duration: number }>;
   getBuiltinAudioLibrary: () => Promise<{ music: Array<{ id: string; title: string; mood: string; genre: string; duration: number; path: string }>; soundEffects: Array<{ id: string; name: string; category: string; duration: number; path: string }> }>;
+  generateNextVideoHook: (options: { topic: string; genre: string; climax?: string; hook?: string; endingType?: string }) => Promise<string>;
+  autoMatchBackgroundMusic: (projectId: string) => Promise<{ success: boolean; track: any }>;
+  autoAssignSceneSoundEffects: (projectId: string) => Promise<{ success: boolean; assignedCount: number; soundEffects: SoundEffectItem[] }>;
+  generateSceneVideo: (sceneId: string, options?: { duration?: number; motionStyle?: string }) => Promise<{ success: boolean; videoPath: string; thumbnailPath?: string; message?: string }>;
+  generateAllSceneVideos: (projectId: string) => Promise<{ success: boolean; generatedCount: number; message: string }>;
   renderProjectVideo: (projectId: string) => Promise<{ jobId: string }>;
   renderFinalVideo: (projectId: string, options?: { resolution?: string; aspectRatio?: string; mixAudio?: boolean; burnedSubtitles?: boolean }) => Promise<{ jobId: string; outputPath: string; assetId?: string }>;
   getFlowConnectionStatus: () => Promise<FlowConnectionInfo>;

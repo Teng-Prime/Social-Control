@@ -48,9 +48,9 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
   );
 
   const handleCreate = async () => {
-    if (!newTitle.trim()) return;
+    const titleToUse = newTitle.trim() || 'New Story Project';
     await onCreateProject({
-      title: newTitle.trim(),
+      title: titleToUse,
       genre: newGenre,
       aspectRatio: newAspect,
       targetDuration: newDuration,
@@ -90,7 +90,10 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
             variant="primary"
             size="sm"
             icon={<Plus size={14} />}
-            onClick={() => setIsNewModalOpen(true)}
+            onClick={() => {
+              setNewTitle('New Story Adventure');
+              setIsNewModalOpen(true);
+            }}
           >
             New
           </Button>
@@ -121,8 +124,20 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
       {/* Project List */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
         {filteredProjects.length === 0 ? (
-          <div className="text-center py-10 px-4 text-xs text-studio-500">
-            {search ? 'No matching projects found' : 'No story projects yet. Click "+ New" to begin.'}
+          <div className="text-center py-8 px-4 text-xs text-studio-500 space-y-3">
+            <p>{search ? 'No matching projects found' : 'No story projects yet.'}</p>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Plus size={13} />}
+              onClick={() => {
+                setNewTitle('New Story Adventure');
+                setIsNewModalOpen(true);
+              }}
+              className="mx-auto"
+            >
+              + Create New Project
+            </Button>
           </div>
         ) : (
           filteredProjects.map((proj) => {
@@ -164,9 +179,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (window.confirm(`Delete story project "${proj.title}"?`)) {
-                        onDeleteProject(proj.id);
-                      }
+                      onDeleteProject(proj.id);
                     }}
                     className="opacity-0 group-hover:opacity-100 p-1 text-studio-500 hover:text-rose-400 transition-opacity"
                     title="Delete Project"
@@ -207,7 +220,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
             <Button variant="secondary" size="sm" onClick={() => setIsNewModalOpen(false)}>
               Cancel
             </Button>
-            <Button variant="primary" size="sm" onClick={handleCreate} disabled={!newTitle.trim()}>
+            <Button variant="primary" size="sm" onClick={handleCreate}>
               Create Project
             </Button>
           </div>
@@ -219,6 +232,9 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
             placeholder="e.g. Mystery of the Midnight Signal"
             value={newTitle}
             onChange={(e) => setNewTitle(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') handleCreate();
+            }}
           />
 
           <div className="grid grid-cols-2 gap-4">

@@ -16,6 +16,7 @@ import {
   Repeat,
   Radio,
   Sliders,
+  Sparkles,
 } from 'lucide-react';
 
 interface Step5BackgroundMusicProps {
@@ -36,6 +37,25 @@ export const Step5BackgroundMusic: React.FC<Step5BackgroundMusicProps> = ({
   const [search, setSearch] = useState('');
   const [playingTrackId, setPlayingTrackId] = useState<string | null>(null);
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
+  const [isAutoMatching, setIsAutoMatching] = useState(false);
+
+  const handleAutoMatchMusic = async () => {
+    if (!window.api) return;
+    setIsAutoMatching(true);
+    try {
+      const res = await window.api.autoMatchBackgroundMusic(project.id);
+      await onRefreshProject();
+      addToast({
+        type: 'success',
+        title: 'AI Background Music Matched',
+        message: `Matched ${res.matchedTrack?.title || 'mood track'} (${res.genre} / ${res.mood}) based on story tone.`,
+      });
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Auto-match failed', message: err.message });
+    } finally {
+      setIsAutoMatching(false);
+    }
+  };
 
   const defaultMusicSettings: MusicSettings = {
     trackId: 'mus_cinematic',
@@ -141,6 +161,16 @@ export const Step5BackgroundMusic: React.FC<Step5BackgroundMusicProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Sparkles size={13} />}
+            loading={isAutoMatching}
+            onClick={handleAutoMatchMusic}
+            className="bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white shadow-subtle"
+          >
+            ✨ AI Auto-Match Music
+          </Button>
           <Button
             variant="outline"
             size="sm"

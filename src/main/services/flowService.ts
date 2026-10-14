@@ -11,9 +11,14 @@ import {
   FlowConnectionInfo,
   VoiceSettings,
   StoryGenre,
+  SoundEffectItem,
 } from '../../shared/types';
 import { storageService } from './storageService';
 import { characterRepo } from '../database/repositories/characterRepository';
+import { projectRepo } from '../database/repositories/projectRepository';
+import { mediaAssetRepo } from '../database/repositories/mediaAssetRepository';
+import { characterImageGenerator } from './characterImageGenerator';
+import { ffmpegService } from './ffmpegService';
 
 // Helper to generate a valid, clean WAV audio file for previews & rendering
 function createSampleWav(filePath: string, durationSec: number, freq: number = 440): string {
@@ -653,6 +658,282 @@ ${scene.narration}
     return {
       variations,
       platformLimitNotes: platformNotes,
+    };
+  }
+
+  // --- Ending Hook / Next Video Retention Generator ---
+  public async generateNextVideoHook(options: {
+    topic: string;
+    genre: string;
+    climax?: string;
+    hook?: string;
+    endingType?: string;
+  }): Promise<string> {
+    const { topic, genre, endingType = 'part2_cliffhanger' } = options;
+    const cleanTopic = topic.trim() || 'this mysterious event';
+
+    const cliffhangers: Record<string, string[]> = {
+      mystery: [
+        `What they found inside the locked chamber will change everything you thought you knew. Part 2 drops tomorrow—follow now so you don't miss the reveal!`,
+        `They thought the code was cracked, but at 3:00 AM a second transmission arrived from the exact same coordinates. Follow for Part 2!`,
+        `There is one critical clue hidden in this footage that nobody noticed... Did you catch it? Watch Part 2 to see the full breakdown!`,
+        `The real truth about ${cleanTopic} was hidden right under their feet. In Part 2, the true mastermind is finally revealed!`,
+      ],
+      horror: [
+        `Look closely at the shadow behind them in the final frame... That wasn't an illusion. Part 2 reveals what followed them home. Subscribe now!`,
+        `The door didn't lock from the outside—it was latched from the INSIDE. Follow for Part 2 to see what was trapped in that room!`,
+        `Whatever you do, don't watch Part 2 alone. What happened 10 minutes later is caught on the night vision camera...`,
+      ],
+      emotional: [
+        `The final envelope had one last handwritten note attached. When you read what it says in Part 2, you will never look at them the same way...`,
+        `A single phone call received at midnight changed their entire future. Drop a heart and follow for Part 2 releasing tonight!`,
+        `They thought they were saying goodbye for the last time. But the ending of this story in Part 2 will restore your faith in miracles.`,
+      ],
+      drama: [
+        `One signature was all it took to destroy an empire. In Part 2, the counter-strike begins. Follow to watch the confrontation!`,
+        `The secret recorded on that flash drive is about to go public. Will they survive the fallout? Part 2 streams tomorrow!`,
+      ],
+      comedy: [
+        `You think that was bad? Wait until you see the security camera footage from the next morning! Follow for Part 2 right now!`,
+        `The story doesn't end here... The reaction from the boss when he walked into the room is up in Part 2!`,
+      ],
+      adventure: [
+        `As the rope snapped, they saw what was waiting at the bottom of the canyon... Follow now so you don't miss Part 2!`,
+        `The map didn't lead to treasure—it led to a warning. In Part 2, the expedition takes an unexpected turn!`,
+      ],
+      moral: [
+        `Karma didn't wait long. What happened to them 24 hours later taught the entire town a lesson they will never forget. Watch Part 2 next!`,
+        `The choice they made seemed impossible at the time, but wait until you see the miracle that resulted from it in Part 2!`,
+      ],
+    };
+
+    const list = cliffhangers[genre] || cliffhangers.mystery;
+    return list[Math.floor(Math.random() * list.length)];
+  }
+
+  // --- Step 5: AI Auto-Match Background Music ---
+  public async autoMatchBackgroundMusic(projectId: string): Promise<{ success: boolean; track: any }> {
+    const project = projectRepo.getById(projectId);
+    if (!project) throw new Error(`Project not found: ${projectId}`);
+
+    const lib = await this.getBuiltinAudioLibrary();
+    const genre = (project.genre || 'mystery').toLowerCase();
+
+    let matchedTrack = lib.music.find((m) => m.mood.toLowerCase() === genre);
+    if (!matchedTrack) {
+      if (genre === 'horror' || genre === 'mystery') {
+        matchedTrack = lib.music.find((m) => m.id === 'mus_suspense') || lib.music[0];
+      } else if (genre === 'emotional' || genre === 'romance') {
+        matchedTrack = lib.music.find((m) => m.id === 'mus_emotional') || lib.music[0];
+      } else if (genre === 'comedy') {
+        matchedTrack = lib.music.find((m) => m.id === 'mus_happy') || lib.music[0];
+      } else if (genre === 'moral') {
+        matchedTrack = lib.music.find((m) => m.id === 'mus_peaceful') || lib.music[0];
+      } else {
+        matchedTrack = lib.music.find((m) => m.id === 'mus_cinematic') || lib.music[0];
+      }
+    }
+
+    const musicSettings = {
+      trackId: matchedTrack.id,
+      trackTitle: matchedTrack.title,
+      audioPath: matchedTrack.path,
+      mood: matchedTrack.mood,
+      volume: 25,
+      trimStart: 0,
+      trimEnd: project.targetDuration || 60,
+      fadeIn: true,
+      fadeOut: true,
+      loop: true,
+      ducking: true,
+    };
+
+    projectRepo.update(projectId, { musicSettings });
+    logger.info('FlowService', `Auto-matched music "${matchedTrack.title}" for project ${project.title}`);
+    return { success: true, track: matchedTrack };
+  }
+
+  // --- Step 6: AI Auto-Assign Sound Effects for Scenes ---
+  public async autoAssignSceneSoundEffects(projectId: string): Promise<{
+    success: boolean;
+    assignedCount: number;
+    soundEffects: SoundEffectItem[];
+  }> {
+    const project = projectRepo.getById(projectId);
+    if (!project) throw new Error(`Project not found: ${projectId}`);
+
+    const lib = await this.getBuiltinAudioLibrary();
+    const scenes = project.scenes || [];
+    const assigned: SoundEffectItem[] = [];
+
+    let currentTimelineTime = 0;
+
+    for (const sc of scenes) {
+      const combinedText = `${sc.soundEffectSuggestion || ''} ${sc.title || ''} ${sc.scriptText || ''} ${sc.visualDescription || ''} ${sc.actions || ''}`.toLowerCase();
+
+      let matchedSfx = lib.soundEffects[0];
+
+      if (combinedText.includes('step') || combinedText.includes('walk') || combinedText.includes('gravel') || combinedText.includes('run')) {
+        matchedSfx = lib.soundEffects.find((s) => s.category === 'footsteps') || lib.soundEffects[0];
+      } else if (combinedText.includes('rain') || combinedText.includes('thunder') || combinedText.includes('storm')) {
+        matchedSfx = lib.soundEffects.find((s) => s.category === 'rain') || lib.soundEffects[0];
+      } else if (combinedText.includes('door') || combinedText.includes('creak') || combinedText.includes('enter') || combinedText.includes('lock')) {
+        matchedSfx = lib.soundEffects.find((s) => s.category === 'doors') || lib.soundEffects[0];
+      } else if (combinedText.includes('heart') || combinedText.includes('fear') || combinedText.includes('nervous') || combinedText.includes('breath')) {
+        matchedSfx = lib.soundEffects.find((s) => s.name.includes('Heartbeat')) || lib.soundEffects[0];
+      } else if (combinedText.includes('clock') || combinedText.includes('tick') || combinedText.includes('countdown') || combinedText.includes('time')) {
+        matchedSfx = lib.soundEffects.find((s) => s.name.includes('Clock')) || lib.soundEffects[0];
+      } else if (combinedText.includes('impact') || combinedText.includes('boom') || combinedText.includes('climax') || combinedText.includes('shock') || combinedText.includes('reveal')) {
+        matchedSfx = lib.soundEffects.find((s) => s.category === 'impacts') || lib.soundEffects[0];
+      } else if (combinedText.includes('whoosh') || combinedText.includes('fast') || combinedText.includes('transition') || combinedText.includes('camera')) {
+        matchedSfx = lib.soundEffects.find((s) => s.category === 'transitions') || lib.soundEffects[0];
+      } else {
+        matchedSfx = lib.soundEffects.find((s) => s.category === 'ambient') || lib.soundEffects[0];
+      }
+
+      assigned.push({
+        id: `sfx_${sc.id}_${Date.now()}_${assigned.length}`,
+        sceneId: sc.id,
+        name: matchedSfx.name,
+        category: matchedSfx.category,
+        audioPath: matchedSfx.path,
+        volume: 80,
+        startTime: currentTimelineTime,
+        duration: Math.min(sc.duration || 5, matchedSfx.duration || 3),
+      });
+
+      currentTimelineTime += sc.duration || 5;
+    }
+
+    projectRepo.update(projectId, { soundEffects: assigned });
+    logger.info('FlowService', `Auto-assigned ${assigned.length} AI sound effects for project ${project.title}`);
+    return { success: true, assignedCount: assigned.length, soundEffects: assigned };
+  }
+
+  // --- Step 3: AI Scene Video Generation ---
+  public async generateSceneVideo(
+    sceneId: string,
+    options: { duration?: number; motionStyle?: string } = {}
+  ): Promise<{ success: boolean; videoPath: string; thumbnailPath?: string; message?: string }> {
+    const scene = projectRepo.getSceneById(sceneId);
+    if (!scene) throw new Error(`Scene not found: ${sceneId}`);
+
+    const project = projectRepo.getById(scene.projectId);
+    if (!project) throw new Error(`Project not found: ${scene.projectId}`);
+
+    // Determine reference portrait image to use
+    let imagePath = scene.referenceImagePath;
+
+    if (!imagePath || !fs.existsSync(imagePath)) {
+      let char: Character | null = null;
+      if (scene.characterId) {
+        char = characterRepo.getById(scene.characterId);
+      } else if (project.selectedCharacterIds && project.selectedCharacterIds.length > 0) {
+        char = characterRepo.getById(project.selectedCharacterIds[0]);
+      }
+
+      if (char) {
+        const primaryRef = char.references.find((r) => r.isPrimary) || char.references[0];
+        if (primaryRef && fs.existsSync(primaryRef.imagePath)) {
+          imagePath = primaryRef.imagePath;
+        } else {
+          const newRef = await characterImageGenerator.generatePortrait(char, 'front', true);
+          imagePath = newRef.imagePath;
+        }
+      }
+    }
+
+    if (!imagePath || !fs.existsSync(imagePath)) {
+      const allChars = characterRepo.getAll();
+      if (allChars.length > 0 && allChars[0].references[0]) {
+        imagePath = allChars[0].references[0].imagePath;
+      }
+    }
+
+    const draftsFolder = storageService.getFolder('Drafts');
+    const safeTitle = (scene.title || `Scene_${scene.sceneNumber}`).replace(/[^a-zA-Z0-9_-]/g, '_');
+    const outName = `${safeTitle}_${Date.now()}.mp4`;
+    const outputPath = path.join(draftsFolder, outName);
+
+    const duration = options.duration || scene.duration || 5;
+    const aspect = project.aspectRatio || '9:16';
+
+    const result = await ffmpegService.generateSceneVideoClip({
+      imagePath: imagePath || path.join(storageService.getFolder('Thumbnails'), 'placeholder.png'),
+      outputPath,
+      durationSec: duration,
+      aspectRatio: aspect,
+      motionStyle: options.motionStyle || 'cinematic_pan',
+    });
+
+    // Update scene record
+    projectRepo.updateScene(scene.id, {
+      videoPath: result.videoPath,
+      status: 'ready',
+      duration,
+    });
+
+    // Register asset in media asset repository
+    try {
+      mediaAssetRepo.create({
+        title: `${project.title} - Scene ${scene.sceneNumber}`,
+        filePath: result.videoPath,
+        fileName: outName,
+        fileSize: fs.existsSync(result.videoPath) ? fs.statSync(result.videoPath).size : 0,
+        duration,
+        width: aspect === '16:9' ? 1920 : 1080,
+        height: aspect === '16:9' ? 1080 : 1920,
+        aspectRatio: aspect,
+        format: 'mp4',
+        thumbnailPath: result.thumbnailPath || '',
+        tags: ['ai_generated', project.genre, `scene_${scene.sceneNumber}`],
+        folder: 'Drafts',
+        isFavorite: false,
+        projectId: project.id,
+      });
+    } catch (e: any) {
+      logger.warn('FlowService', `Could not register media asset: ${e.message}`);
+    }
+
+    logger.info('FlowService', `AI Scene video generated: ${result.videoPath}`);
+    return {
+      success: true,
+      videoPath: result.videoPath,
+      thumbnailPath: result.thumbnailPath,
+      message: `Scene ${scene.sceneNumber} video generated successfully.`,
+    };
+  }
+
+  // --- Step 3: Batch AI Video Generator for All Scenes ---
+  public async generateAllSceneVideos(projectId: string): Promise<{
+    success: boolean;
+    generatedCount: number;
+    message: string;
+  }> {
+    const project = projectRepo.getById(projectId);
+    if (!project) throw new Error(`Project not found: ${projectId}`);
+
+    const scenes = project.scenes || [];
+    if (scenes.length === 0) {
+      throw new Error('No scenes found in project to generate.');
+    }
+
+    let count = 0;
+    for (const sc of scenes) {
+      try {
+        await this.generateSceneVideo(sc.id);
+        count++;
+      } catch (err: any) {
+        logger.warn('FlowService', `Failed generating video for scene ${sc.sceneNumber}: ${err.message}`);
+      }
+    }
+
+    projectRepo.update(projectId, { status: 'generating' });
+
+    return {
+      success: true,
+      generatedCount: count,
+      message: `Generated AI video clips for ${count} of ${scenes.length} scenes.`,
     };
   }
 }

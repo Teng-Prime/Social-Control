@@ -50,6 +50,7 @@ export const Step2StoryHook: React.FC<Step2StoryHookProps> = ({
   const intro = project.intro || '';
   const climax = project.climax || '';
   const ending = project.ending || '';
+  const endingHook = project.endingHook || project.ending || '';
 
   const genrePresets: { value: StoryGenre; label: string; desc: string }[] = [
     { value: 'mystery', label: 'Mystery', desc: 'Curiosity gaps, encrypted clues & hidden secrets' },
@@ -89,6 +90,30 @@ export const Step2StoryHook: React.FC<Step2StoryHookProps> = ({
       addToast({ type: 'success', title: 'Viral Opening Hook Generated' });
     } catch (e: any) {
       addToast({ type: 'error', title: 'Hook generation failed', message: e.message });
+    } finally {
+      setIsLoadingAction(null);
+    }
+  };
+
+  // AI Action 2b: Generate Ending Hook (Next Video Cliffhanger / Retention)
+  const handleGenerateEndingHook = async () => {
+    if (!window.api) return;
+    setIsLoadingAction('ending_hook');
+    try {
+      const generated = await window.api.generateNextVideoHook({
+        topic: topic || `${genre} story`,
+        genre,
+        climax,
+        hook,
+      });
+      await onUpdateProject({ endingHook: generated, ending: generated });
+      addToast({
+        type: 'success',
+        title: 'Next Video Cliffhanger Generated',
+        message: 'High-retention sequel hook created for Part 2.',
+      });
+    } catch (e: any) {
+      addToast({ type: 'error', title: 'Cliffhanger generation failed', message: e.message });
     } finally {
       setIsLoadingAction(null);
     }
@@ -402,7 +427,17 @@ export const Step2StoryHook: React.FC<Step2StoryHookProps> = ({
             onClick={handleGenerateHook}
             disabled={Boolean(isLoadingAction)}
           >
-            {isLoadingAction === 'hook' ? 'Generating...' : 'Generate Hook'}
+            {isLoadingAction === 'hook' ? 'Generating...' : 'Generate Opening Hook'}
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Sparkles size={14} className="text-amber-400" />}
+            onClick={handleGenerateEndingHook}
+            disabled={Boolean(isLoadingAction)}
+          >
+            {isLoadingAction === 'ending_hook' ? 'Generating Cliffhanger...' : 'Generate Part 2 Cliffhanger'}
           </Button>
 
           <Button
@@ -457,12 +492,23 @@ export const Step2StoryHook: React.FC<Step2StoryHookProps> = ({
         </div>
       </div>
 
-      {/* Separate Hook & Script Editor Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Card 1: 3-Second Viral Hook */}
+      {/* 3 Dedicated Narrative Arc Cards: Opening Hook, Ending Cliffhanger, & Climax */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Card 1: 3-Second Viral Opening Hook */}
         <Card
           title="Opening Hook (First 3 Seconds) *"
           subtitle="Captures immediate attention before user scrolls away"
+          action={
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Lightbulb size={12} />}
+              onClick={handleGenerateHook}
+              disabled={Boolean(isLoadingAction)}
+            >
+              Suggest Hook
+            </Button>
+          }
         >
           <div className="space-y-2">
             <textarea
@@ -473,41 +519,120 @@ export const Step2StoryHook: React.FC<Step2StoryHookProps> = ({
               className="w-full bg-studio-950 border border-studio-800 rounded-xl p-3 text-xs text-brand-300 font-medium placeholder-studio-500 focus:outline-none focus:border-brand-500"
             />
             <div className="flex items-center justify-between text-[10px] text-studio-500">
-              <span>Must introduce conflict, question or mystery</span>
+              <span>Introduces conflict or curiosity gap</span>
               <span>{hook.length} characters</span>
             </div>
           </div>
         </Card>
 
-        {/* Card 2: Narrative Arc / Climax & Ending */}
+        {/* Card 2: Ending Hook & Next Video Cliffhanger (Viewer Retention for Part 2) */}
         <Card
-          title="Narrative Climax & Resolution *"
-          subtitle="Delivers the revelation and call to action"
+          title="Ending Hook & Part 2 Cliffhanger *"
+          subtitle="Compels viewer to watch next video (Part 2 / next episode)"
+          action={
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<Sparkles size={12} />}
+              onClick={handleGenerateEndingHook}
+              disabled={Boolean(isLoadingAction)}
+            >
+              {isLoadingAction === 'ending_hook' ? 'Generating...' : 'Generate Cliffhanger'}
+            </Button>
+          }
         >
-          <div className="space-y-3">
-            <div>
-              <label className="text-[11px] font-medium text-studio-400 block mb-1">Dramatic Climax</label>
-              <textarea
-                rows={2}
-                value={climax}
-                onChange={(e) => onUpdateProject({ climax: e.target.value })}
-                placeholder="The dramatic turning point..."
-                className="w-full bg-studio-950 border border-studio-800 rounded-xl p-2.5 text-xs text-studio-100 placeholder-studio-500 focus:outline-none focus:border-brand-500"
-              />
+          <div className="space-y-2.5">
+            <textarea
+              rows={4}
+              value={endingHook}
+              onChange={(e) => onUpdateProject({ endingHook: e.target.value, ending: e.target.value })}
+              placeholder="e.g. What they discovered inside the locked chamber will shake everything you believe. Follow now for Part 2 releasing tomorrow!"
+              className="w-full bg-studio-950 border border-amber-500/30 rounded-xl p-3 text-xs text-amber-200 font-medium placeholder-studio-500 focus:outline-none focus:border-amber-400"
+            />
+            <div className="flex items-center justify-between text-[10px] text-studio-500">
+              <span className="text-amber-400/90 font-medium">Leaves suspense for the next video</span>
+              <span>{endingHook.length} characters</span>
             </div>
-            <div>
-              <label className="text-[11px] font-medium text-studio-400 block mb-1">Ending & Call to Action</label>
-              <textarea
-                rows={2}
-                value={ending}
-                onChange={(e) => onUpdateProject({ ending: e.target.value })}
-                placeholder="Call to action or sequel question..."
-                className="w-full bg-studio-950 border border-studio-800 rounded-xl p-2.5 text-xs text-studio-100 placeholder-studio-500 focus:outline-none focus:border-brand-500"
-              />
+
+            {/* Quick Cliffhanger Templates */}
+            <div className="pt-1 border-t border-studio-800/60">
+              <span className="text-[10px] text-studio-400 font-medium block mb-1">
+                Quick Part 2 Cliffhanger Templates:
+              </span>
+              <div className="flex flex-wrap gap-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    onUpdateProject({
+                      endingHook: `What was uncovered inside changes everything you thought you knew. Part 2 drops tomorrow—follow now so you don't miss the reveal!`,
+                      ending: `What was uncovered inside changes everything you thought you knew. Part 2 drops tomorrow—follow now so you don't miss the reveal!`,
+                    })
+                  }
+                  className="px-2 py-0.5 rounded-md bg-studio-900 hover:bg-studio-850 border border-studio-800 text-[10px] text-studio-300"
+                >
+                  🎬 Part 2 Reveal
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onUpdateProject({
+                      endingHook: `Did you spot the second figure in the background reflection? Look closer... Part 2 exposes the full footage!`,
+                      ending: `Did you spot the second figure in the background reflection? Look closer... Part 2 exposes the full footage!`,
+                    })
+                  }
+                  className="px-2 py-0.5 rounded-md bg-studio-900 hover:bg-studio-850 border border-studio-800 text-[10px] text-studio-300"
+                >
+                  👁️ Hidden Clue
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onUpdateProject({
+                      endingHook: `The real danger wasn't outside—it was already in the room. Follow for Part 2 to see what happened next!`,
+                      ending: `The real danger wasn't outside—it was already in the room. Follow for Part 2 to see what happened next!`,
+                    })
+                  }
+                  className="px-2 py-0.5 rounded-md bg-studio-900 hover:bg-studio-850 border border-studio-800 text-[10px] text-studio-300"
+                >
+                  ⚡ Shocking Turn
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onUpdateProject({
+                      endingHook: `Would you have made the same impossible choice? Drop your thoughts below and subscribe to see the final outcome in Part 2!`,
+                      ending: `Would you have made the same impossible choice? Drop your thoughts below and subscribe to see the final outcome in Part 2!`,
+                    })
+                  }
+                  className="px-2 py-0.5 rounded-md bg-studio-900 hover:bg-studio-850 border border-studio-800 text-[10px] text-studio-300"
+                >
+                  ❓ Viewer Choice
+                </button>
+              </div>
             </div>
           </div>
         </Card>
       </div>
+
+      {/* Card 3: Narrative Arc Climax */}
+      <Card
+        title="Dramatic Climax & Resolution"
+        subtitle="The turning point before the final cliffhanger"
+      >
+        <div className="space-y-2">
+          <textarea
+            rows={2}
+            value={climax}
+            onChange={(e) => onUpdateProject({ climax: e.target.value })}
+            placeholder="The decisive turning point where the story reaches maximum tension..."
+            className="w-full bg-studio-950 border border-studio-800 rounded-xl p-2.5 text-xs text-studio-100 placeholder-studio-500 focus:outline-none focus:border-brand-500"
+          />
+          <div className="flex justify-between text-[10px] text-studio-500">
+            <span>Resolves initial scene tension before the next video hook triggers</span>
+            <span>{climax.length} characters</span>
+          </div>
+        </div>
+      </Card>
 
       {/* Script Approval Banner */}
       <div className="p-4 rounded-xl bg-studio-850 border border-studio-750 flex items-center justify-between">

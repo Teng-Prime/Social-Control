@@ -347,6 +347,26 @@ export function registerIpcHandlers(): void {
     return flowService.getBuiltinAudioLibrary();
   });
 
+  ipcMain.handle('generateNextVideoHook', async (_, options: any) => {
+    return flowService.generateNextVideoHook(options);
+  });
+
+  ipcMain.handle('autoMatchBackgroundMusic', async (_, projectId: string) => {
+    return flowService.autoMatchBackgroundMusic(projectId);
+  });
+
+  ipcMain.handle('autoAssignSceneSoundEffects', async (_, projectId: string) => {
+    return flowService.autoAssignSceneSoundEffects(projectId);
+  });
+
+  ipcMain.handle('generateSceneVideo', async (_, sceneId: string, options: any) => {
+    return flowService.generateSceneVideo(sceneId, options);
+  });
+
+  ipcMain.handle('generateAllSceneVideos', async (_, projectId: string) => {
+    return flowService.generateAllSceneVideos(projectId);
+  });
+
   ipcMain.handle('renderProjectVideo', async (_, projectId: string) => {
     const project = projectRepo.getById(projectId);
     if (!project) throw new Error('Project not found');

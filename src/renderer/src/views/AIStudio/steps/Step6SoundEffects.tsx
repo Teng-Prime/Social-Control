@@ -36,8 +36,27 @@ export const Step6SoundEffects: React.FC<Step6SoundEffectsProps> = ({
   const [audioEl, setAudioEl] = useState<HTMLAudioElement | null>(null);
   const [search, setSearch] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [isAutoAssigning, setIsAutoAssigning] = useState(false);
 
   const assignedEffects: SoundEffectItem[] = project.soundEffects || [];
+
+  const handleAutoAssignSfx = async () => {
+    if (!window.api) return;
+    setIsAutoAssigning(true);
+    try {
+      const res = await window.api.autoAssignSceneSoundEffects(project.id);
+      await onRefreshProject();
+      addToast({
+        type: 'success',
+        title: 'AI Sound Effects Generated',
+        message: `Auto-assigned ${res.assignedEffects?.length || 0} foley cues to scenes based on script analysis.`,
+      });
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'SFX auto-generation failed', message: err.message });
+    } finally {
+      setIsAutoAssigning(false);
+    }
+  };
 
   useEffect(() => {
     const fetchSfx = async () => {
@@ -148,6 +167,16 @@ export const Step6SoundEffects: React.FC<Step6SoundEffectsProps> = ({
 
         <div className="flex items-center gap-2">
           <Button
+            variant="primary"
+            size="sm"
+            icon={<Sparkles size={13} />}
+            loading={isAutoAssigning}
+            onClick={handleAutoAssignSfx}
+            className="bg-gradient-to-r from-brand-600 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 text-white shadow-subtle"
+          >
+            ✨ AI Auto-Assign SFX
+          </Button>
+          <Button
             variant="outline"
             size="sm"
             icon={<Upload size={13} />}
@@ -163,6 +192,17 @@ export const Step6SoundEffects: React.FC<Step6SoundEffectsProps> = ({
         <Card
           title="AI Scene Foley Suggestions"
           subtitle="Identified from approved scene actions and atmosphere"
+          action={
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Sparkles size={12} />}
+              loading={isAutoAssigning}
+              onClick={handleAutoAssignSfx}
+            >
+              Auto-Assign All
+            </Button>
+          }
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 text-xs">
             {aiRecommendedEffects.map((rec) => (

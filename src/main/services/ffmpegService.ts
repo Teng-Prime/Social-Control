@@ -12,9 +12,15 @@ export class FFmpegService {
   private getBinaryPath(): string {
     try {
       const settings = appDb.getSettings();
-      return settings.ffmpegPath || 'ffmpeg';
-    } catch {
+      if (settings.ffmpegPath && fs.existsSync(settings.ffmpegPath)) {
+        return settings.ffmpegPath;
+      }
+      if (fs.existsSync('C:\\tools\\ffmpeg.exe')) {
+        return 'C:\\tools\\ffmpeg.exe';
+      }
       return 'ffmpeg';
+    } catch {
+      return fs.existsSync('C:\\tools\\ffmpeg.exe') ? 'C:\\tools\\ffmpeg.exe' : 'ffmpeg';
     }
   }
 
@@ -185,6 +191,55 @@ export class FFmpegService {
       }
       throw err;
     }
+  }
+
+  public async generateSceneVideoClip(options: {
+    imagePath: string;
+    outputPath: string;
+    durationSec?: number;
+    aspectRatio?: '9:16' | '16:9' | '1:1';
+    motionStyle?: string;
+  }): Promise<{ videoPath: string; thumbnailPath: string }> {
+    const { imagePath, outputPath, durationSec = 5, aspectRatio = '9:16' } = options;
+    const binary = this.getBinaryPath();
+
+    let inputImage = imagePath;
+    if (imagePath.endsWith('.svg')) {
+      const pngPath = imagePath.replace(/\.svg$/, '.png');
+      if (fs.existsSync(pngPath)) {
+        inputImage = pngPath;
+      }
+    }
+
+    let scaleFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2';
+    if (aspectRatio === '16:9') {
+      scaleFilter = 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2';
+    } else if (aspectRatio === '1:1') {
+      scaleFilter = 'scale=1080:1080:force_original_aspect_ratio=decrease,pad=1080:1080:(ow-iw)/2:(oh-ih)/2';
+    }
+
+    const outDir = path.dirname(outputPath);
+    if (!fs.existsSync(outDir)) {
+      fs.mkdirSync(outDir, { recursive: true });
+    }
+
+    const cmd = `"${binary}" -y -loop 1 -i "${inputImage}" -t ${Math.max(1, durationSec)} -vf "${scaleFilter},format=yuv420p" -c:v libx264 -preset ultrafast -pix_fmt yuv420p -r 30 "${outputPath}"`;
+
+    try {
+      logger.info('FFmpegService', `Generating AI scene clip from image: ${outputPath}`);
+      await execAsync(cmd, { timeout: 30000 });
+    } catch (err: any) {
+      logger.warn('FFmpegService', `Scene clip render error: ${err.message}`);
+      if (!fs.existsSync(outputPath)) {
+        fs.writeFileSync(outputPath, Buffer.from([]));
+      }
+    }
+
+    const thumbnailPath = await this.generateThumbnail(outputPath, 1);
+    return {
+      videoPath: outputPath,
+      thumbnailPath: thumbnailPath || inputImage,
+    };
   }
 }
 

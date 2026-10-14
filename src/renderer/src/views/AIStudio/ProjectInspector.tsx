@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Character, StoryProject } from '../../../../shared/types';
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
+import { Button } from '../../components/common/Button';
 import {
   Sparkles,
   Lock,
@@ -15,19 +16,28 @@ import {
   Video,
   FileText,
   Users,
+  Play,
+  Film,
+  Image as ImageIcon,
+  Settings,
 } from 'lucide-react';
 
 interface ProjectInspectorProps {
   project: StoryProject | null;
   selectedCharacters: Character[];
   currentStep: number;
+  onOpenStepConfig?: (step: number) => void;
 }
 
 export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
   project,
   selectedCharacters,
   currentStep,
+  onOpenStepConfig,
 }) => {
+  const [previewMode, setPreviewMode] = useState<'video' | 'thumbnail'>('video');
+  const [selectedSceneIndex, setSelectedSceneIndex] = useState<number>(0);
+
   if (!project) {
     return (
       <aside className="w-80 border-l border-studio-800 bg-studio-900/60 p-4 text-xs text-studio-500 flex items-center justify-center text-center">
@@ -37,6 +47,11 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
   }
 
   const primaryChar = selectedCharacters[0];
+  const activeScene = project.scenes[selectedSceneIndex] || project.scenes[0];
+
+  // Determine active sample video and thumbnail
+  const sampleVideoSrc = activeScene?.videoPath || project.finalVideoPath || project.scenes.find((s) => s.videoPath)?.videoPath;
+  const sampleThumbnailSrc = activeScene?.referenceImagePath || primaryChar?.references.find((r) => r.isPrimary)?.imagePath || primaryChar?.references[0]?.imagePath;
 
   const stepChecklist = [
     {
@@ -53,7 +68,7 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
     },
     {
       step: 3,
-      title: 'Scene Prompts',
+      title: 'Scene Prompts & Video',
       ready: project.scenes.length > 0,
       detail: `${project.scenes.length} scenes defined`,
     },
@@ -106,6 +121,110 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
           </Badge>
         </div>
       </div>
+
+      {/* Sample Video & Thumbnail Preview Player */}
+      <Card
+        title="Sample Video & Thumbnail"
+        subtitle={
+          activeScene
+            ? `Scene ${activeScene.sceneNumber}: ${activeScene.title || 'Untitled'}`
+            : 'Storyboard Visual Preview'
+        }
+        action={
+          <div className="flex items-center gap-1 bg-studio-950 p-0.5 rounded-lg border border-studio-800">
+            <button
+              onClick={() => setPreviewMode('video')}
+              className={`p-1 rounded text-[10px] font-medium transition-colors ${
+                previewMode === 'video'
+                  ? 'bg-brand-500 text-white'
+                  : 'text-studio-400 hover:text-studio-200'
+              }`}
+              title="Preview Sample Video"
+            >
+              <Film size={12} />
+            </button>
+            <button
+              onClick={() => setPreviewMode('thumbnail')}
+              className={`p-1 rounded text-[10px] font-medium transition-colors ${
+                previewMode === 'thumbnail'
+                  ? 'bg-brand-500 text-white'
+                  : 'text-studio-400 hover:text-studio-200'
+              }`}
+              title="Preview Thumbnail Keyframe"
+            >
+              <ImageIcon size={12} />
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-2.5">
+          {/* Media Player Box */}
+          <div className="aspect-video bg-studio-950 rounded-xl overflow-hidden border border-studio-800 relative flex items-center justify-center">
+            {previewMode === 'video' ? (
+              sampleVideoSrc ? (
+                <video
+                  key={sampleVideoSrc}
+                  src={`file://${sampleVideoSrc.replace(/\\/g, '/')}`}
+                  controls
+                  poster={sampleThumbnailSrc ? `file://${sampleThumbnailSrc.replace(/\\/g, '/')}` : undefined}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <div className="text-center p-3 text-studio-500">
+                  <Film size={22} className="mx-auto mb-1 opacity-50" />
+                  <span className="text-[11px] block">No sample video yet</span>
+                  <span className="text-[9px] text-studio-600">
+                    Generate in Step 3 or export in Step 7
+                  </span>
+                </div>
+              )
+            ) : sampleThumbnailSrc ? (
+              <img
+                src={`file://${sampleThumbnailSrc.replace(/\\/g, '/')}`}
+                alt="Keyframe Thumbnail"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="text-center p-3 text-studio-500">
+                <ImageIcon size={22} className="mx-auto mb-1 opacity-50" />
+                <span className="text-[11px] block">No thumbnail keyframe</span>
+                <span className="text-[9px] text-studio-600">
+                  Select character in Step 1
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Scene Selector Pills */}
+          {project.scenes.length > 0 && (
+            <div className="flex items-center gap-1 overflow-x-auto py-1 scrollbar-none">
+              {project.scenes.map((sc, idx) => (
+                <button
+                  key={sc.id}
+                  onClick={() => setSelectedSceneIndex(idx)}
+                  className={`px-2 py-0.5 rounded text-[10px] font-mono shrink-0 transition-colors ${
+                    selectedSceneIndex === idx
+                      ? 'bg-brand-500 text-white font-bold'
+                      : 'bg-studio-950 text-studio-400 hover:text-studio-200 border border-studio-800'
+                  }`}
+                >
+                  S{sc.sceneNumber}
+                </button>
+              ))}
+              {project.finalVideoPath && (
+                <button
+                  onClick={() => {
+                    setPreviewMode('video');
+                  }}
+                  className="px-2 py-0.5 rounded text-[10px] font-mono shrink-0 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30"
+                >
+                  Final
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
 
       {/* Selected Character Card */}
       <Card
@@ -177,10 +296,10 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
                 className={`p-2 rounded-lg flex items-center justify-between transition-all ${
                   isCurrent
                     ? 'bg-brand-500/15 border border-brand-500/30'
-                    : 'bg-studio-850/60 border border-transparent'
+                    : 'bg-studio-850/60 border border-transparent hover:border-studio-750'
                 }`}
               >
-                <div className="flex items-center gap-2.5">
+                <div className="flex items-center gap-2.5 min-w-0">
                   {item.ready ? (
                     <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
                   ) : (
@@ -194,29 +313,40 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
                       {item.step}
                     </div>
                   )}
-                  <div>
+                  <div className="min-w-0">
                     <span
-                      className={`text-xs font-medium block leading-tight ${
+                      className={`text-xs font-medium block leading-tight truncate ${
                         isCurrent ? 'text-brand-300 font-semibold' : 'text-studio-300'
                       }`}
                     >
                       {item.title}
                     </span>
-                    <span className="text-[10px] text-studio-500">{item.detail}</span>
+                    <span className="text-[10px] text-studio-500 truncate block">{item.detail}</span>
                   </div>
                 </div>
 
-                <span
-                  className={`text-[9px] px-1.5 py-0.5 rounded font-mono uppercase ${
-                    item.ready
-                      ? 'bg-emerald-500/10 text-emerald-400'
-                      : isCurrent
-                      ? 'bg-brand-500/20 text-brand-400'
-                      : 'bg-studio-800 text-studio-500'
-                  }`}
-                >
-                  {item.ready ? 'Ready' : isCurrent ? 'Active' : 'Pending'}
-                </span>
+                <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                  {onOpenStepConfig && (
+                    <button
+                      onClick={() => onOpenStepConfig(item.step)}
+                      className="p-1 rounded hover:bg-studio-800 text-studio-400 hover:text-studio-200 transition-colors"
+                      title={`Configure Step ${item.step}`}
+                    >
+                      <Settings size={12} />
+                    </button>
+                  )}
+                  <span
+                    className={`text-[9px] px-1.5 py-0.5 rounded font-mono uppercase ${
+                      item.ready
+                        ? 'bg-emerald-500/10 text-emerald-400'
+                        : isCurrent
+                        ? 'bg-brand-500/20 text-brand-400'
+                        : 'bg-studio-800 text-studio-500'
+                    }`}
+                  >
+                    {item.ready ? 'Ready' : isCurrent ? 'Active' : 'Pending'}
+                  </span>
+                </div>
               </div>
             );
           })}

@@ -25,6 +25,8 @@ import {
   Copy,
   ExternalLink,
   ChevronDown,
+  Sliders,
+  Settings,
 } from 'lucide-react';
 
 interface Step1CharacterProps {
@@ -52,6 +54,8 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
   const [photoMenuCharId, setPhotoMenuCharId] = useState<string | null>(null);
   const [previewPhoto, setPreviewPhoto] = useState<CharacterReference | null>(null);
   const [autoGenerateOnSave, setAutoGenerateOnSave] = useState(true);
+  const [creationSource, setCreationSource] = useState<'ai' | 'upload'>('ai');
+  const [uploadedPhotoPath, setUploadedPhotoPath] = useState<string | null>(null);
 
   // Form State for Character Creator
   const [form, setForm] = useState({
@@ -66,7 +70,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
     isLocked: true,
   });
 
-  const handleOpenNewCharacter = () => {
+  const handleOpenNewCharacter = (source: 'ai' | 'upload' = 'ai') => {
     setForm({
       name: '',
       description: 'Protagonist for story video series',
@@ -79,7 +83,63 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
       isLocked: true,
     });
     setEditingCharacter(null);
+    setCreationSource(source);
+    setUploadedPhotoPath(null);
     setMode('create');
+  };
+
+  const handleDirectUploadNewCharacter = async () => {
+    if (!window.api) return;
+    const file = await window.api.openFileDialog(['png', 'jpg', 'jpeg', 'webp']);
+    if (file) {
+      const baseName = file.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, '') || 'Custom Protagonist';
+      const cleanName = baseName.replace(/[_-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      try {
+        const created = await window.api.createCharacter({
+          name: cleanName,
+          description: 'Uploaded reference character',
+          appearance: 'Realistic appearance matching reference photo',
+          clothing: 'Custom wardrobe matching reference photo',
+          ageRange: '25-30',
+          personality: 'Bold, determined, expressive',
+          voice: 'en-US-Standard-C',
+          visualStyle: 'Photorealistic Cinematic 8k',
+          isLocked: true,
+        });
+
+        await window.api.addCharacterReference(
+          created.id,
+          file,
+          'Directly uploaded reference keyframe photo',
+          true
+        );
+
+        await onRefreshCharacters();
+        if (!selectedCharacterIds.includes(created.id)) {
+          onToggleCharacter(created.id);
+        }
+        addToast({
+          type: 'success',
+          title: 'Character Photo Uploaded',
+          message: `Created "${cleanName}" with primary keyframe photo attached.`,
+        });
+      } catch (err: any) {
+        addToast({ type: 'error', title: 'Upload Failed', message: err.message });
+      }
+    }
+  };
+
+  const handleSelectUploadedPhotoForForm = async () => {
+    if (!window.api) return;
+    const file = await window.api.openFileDialog(['png', 'jpg', 'jpeg', 'webp']);
+    if (file) {
+      setUploadedPhotoPath(file);
+      if (!form.name.trim()) {
+        const base = file.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, '') || 'Custom Protagonist';
+        setForm((prev) => ({ ...prev, name: base.replace(/[_-]/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) }));
+      }
+      addToast({ type: 'info', title: 'Reference Photo Selected', message: 'Will attach upon saving.' });
+    }
   };
 
   const handleOpenEditCharacter = (char: Character) => {
@@ -95,6 +155,8 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
       isLocked: char.isLocked,
     });
     setEditingCharacter(char);
+    setCreationSource('ai');
+    setUploadedPhotoPath(null);
     setMode('create');
   };
 
@@ -108,13 +170,27 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
       if (window.api) {
         if (editingCharacter) {
           await window.api.updateCharacter(editingCharacter.id, form);
+          if (uploadedPhotoPath) {
+            await window.api.addCharacterReference(
+              editingCharacter.id,
+              uploadedPhotoPath,
+              'Custom uploaded reference portrait',
+              true
+            );
+          }
           addToast({ type: 'success', title: 'Character Profile Updated', message: form.name });
         } else {
           const created = await window.api.createCharacter(form);
           addToast({ type: 'success', title: 'Character Created', message: created.name });
 
-          // Auto-generate initial AI portrait reference photo so character immediately has face photo
-          if (autoGenerateOnSave) {
+          if (uploadedPhotoPath) {
+            await window.api.addCharacterReference(
+              created.id,
+              uploadedPhotoPath,
+              'Direct uploaded reference photo',
+              true
+            );
+          } else if (autoGenerateOnSave) {
             setIsGeneratingPhoto(created.id);
             try {
               await window.api.generateCharacterPhoto(created.id, 'front');
@@ -130,7 +206,6 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
             }
           }
 
-          // Automatically select newly created character
           if (!selectedCharacterIds.includes(created.id)) {
             onToggleCharacter(created.id);
           }
@@ -267,7 +342,25 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="bg-studio-950 p-1 rounded-xl border border-studio-800 flex items-center gap-1">
+          <Button
+            variant="primary"
+            size="sm"
+            icon={<Sparkles size={13} />}
+            onClick={() => handleOpenNewCharacter('ai')}
+          >
+            Generate AI Character
+          </Button>
+
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={<Upload size={13} />}
+            onClick={handleDirectUploadNewCharacter}
+          >
+            Upload Character Photo
+          </Button>
+
+          <div className="bg-studio-950 p-1 rounded-xl border border-studio-800 flex items-center gap-1 ml-2">
             <button
               onClick={() => setMode('select')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
@@ -276,10 +369,10 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                   : 'text-studio-400 hover:text-studio-200'
               }`}
             >
-              Select Saved ({characters.length})
+              Saved ({characters.length})
             </button>
             <button
-              onClick={handleOpenNewCharacter}
+              onClick={() => handleOpenNewCharacter('ai')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
                 mode === 'create'
                   ? 'bg-brand-500 text-white shadow-subtle'
@@ -287,7 +380,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
               }`}
             >
               <Plus size={13} />
-              Create New
+              New
             </button>
           </div>
         </div>
@@ -532,27 +625,41 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-2">
+                        {/* 1. Config Button (btn config) */}
                         <button
-                          onClick={() => handleUploadReferenceImage(char.id)}
-                          className="p-1 rounded text-studio-400 hover:text-studio-200"
-                          title="Upload Custom Photo File"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenEditCharacter(char);
+                          }}
+                          className="text-[11px] font-bold flex items-center gap-1 px-2.5 py-1 rounded-lg bg-studio-800 hover:bg-studio-700 text-studio-200 border border-studio-700 hover:border-brand-500 transition-all shadow-subtle"
+                          title="Configure Character attributes and visual parameters"
                         >
-                          <Upload size={13} />
+                          <Sliders size={12} className="text-brand-400" />
+                          <span>Config</span>
                         </button>
+
+                        {/* 2. Upload Photo Button */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleUploadReferenceImage(char.id);
+                          }}
+                          className="text-[11px] font-medium flex items-center gap-1 px-2 py-1 rounded-lg bg-studio-800/80 hover:bg-studio-750 text-studio-300 hover:text-white border border-studio-750 transition-all"
+                          title="Upload Character Reference Photo directly"
+                        >
+                          <Upload size={12} className="text-sky-400" />
+                          <span>Upload Photo</span>
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => handleToggleLock(char)}
                           className="p-1 rounded text-studio-400 hover:text-amber-400"
                           title={char.isLocked ? 'Unlock Appearance' : 'Lock Appearance for strict video continuity'}
                         >
                           {char.isLocked ? <Lock size={13} className="text-amber-400" /> : <Unlock size={13} />}
-                        </button>
-                        <button
-                          onClick={() => handleOpenEditCharacter(char)}
-                          className="p-1 rounded text-studio-400 hover:text-studio-200"
-                          title="Edit Profile"
-                        >
-                          <Edit size={13} />
                         </button>
                         <button
                           onClick={() => handleDeleteCharacter(char.id, char.name)}
@@ -654,25 +761,92 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
               onChange={(e) => setForm({ ...form, visualStyle: e.target.value })}
             />
 
-            {/* Checkbox: Auto-generate photo */}
-            {!editingCharacter && (
-              <div className="p-3 bg-brand-500/10 border border-brand-500/20 rounded-xl flex items-center justify-between text-xs">
-                <label className="flex items-center gap-2 cursor-pointer text-studio-200">
+            {/* Reference Photo Sourcing: Generate AI or Upload */}
+            <div className="p-4 bg-studio-950 border border-studio-800 rounded-2xl space-y-3">
+              <span className="text-xs font-bold text-studio-200 block uppercase tracking-wider">
+                Keyframe Reference Photo Source
+              </span>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreationSource('ai');
+                    setUploadedPhotoPath(null);
+                  }}
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    creationSource === 'ai' && !uploadedPhotoPath
+                      ? 'bg-brand-500/20 border-brand-500 text-brand-200 shadow-subtle'
+                      : 'bg-studio-900 border-studio-800 text-studio-400 hover:text-studio-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Sparkles size={14} className="text-brand-400" />
+                    <span className="font-bold text-xs">Generate with AI</span>
+                  </div>
+                  <span className="text-[10px] block opacity-80">
+                    Auto-synthesizes high-resolution keyframe portrait matching facial prompt details
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreationSource('upload');
+                    handleSelectUploadedPhotoForForm();
+                  }}
+                  className={`p-3 rounded-xl border text-left transition-all ${
+                    creationSource === 'upload' || uploadedPhotoPath
+                      ? 'bg-brand-500/20 border-brand-500 text-brand-200 shadow-subtle'
+                      : 'bg-studio-900 border-studio-800 text-studio-400 hover:text-studio-200'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <Upload size={14} className="text-sky-400" />
+                    <span className="font-bold text-xs">Upload Photo File</span>
+                  </div>
+                  <span className="text-[10px] block opacity-80">
+                    Use existing headshot or character art from local computer
+                  </span>
+                </button>
+              </div>
+
+              {uploadedPhotoPath ? (
+                <div className="p-2.5 rounded-xl bg-studio-900 border border-brand-500/30 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={`file://${uploadedPhotoPath.replace(/\\/g, '/')}`}
+                      alt="Uploaded Preview"
+                      className="w-12 h-12 rounded-lg object-cover border border-brand-400"
+                    />
+                    <div>
+                      <span className="text-xs font-bold text-studio-100 block">Photo Attached</span>
+                      <span className="text-[10px] text-studio-400 truncate max-w-xs block font-mono">
+                        {uploadedPhotoPath}
+                      </span>
+                    </div>
+                  </div>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<Upload size={12} />}
+                    onClick={handleSelectUploadedPhotoForForm}
+                  >
+                    Change
+                  </Button>
+                </div>
+              ) : creationSource === 'ai' && !editingCharacter && (
+                <label className="flex items-center gap-2 cursor-pointer text-xs text-studio-300 pt-1">
                   <input
                     type="checkbox"
                     checked={autoGenerateOnSave}
                     onChange={(e) => setAutoGenerateOnSave(e.target.checked)}
                     className="rounded border-studio-700 text-brand-500 bg-studio-900"
                   />
-                  <span className="font-semibold text-brand-300">
-                    Auto-Generate Initial AI Portrait Reference Photo on Save
-                  </span>
+                  <span>Auto-generate initial AI portrait reference photo upon saving</span>
                 </label>
-                <span className="text-[10px] text-studio-400">
-                  Provides ready keyframe photo for video generation
-                </span>
-              </div>
-            )}
+              )}
+            </div>
 
             {/* Lock Continuity & Save Button */}
             <div className="pt-4 border-t border-studio-800 flex items-center justify-between">

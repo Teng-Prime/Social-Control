@@ -445,4 +445,148 @@ describe('Story Studio 7-Step Workflow & Engine Integration', () => {
     if (fs.existsSync(finalOutPath)) fs.unlinkSync(finalOutPath);
     mediaAssetRepo.delete(asset.id);
   });
+
+  it('AI Studio Extensions: should generate next video cliffhangers, auto-match background music, auto-assign scene SFX, and generate AI scene video', async () => {
+    // 1. Next Video Hook (Viewer Retention for Part 2)
+    const cliffhanger = await flowService.generateNextVideoHook({
+      topic: 'forbidden cyber vault',
+      genre: 'mystery',
+    });
+    expect(cliffhanger).toBeDefined();
+    expect(cliffhanger.length).toBeGreaterThan(20);
+    expect(cliffhanger.toLowerCase()).toContain('part 2');
+
+    // 2. Ending Hook persistence in StoryProject
+    const proj = projectRepo.create({
+      title: 'Cliffhanger Test Project',
+      genre: 'mystery',
+      ending: 'The door clicked shut.',
+      endingHook: cliffhanger,
+      selectedCharacterIds: [testCharId],
+    });
+    expect(proj.endingHook).toBe(cliffhanger);
+
+    const updatedProj = projectRepo.update(proj.id, {
+      endingHook: 'Follow for Part 2 coming tomorrow!',
+    });
+    expect(updatedProj.endingHook).toBe('Follow for Part 2 coming tomorrow!');
+
+    // 3. AI Auto-Match Background Music
+    const musicRes = await flowService.autoMatchBackgroundMusic(proj.id);
+    expect(musicRes.success).toBe(true);
+    expect(musicRes.track).toBeDefined();
+    const projWithMusic = projectRepo.getById(proj.id)!;
+    expect(projWithMusic.musicSettings?.ducking).toBe(true);
+    expect(projWithMusic.musicSettings?.trackTitle).toBeDefined();
+
+    // 4. Create scenes and test AI Auto-Assign Sound Effects
+    const sc1 = projectRepo.createScene({
+      projectId: proj.id,
+      sceneNumber: 1,
+      title: 'Approaching the Vault',
+      scriptText: 'Elena walks through the rain on gravel.',
+      narration: 'Her footsteps echoed in the rain.',
+      generationPrompt: 'Elena walking in rain',
+      duration: 5,
+      soundEffectSuggestion: 'Footsteps on Gravel',
+      characterId: testCharId,
+    });
+
+    const sc2 = projectRepo.createScene({
+      projectId: proj.id,
+      sceneNumber: 2,
+      title: 'The Vault Door Opens',
+      scriptText: 'A creaking heavy door gives way with a loud boom.',
+      narration: 'The rusted door yielded.',
+      generationPrompt: 'Door opening to vault',
+      duration: 6,
+      soundEffectSuggestion: 'Creaking Wooden Door',
+      characterId: testCharId,
+    });
+
+    const sfxRes = await flowService.autoAssignSceneSoundEffects(proj.id);
+    expect(sfxRes.success).toBe(true);
+    expect(sfxRes.assignedCount).toBe(2);
+    expect(sfxRes.soundEffects.length).toBe(2);
+    expect(sfxRes.soundEffects[0].sceneId).toBe(sc1.id);
+    expect(sfxRes.soundEffects[1].sceneId).toBe(sc2.id);
+
+    // 5. Generate AI Scene Video Clip
+    const vidRes = await flowService.generateSceneVideo(sc1.id);
+    expect(vidRes.success).toBe(true);
+    expect(vidRes.videoPath).toBeDefined();
+    expect(fs.existsSync(vidRes.videoPath)).toBe(true);
+
+    const updatedScene = projectRepo.getSceneById(sc1.id)!;
+    expect(updatedScene.videoPath).toBe(vidRes.videoPath);
+    expect(updatedScene.status).toBe('ready');
+
+    // Clean up
+    if (fs.existsSync(vidRes.videoPath)) fs.unlinkSync(vidRes.videoPath);
+    projectRepo.delete(proj.id);
+  });
+
+  it('Project Lifecycle: should allow deleting sample project and creating a brand new project with clean scenes', () => {
+    // 1. Create sample project
+    const sample = projectRepo.create({
+      title: 'Old Sample Story',
+      genre: 'mystery',
+      aspectRatio: '9:16',
+      targetDuration: 60,
+      language: 'en',
+      voice: 'en-US-Standard-C',
+      status: 'draft',
+      currentStep: 1,
+    });
+    expect(sample.id).toBeDefined();
+
+    // Attach sample scene
+    projectRepo.createScene({
+      projectId: sample.id,
+      sceneNumber: 1,
+      title: 'Sample Scene',
+      scriptText: 'Sample text',
+      narration: 'Sample narration',
+      duration: 5,
+      generationPrompt: 'Sample prompt',
+      status: 'draft',
+    });
+
+    // 2. Delete sample project
+    const deleted = projectRepo.delete(sample.id);
+    expect(deleted).toBe(true);
+
+    // Verify it is gone from database
+    const foundOld = projectRepo.getById(sample.id);
+    expect(foundOld).toBeNull();
+    const oldScenes = projectRepo.getScenes(sample.id);
+    expect(oldScenes.length).toBe(0);
+
+    // 3. Create fresh new project
+    const newProj = projectRepo.create({
+      title: 'My Custom Cyberpunk Chronicles',
+      genre: 'sci-fi',
+      aspectRatio: '16:9',
+      targetDuration: 90,
+      language: 'en',
+      voice: 'en-US-Standard-E',
+      status: 'draft',
+      currentStep: 1,
+      selectedCharacterIds: [testCharId],
+    });
+
+    expect(newProj.id).toBeDefined();
+    expect(newProj.title).toBe('My Custom Cyberpunk Chronicles');
+    expect(newProj.genre).toBe('sci-fi');
+    expect(newProj.aspectRatio).toBe('16:9');
+    expect(newProj.selectedCharacterIds).toContain(testCharId);
+
+    // 4. Verify getting it from database
+    const fetched = projectRepo.getById(newProj.id);
+    expect(fetched).toBeDefined();
+    expect(fetched?.title).toBe('My Custom Cyberpunk Chronicles');
+
+    // Clean up
+    projectRepo.delete(newProj.id);
+  });
 });

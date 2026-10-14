@@ -16,6 +16,7 @@ export class ProjectRepository {
         "platform TEXT NOT NULL DEFAULT 'tiktok'",
         "story_tone TEXT NOT NULL DEFAULT 'engaging'",
         "custom_instructions TEXT NOT NULL DEFAULT ''",
+        "ending_hook TEXT NOT NULL DEFAULT ''",
         "final_video_path TEXT",
         "current_step INTEGER NOT NULL DEFAULT 1",
       ];
@@ -77,6 +78,7 @@ export class ProjectRepository {
       intro: r.intro || '',
       climax: r.climax || '',
       ending: r.ending || '',
+      endingHook: r.ending_hook || metadata.endingHook || '',
       continuityNotes: r.continuity_notes || r.continuityNotes || '',
       selectedCharacterIds,
       storyIdea: r.story_idea || metadata.storyIdea || '',
@@ -181,18 +183,19 @@ export class ProjectRepository {
       storyTone: project.storyTone || 'engaging',
       customInstructions: project.customInstructions || '',
       selectedCharacterIds: project.selectedCharacterIds || [],
+      endingHook: project.endingHook || '',
     };
 
     const stmt = db.prepare(`
       INSERT INTO projects (
         id, title, genre, aspect_ratio, target_duration, language, voice, status,
-        hook, intro, climax, ending, continuity_notes,
+        hook, intro, climax, ending, ending_hook, continuity_notes,
         metadata, selected_character_ids, story_idea, target_audience,
         platform, story_tone, custom_instructions, final_video_path, current_step,
         created_at, updated_at
       ) VALUES (
         ?, ?, ?, ?, ?, ?, ?, ?,
-        ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?,
         ?, ?, ?, ?, ?,
         datetime('now'), datetime('now')
@@ -212,6 +215,7 @@ export class ProjectRepository {
       project.intro || '',
       project.climax || '',
       project.ending || '',
+      project.endingHook || '',
       project.continuityNotes || '',
       JSON.stringify(metadataObj),
       JSON.stringify(project.selectedCharacterIds || []),
@@ -248,6 +252,7 @@ export class ProjectRepository {
       storyTone: newObj.storyTone || 'engaging',
       customInstructions: newObj.customInstructions || '',
       selectedCharacterIds: newObj.selectedCharacterIds || [],
+      endingHook: newObj.endingHook || '',
       finalVideoPath: newObj.finalVideoPath,
     };
 
@@ -255,7 +260,7 @@ export class ProjectRepository {
       UPDATE projects
       SET title = ?, genre = ?, aspect_ratio = ?, target_duration = ?,
           language = ?, voice = ?, status = ?, hook = ?, intro = ?,
-          climax = ?, ending = ?, continuity_notes = ?,
+          climax = ?, ending = ?, ending_hook = ?, continuity_notes = ?,
           metadata = ?, selected_character_ids = ?, story_idea = ?, target_audience = ?,
           platform = ?, story_tone = ?, custom_instructions = ?, final_video_path = ?,
           current_step = ?, updated_at = datetime('now')
@@ -274,6 +279,7 @@ export class ProjectRepository {
       newObj.intro,
       newObj.climax,
       newObj.ending,
+      newObj.endingHook || '',
       newObj.continuityNotes,
       JSON.stringify(metadataObj),
       JSON.stringify(newObj.selectedCharacterIds || []),
@@ -292,6 +298,15 @@ export class ProjectRepository {
 
   public delete(id: string): boolean {
     const db = appDb.getRawDb();
+    try {
+      db.prepare('DELETE FROM scenes WHERE project_id = ?').run(id);
+    } catch {}
+    try {
+      db.prepare('DELETE FROM story_versions WHERE project_id = ?').run(id);
+    } catch {}
+    try {
+      db.prepare('UPDATE media_assets SET project_id = NULL WHERE project_id = ?').run(id);
+    } catch {}
     const res = db.prepare('DELETE FROM projects WHERE id = ?').run(id);
     return res.changes > 0;
   }
