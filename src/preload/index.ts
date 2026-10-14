@@ -74,7 +74,7 @@ const api: IElectronAPI = {
   // Captions
   generateCaptions: (req) => ipcRenderer.invoke('generateCaptions', req),
 
-  // Phone Control
+  // Phone Control & Provisioning Setup (ADB)
   getConnectedDevices: () => ipcRenderer.invoke('getConnectedDevices'),
   testAdbConnection: () => ipcRenderer.invoke('testAdbConnection'),
   transferFileToPhone: (deviceId, filePath, targetDir) =>
@@ -83,6 +83,12 @@ const api: IElectronAPI = {
   startScreenMirror: (deviceId) => ipcRenderer.invoke('startScreenMirror', deviceId),
   captureScreenshot: (deviceId) => ipcRenderer.invoke('captureScreenshot', deviceId),
   launchMobileApp: (deviceId, pkg) => ipcRenderer.invoke('launchMobileApp', deviceId, pkg),
+  getPhoneSetupDiagnostic: (deviceId) => ipcRenderer.invoke('getPhoneSetupDiagnostic', deviceId),
+  getLocalAppsInFolder: () => ipcRenderer.invoke('getLocalAppsInFolder'),
+  installAppOnPhone: (deviceId, filePath) => ipcRenderer.invoke('installAppOnPhone', deviceId, filePath),
+  installAllAppsOnPhone: (deviceId) => ipcRenderer.invoke('installAllAppsOnPhone', deviceId),
+  requestPhoneAdbRoot: (deviceId) => ipcRenderer.invoke('requestPhoneAdbRoot', deviceId),
+  openPhoneSettings: (deviceId, settingType) => ipcRenderer.invoke('openPhoneSettings', deviceId, settingType),
 
   // Task Queue
   getQueueItems: (filter) => ipcRenderer.invoke('getQueueItems', filter),

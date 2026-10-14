@@ -468,15 +468,27 @@ export const PublishCenterView: React.FC = () => {
                 ) : (
                   devices.map((d) => (
                     <option key={d.id} value={d.id}>
-                      📱 {d.model} ({d.status.toUpperCase()}) — Battery {d.batteryLevel || 85}%
+                      📱 {d.model} ({d.status.toUpperCase()}) — Battery {d.batteryLevel || 85}% {d.googleAccount ? `[${d.googleAccount}]` : ''}
                     </option>
                   ))
                 )}
               </select>
 
-              {/* Show installed app readiness on phone for each selected platform */}
+              {/* Show bound single Google Account and installed app readiness on phone */}
               {devices.length > 0 && selectedDeviceId && (
-                <div className="flex flex-wrap gap-1.5 pt-1">
+                <div className="space-y-1.5 pt-1">
+                  {devices.find((x) => x.id === selectedDeviceId)?.googleAccount && (
+                    <div className="text-[10px] text-emerald-300 bg-emerald-950/40 px-2.5 py-1 rounded-lg border border-emerald-800/40 flex items-center justify-between">
+                      <span className="truncate">
+                        ✉️ Bound Google Account: <strong className="text-white">{devices.find((x) => x.id === selectedDeviceId)?.googleAccount}</strong>
+                      </span>
+                      <span className="text-[9px] uppercase font-mono text-emerald-400 font-bold shrink-0 ml-1">
+                        1 Account
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex flex-wrap gap-1.5">
                   {selectedPlatforms.map((p) => {
                     const d = devices.find((x) => x.id === selectedDeviceId);
                     const appPkg =
@@ -500,6 +512,7 @@ export const PublishCenterView: React.FC = () => {
                       </span>
                     );
                   })}
+                  </div>
                 </div>
               )}
             </div>

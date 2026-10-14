@@ -214,6 +214,83 @@ export interface Device {
   totalStorageMb?: number;
   installedApps: InstalledAppInfo[];
   lastConnectedAt: string;
+  isRooted?: boolean;
+  googleAccount?: string;
+  googleAccountsCount?: number;
+  hasInternet?: boolean;
+}
+
+export interface LocalAppPackageInfo {
+  fileName: string;
+  filePath: string;
+  fileSizeBytes: number;
+  format: 'apk' | 'xapk';
+  appName: string;
+  packageName: string;
+  category: string;
+  isInstalled: boolean;
+  installedVersion?: string;
+}
+
+export interface PhoneSetupDiagnostic {
+  deviceId: string;
+  serial: string;
+  model: string;
+  status: DeviceStatus;
+  
+  // 1. Root phone status
+  rootStatus: {
+    isRooted: boolean;
+    rootMethod?: 'su' | 'adb_root' | 'magisk' | 'none';
+    details: string;
+  };
+
+  // 2. Internet connectivity
+  internetStatus: {
+    hasInternet: boolean;
+    pingMs?: number;
+    networkType?: 'wifi' | 'cellular' | 'vpn' | 'ethernet' | 'none';
+    details: string;
+    vpnActive?: boolean;
+  };
+
+  // 3. Single Google Account verification (1 Phone = 1 Google Account)
+  googleAccountStatus: {
+    count: number;
+    accounts: string[];
+    primaryAccount?: string;
+    isOptimal: boolean;
+    status: 'optimal' | 'missing' | 'multiple';
+    message: string;
+  };
+
+  // 4. Apps folder inspection & status
+  appsFolderStatus: {
+    totalAppsInFolder: number;
+    installedCount: number;
+    missingCount: number;
+    apps: LocalAppPackageInfo[];
+  };
+
+  overallReadiness: {
+    score: number; // 0 to 100
+    isReady: boolean;
+    summary: string;
+  };
+}
+
+export interface AppInstallResult {
+  appName: string;
+  packageName?: string;
+  success: boolean;
+  message: string;
+}
+
+export interface BatchInstallResult {
+  total: number;
+  installed: number;
+  failed: number;
+  results: AppInstallResult[];
 }
 
 export interface TransferJob {
@@ -456,7 +533,7 @@ export interface IElectronAPI {
   // Caption Assistant
   generateCaptions: (request: CaptionGenerationRequest) => Promise<CaptionGenerationResult>;
 
-  // Phone Control (ADB)
+  // Phone Control & Provisioning Setup (ADB)
   getConnectedDevices: () => Promise<Device[]>;
   testAdbConnection: () => Promise<{ success: boolean; version?: string; error?: string }>;
   transferFileToPhone: (deviceId: string, localFilePath: string, targetPhoneDir?: string) => Promise<TransferJob>;
@@ -464,6 +541,12 @@ export interface IElectronAPI {
   startScreenMirror: (deviceId: string) => Promise<{ success: boolean; message: string }>;
   captureScreenshot: (deviceId: string) => Promise<{ success: boolean; imageBase64?: string; error?: string }>;
   launchMobileApp: (deviceId: string, packageName: string) => Promise<boolean>;
+  getPhoneSetupDiagnostic: (deviceId: string) => Promise<PhoneSetupDiagnostic>;
+  getLocalAppsInFolder: () => Promise<LocalAppPackageInfo[]>;
+  installAppOnPhone: (deviceId: string, filePath: string) => Promise<AppInstallResult>;
+  installAllAppsOnPhone: (deviceId: string) => Promise<BatchInstallResult>;
+  requestPhoneAdbRoot: (deviceId: string) => Promise<{ success: boolean; message: string }>;
+  openPhoneSettings: (deviceId: string, settingType: 'accounts' | 'wifi' | 'developer') => Promise<{ success: boolean; message: string }>;
 
   // Automation Task Queue
   getQueueItems: (filter?: { status?: TaskStatus }) => Promise<TaskQueueItem[]>;

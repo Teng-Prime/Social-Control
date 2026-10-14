@@ -555,6 +555,30 @@ export function registerIpcHandlers(): void {
     return adbService.launchApp(deviceId, packageName);
   });
 
+  ipcMain.handle('getPhoneSetupDiagnostic', async (_, deviceId: string) => {
+    return adbService.getPhoneSetupDiagnostic(deviceId);
+  });
+
+  ipcMain.handle('getLocalAppsInFolder', async () => {
+    return adbService.scanLocalAppsFolder();
+  });
+
+  ipcMain.handle('installAppOnPhone', async (_, deviceId: string, filePath: string) => {
+    return adbService.installApp(deviceId, filePath);
+  });
+
+  ipcMain.handle('installAllAppsOnPhone', async (_, deviceId: string) => {
+    return adbService.installAllApps(deviceId);
+  });
+
+  ipcMain.handle('requestPhoneAdbRoot', async (_, deviceId: string) => {
+    return adbService.requestRoot(deviceId);
+  });
+
+  ipcMain.handle('openPhoneSettings', async (_, deviceId: string, settingType: 'accounts' | 'wifi' | 'developer') => {
+    return adbService.openSettings(deviceId, settingType);
+  });
+
   // 13. Automation Queue
   ipcMain.handle('getQueueItems', async (_, filter) => {
     return taskQueueRepo.getAll(filter);

@@ -27,3 +27,8 @@ Thumbs.db
 *.db
 *.db-shm
 *.db-wal
+
+# Android APK / XAPK Binaries in apps/ (large files >100MB)
+apps/*.apk
+apps/*.xapk
+
