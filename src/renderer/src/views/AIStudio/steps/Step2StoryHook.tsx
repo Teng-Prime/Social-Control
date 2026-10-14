@@ -141,6 +141,7 @@ export const Step2StoryHook: React.FC<Step2StoryHookProps> = ({
           soundEffectSuggestion: sc.soundEffectSuggestion,
           negativePrompt: sc.negativePrompt,
           characterId: selectedCharacters[0]?.id || undefined,
+          referenceImagePath: selectedCharacters[0]?.references[0]?.imagePath || undefined,
           status: 'draft',
         });
       }

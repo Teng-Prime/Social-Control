@@ -7,6 +7,7 @@ import { MediaAssetRepository } from '../src/main/database/repositories/mediaAss
 import { FlowService } from '../src/main/services/flowService';
 import { FFmpegService } from '../src/main/services/ffmpegService';
 import { storageService } from '../src/main/services/storageService';
+import { characterImageGenerator } from '../src/main/services/characterImageGenerator';
 
 describe('Story Studio 7-Step Workflow & Engine Integration', () => {
   const projectRepo = new ProjectRepository();
@@ -91,6 +92,70 @@ describe('Story Studio 7-Step Workflow & Engine Integration', () => {
     expect(updated.selectedCharacterIds).toContain(char2.id);
 
     characterRepo.delete(char2.id);
+  });
+
+  it('Step 1 Character Photo Engine: should generate visual keyframe portraits, multi-angle suites, and persist primary photo for video consistency', async () => {
+    const char = characterRepo.getById(testCharId)!;
+    expect(char).toBeDefined();
+
+    // 1. Generate primary front portrait photo
+    const portraitRef = await characterImageGenerator.generatePortrait(char, 'front', true);
+    expect(portraitRef).toBeDefined();
+    expect(portraitRef.characterId).toBe(testCharId);
+    expect(portraitRef.isPrimary).toBe(true);
+    expect(fs.existsSync(portraitRef.imagePath)).toBe(true);
+
+    // Verify persisted in character record
+    let updatedChar = characterRepo.getById(testCharId)!;
+    expect(updatedChar.references.length).toBe(1);
+    expect(updatedChar.references[0].id).toBe(portraitRef.id);
+    expect(updatedChar.references[0].isPrimary).toBe(true);
+
+    // 2. Generate multi-angle suite (front, 3/4, profile)
+    const suite = await characterImageGenerator.generateMultiAngleSuite(char);
+    expect(suite.length).toBe(3);
+    for (const ref of suite) {
+      expect(fs.existsSync(ref.imagePath)).toBe(true);
+    }
+
+    updatedChar = characterRepo.getById(testCharId)!;
+    expect(updatedChar.references.length).toBe(4);
+
+    // 3. Switch primary reference photo
+    const profileRef = suite[2];
+    characterRepo.setPrimaryReference(testCharId, profileRef.id);
+    updatedChar = characterRepo.getById(testCharId)!;
+    const newPrimary = updatedChar.references.find((r) => r.isPrimary);
+    expect(newPrimary?.id).toBe(profileRef.id);
+
+    // 4. Verify scene binding: Scene can reference this keyframe photo for Image-to-Video generation
+    const testProject = projectRepo.create({
+      title: 'Scene Continuity Test',
+      genre: 'mystery',
+      currentStep: 3,
+    });
+
+    const scene = projectRepo.createScene({
+      projectId: testProject.id,
+      sceneNumber: 1,
+      title: 'Consistent Scene 1',
+      generationPrompt: 'Elena in laboratory',
+      characterId: testCharId,
+      referenceImagePath: newPrimary?.imagePath,
+      status: 'ready',
+    });
+
+    expect(scene.referenceImagePath).toBe(newPrimary?.imagePath);
+    expect(scene.referenceImagePath).toBeDefined();
+    expect(fs.existsSync(scene.referenceImagePath!)).toBe(true);
+
+    // Clean up
+    projectRepo.delete(testProject.id);
+    for (const ref of updatedChar.references) {
+      if (fs.existsSync(ref.imagePath)) {
+        try { fs.unlinkSync(ref.imagePath); } catch {}
+      }
+    }
   });
 
   it('Step 2: should generate story ideas, viral hook, and approve narrative arc', async () => {

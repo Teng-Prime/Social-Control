@@ -32,6 +32,10 @@ const api: IElectronAPI = {
   addCharacterReference: (charId, imgPath, prompt, isPrimary) =>
     ipcRenderer.invoke('addCharacterReference', charId, imgPath, prompt, isPrimary),
   deleteCharacterReference: (refId) => ipcRenderer.invoke('deleteCharacterReference', refId),
+  generateCharacterPhoto: (charId, angle) => ipcRenderer.invoke('generateCharacterPhoto', charId, angle),
+  generateCharacterSuite: (charId) => ipcRenderer.invoke('generateCharacterSuite', charId),
+  setCharacterPrimaryReference: (charId, refId) => ipcRenderer.invoke('setCharacterPrimaryReference', charId, refId),
+  copyImageToClipboard: (imgPath) => ipcRenderer.invoke('copyImageToClipboard', imgPath),
 
   // Story Projects & Flow AI
   getProjects: () => ipcRenderer.invoke('getProjects'),

@@ -56,6 +56,7 @@ export class AppDatabase {
 
       this.db.pragma('journal_mode = WAL');
       this.db.pragma('foreign_keys = ON');
+      this.db.pragma('busy_timeout = 10000');
 
       logger.info('Database', `SQLite initialized at ${this.dbPath}`);
       this.runMigrations();

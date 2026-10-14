@@ -1,4 +1,4 @@
-import { ipcMain, dialog, shell } from 'electron';
+import { ipcMain, dialog, shell, clipboard, nativeImage } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import { appDb } from '../database/db';
@@ -6,6 +6,7 @@ import { storageService } from '../services/storageService';
 import { ffmpegService } from '../services/ffmpegService';
 import { adbService } from '../services/adbService';
 import { flowService } from '../services/flowService';
+import { characterImageGenerator } from '../services/characterImageGenerator';
 import { socialPublisher } from '../services/social/socialPublisher';
 import { queueService } from '../services/queueService';
 import { mediaAssetRepo } from '../database/repositories/mediaAssetRepository';
@@ -228,6 +229,40 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('deleteCharacterReference', async (_, refId: string) => {
     return characterRepo.deleteReference(refId);
+  });
+
+  ipcMain.handle('generateCharacterPhoto', async (_, characterId: string, angle = 'front') => {
+    const character = characterRepo.getById(characterId);
+    if (!character) throw new Error(`Character not found: ${characterId}`);
+    return characterImageGenerator.generatePortrait(character, angle as any, character.references.length === 0);
+  });
+
+  ipcMain.handle('generateCharacterSuite', async (_, characterId: string) => {
+    const character = characterRepo.getById(characterId);
+    if (!character) throw new Error(`Character not found: ${characterId}`);
+    return characterImageGenerator.generateMultiAngleSuite(character);
+  });
+
+  ipcMain.handle('setCharacterPrimaryReference', async (_, characterId: string, referenceId: string) => {
+    return characterRepo.setPrimaryReference(characterId, referenceId);
+  });
+
+  ipcMain.handle('copyImageToClipboard', async (_, imagePath: string) => {
+    try {
+      if (fs.existsSync(imagePath)) {
+        if (imagePath.endsWith('.png') || imagePath.endsWith('.jpg') || imagePath.endsWith('.jpeg')) {
+          const img = nativeImage.createFromPath(imagePath);
+          clipboard.writeImage(img);
+        } else {
+          clipboard.writeText(fs.readFileSync(imagePath, 'utf-8'));
+        }
+        return true;
+      }
+      return false;
+    } catch (e: any) {
+      logger.warn('Clipboard', `Failed to copy image: ${e.message}`);
+      return false;
+    }
   });
 
   // 8. Story Projects

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Character, StoryProject } from '../../../../../shared/types';
+import { Character, CharacterReference, StoryProject } from '../../../../../shared/types';
 import { Card } from '../../../components/common/Card';
 import { Button } from '../../../components/common/Button';
 import { Input } from '../../../components/common/Input';
@@ -20,7 +20,11 @@ import {
   Trash2,
   Edit,
   UserCheck,
-  Wand2,
+  Camera,
+  Layers,
+  Copy,
+  ExternalLink,
+  ChevronDown,
 } from 'lucide-react';
 
 interface Step1CharacterProps {
@@ -44,6 +48,10 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
 
   const [mode, setMode] = useState<'select' | 'create'>('select');
   const [editingCharacter, setEditingCharacter] = useState<Character | null>(null);
+  const [isGeneratingPhoto, setIsGeneratingPhoto] = useState<string | null>(null);
+  const [photoMenuCharId, setPhotoMenuCharId] = useState<string | null>(null);
+  const [previewPhoto, setPreviewPhoto] = useState<CharacterReference | null>(null);
+  const [autoGenerateOnSave, setAutoGenerateOnSave] = useState(true);
 
   // Form State for Character Creator
   const [form, setForm] = useState({
@@ -55,7 +63,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
     personality: 'Curious, determined, strategic, quiet intensity',
     voice: 'en-US-Standard-C',
     visualStyle: 'Photorealistic Cinematic 8k, volumetric lighting, Unreal Engine 5 aesthetic',
-    isLocked: false,
+    isLocked: true,
   });
 
   const handleOpenNewCharacter = () => {
@@ -68,7 +76,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
       personality: 'Curious, determined, strategic, quiet intensity',
       voice: 'en-US-Standard-C',
       visualStyle: 'Photorealistic Cinematic 8k, volumetric lighting, Unreal Engine 5 aesthetic',
-      isLocked: false,
+      isLocked: true,
     });
     setEditingCharacter(null);
     setMode('create');
@@ -104,6 +112,24 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
         } else {
           const created = await window.api.createCharacter(form);
           addToast({ type: 'success', title: 'Character Created', message: created.name });
+
+          // Auto-generate initial AI portrait reference photo so character immediately has face photo
+          if (autoGenerateOnSave) {
+            setIsGeneratingPhoto(created.id);
+            try {
+              await window.api.generateCharacterPhoto(created.id, 'front');
+              addToast({
+                type: 'success',
+                title: 'AI Reference Photo Created',
+                message: 'Front portrait photo generated for character consistency.',
+              });
+            } catch (err: any) {
+              console.warn('Auto photo generation notice:', err.message);
+            } finally {
+              setIsGeneratingPhoto(null);
+            }
+          }
+
           // Automatically select newly created character
           if (!selectedCharacterIds.includes(created.id)) {
             onToggleCharacter(created.id);
@@ -117,13 +143,83 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
     }
   };
 
+  const handleGeneratePhoto = async (
+    charId: string,
+    angle: 'front' | 'three_quarter' | 'profile' | 'full_body' = 'front'
+  ) => {
+    if (!window.api) return;
+    setIsGeneratingPhoto(charId);
+    setPhotoMenuCharId(null);
+    try {
+      const ref = await window.api.generateCharacterPhoto(charId, angle);
+      await onRefreshCharacters();
+      addToast({
+        type: 'success',
+        title: 'Character Photo Generated',
+        message: `${angle.replace('_', ' ')} keyframe photo saved.`,
+      });
+    } catch (e: any) {
+      addToast({ type: 'error', title: 'Photo Generation Failed', message: e.message });
+    } finally {
+      setIsGeneratingPhoto(null);
+    }
+  };
+
+  const handleGenerateMultiAngleSuite = async (charId: string) => {
+    if (!window.api) return;
+    setIsGeneratingPhoto(charId);
+    setPhotoMenuCharId(null);
+    try {
+      await window.api.generateCharacterSuite(charId);
+      await onRefreshCharacters();
+      addToast({
+        type: 'success',
+        title: 'Multi-Angle Photo Suite Ready',
+        message: 'Generated front portrait, 3/4 angle, and side profile photos.',
+      });
+    } catch (e: any) {
+      addToast({ type: 'error', title: 'Photo Suite Failed', message: e.message });
+    } finally {
+      setIsGeneratingPhoto(null);
+    }
+  };
+
+  const handleSetPrimaryReference = async (charId: string, refId: string) => {
+    if (!window.api) return;
+    await window.api.setCharacterPrimaryReference(charId, refId);
+    await onRefreshCharacters();
+    addToast({ type: 'success', title: 'Primary Keyframe Photo Set' });
+  };
+
+  const handleDeleteReference = async (refId: string) => {
+    if (window.confirm('Delete this reference photo?')) {
+      if (window.api) {
+        await window.api.deleteCharacterReference(refId);
+        await onRefreshCharacters();
+        addToast({ type: 'info', title: 'Reference Photo Deleted' });
+        if (previewPhoto?.id === refId) setPreviewPhoto(null);
+      }
+    }
+  };
+
+  const handleCopyPhotoToClipboard = async (imagePath: string) => {
+    if (!window.api) return;
+    const success = await window.api.copyImageToClipboard(imagePath);
+    if (success) {
+      addToast({ type: 'success', title: 'Photo Copied to Clipboard', message: 'Ready to paste into video generation tools.' });
+    } else {
+      addToast({ type: 'info', title: 'File Path Copied' });
+      navigator.clipboard.writeText(imagePath);
+    }
+  };
+
   const handleToggleLock = async (char: Character) => {
     if (window.api) {
       await window.api.updateCharacter(char.id, { isLocked: !char.isLocked });
       addToast({
         type: 'info',
         title: char.isLocked ? 'Appearance Unlocked' : 'Appearance Locked',
-        message: char.isLocked ? 'Free to edit variations' : 'Locked for strict continuity',
+        message: char.isLocked ? 'Free to edit variations' : 'Locked for strict video continuity',
       });
       await onRefreshCharacters();
     }
@@ -140,18 +236,17 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
   };
 
   const handleUploadReferenceImage = async (charId: string) => {
-    if (window.api) {
-      const file = await window.api.openFileDialog(['png', 'jpg', 'jpeg', 'webp']);
-      if (file) {
-        await window.api.addCharacterReference(
-          charId,
-          file,
-          'Manual uploaded reference portrait for continuity',
-          true
-        );
-        addToast({ type: 'success', title: 'Reference Photo Attached' });
-        await onRefreshCharacters();
-      }
+    if (!window.api) return;
+    const file = await window.api.openFileDialog(['png', 'jpg', 'jpeg', 'webp', 'svg']);
+    if (file) {
+      await window.api.addCharacterReference(
+        charId,
+        file,
+        'Manual uploaded reference portrait for video continuity',
+        true
+      );
+      addToast({ type: 'success', title: 'Reference Photo Attached' });
+      await onRefreshCharacters();
     }
   };
 
@@ -164,10 +259,10 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
         <div>
           <h2 className="text-base font-bold text-studio-100 flex items-center gap-2">
             <Users size={18} className="text-brand-400" />
-            Step 1: Choose Story Characters & Protagonists
+            Step 1: Character Photo Generation & Consistent Identity
           </h2>
           <p className="text-xs text-studio-400 mt-0.5">
-            Select one or more consistent AI identities to feature in this story video.
+            Generate AI reference photos of your character to use as the visual keyframe across all story videos.
           </p>
         </div>
 
@@ -208,19 +303,19 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
             <span className="text-xs font-semibold text-studio-200 block">
               {selectedCharacters.length === 0
                 ? 'No character selected yet'
-                : `${selectedCharacters.length} Character${selectedCharacters.length > 1 ? 's' : ''} Selected for Story`}
+                : `${selectedCharacters.length} Protagonist${selectedCharacters.length > 1 ? 's' : ''} Selected for Story`}
             </span>
             <span className="text-[11px] text-studio-400">
               {selectedCharacters.length === 0
-                ? 'Click on a character card below to assign as protagonist.'
-                : selectedCharacters.map((c) => c.name).join(', ')}
+                ? 'Select a character below. Their reference photos will be used to generate the scene videos.'
+                : selectedCharacters.map((c) => `${c.name} (${c.references.length} reference photos)`).join(' • ')}
             </span>
           </div>
         </div>
 
         {selectedCharacters.length > 0 && (
           <Badge variant="success" size="sm" dot>
-            Continuity Assigned
+            Face Consistency Active
           </Badge>
         )}
       </div>
@@ -232,15 +327,17 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
             <EmptyState
               icon={<Users size={32} />}
               title="No AI characters created yet"
-              description="Create your first reusable AI protagonist with consistent facial features, clothing, and visual style."
+              description="Create your first reusable AI protagonist and generate reference photos for video consistency."
               actionText="Create New Character"
               onAction={handleOpenNewCharacter}
             />
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {characters.map((char) => {
                 const isSelected = selectedCharacterIds.includes(char.id);
                 const primaryRef = char.references.find((r) => r.isPrimary) || char.references[0];
+                const isGeneratingThis = isGeneratingPhoto === char.id;
+                const isPhotoMenuOpen = photoMenuCharId === char.id;
 
                 return (
                   <div
@@ -256,7 +353,17 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                       {/* Top Bar */}
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="flex items-center gap-3">
-                          <div className="w-14 h-14 rounded-xl bg-studio-950 border border-studio-750 overflow-hidden shrink-0 flex items-center justify-center relative shadow-subtle">
+                          {/* Large Primary Portrait Photo */}
+                          <div
+                            onClick={(e) => {
+                              if (primaryRef) {
+                                e.stopPropagation();
+                                setPreviewPhoto(primaryRef);
+                              }
+                            }}
+                            className="w-16 h-16 rounded-xl bg-studio-950 border border-studio-750 overflow-hidden shrink-0 flex items-center justify-center relative shadow-subtle hover:scale-105 transition-transform"
+                            title="Click to preview full reference photo"
+                          >
                             {primaryRef ? (
                               <img
                                 src={`file://${primaryRef.imagePath.replace(/\\/g, '/')}`}
@@ -264,7 +371,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                                 className="w-full h-full object-cover"
                               />
                             ) : (
-                              <Users size={24} className="text-studio-600" />
+                              <Users size={26} className="text-studio-600" />
                             )}
                             {char.isLocked && (
                               <div className="absolute bottom-1 right-1 bg-amber-500 text-black p-0.5 rounded shadow">
@@ -278,8 +385,8 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                             <p className="text-[11px] text-studio-400 line-clamp-1 mt-0.5">
                               {char.description || char.appearance}
                             </p>
-                            <span className="text-[10px] text-studio-500 font-mono mt-1 block">
-                              {char.references.length} reference photos
+                            <span className="text-[10px] text-brand-400 font-mono mt-1 block font-semibold">
+                              {char.references.length} Keyframe Photo{char.references.length === 1 ? '' : 's'}
                             </span>
                           </div>
                         </div>
@@ -296,37 +403,147 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                         </div>
                       </div>
 
+                      {/* Reference Photos Gallery Strip */}
+                      <div className="mb-3" onClick={(e) => e.stopPropagation()}>
+                        <div className="flex items-center justify-between text-[10px] text-studio-400 mb-1">
+                          <span className="font-semibold uppercase font-mono">Reference Photos (For Video):</span>
+                          {char.references.length > 0 && (
+                            <span className="text-studio-500">Click photo to set Primary</span>
+                          )}
+                        </div>
+
+                        {char.references.length === 0 ? (
+                          <div className="p-2.5 rounded-xl bg-studio-950/70 border border-dashed border-studio-750 text-center space-y-1.5">
+                            <span className="text-[11px] text-amber-300 block">⚠️ No reference photos generated</span>
+                            <button
+                              onClick={() => handleGeneratePhoto(char.id, 'front')}
+                              disabled={isGeneratingThis}
+                              className="px-2.5 py-1 rounded-lg bg-brand-500 hover:bg-brand-400 text-white text-[10px] font-bold inline-flex items-center gap-1 shadow-subtle"
+                            >
+                              <Camera size={11} />
+                              {isGeneratingThis ? 'Generating Photo...' : 'Generate AI Photo'}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none">
+                            {char.references.map((ref) => {
+                              const isRefPrimary = ref.isPrimary;
+                              return (
+                                <div
+                                  key={ref.id}
+                                  onClick={() => handleSetPrimaryReference(char.id, ref.id)}
+                                  className={`w-11 h-11 rounded-lg overflow-hidden shrink-0 border relative cursor-pointer hover:border-brand-400 transition-all ${
+                                    isRefPrimary
+                                      ? 'border-brand-500 ring-2 ring-brand-500/40'
+                                      : 'border-studio-750 opacity-80 hover:opacity-100'
+                                  }`}
+                                  title={isRefPrimary ? 'Primary Reference Keyframe' : 'Click to make Primary Reference'}
+                                >
+                                  <img
+                                    src={`file://${ref.imagePath.replace(/\\/g, '/')}`}
+                                    alt="Reference"
+                                    className="w-full h-full object-cover"
+                                  />
+                                  {isRefPrimary && (
+                                    <span className="absolute bottom-0 inset-x-0 bg-brand-500 text-white text-[8px] font-bold text-center py-0.2">
+                                      KEY
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+
                       {/* Continuity Tags */}
                       <div className="p-2.5 rounded-xl bg-studio-950/60 border border-studio-800/80 space-y-1 text-[11px] mb-3">
                         <div className="truncate">
-                          <span className="text-studio-500">Face: </span>
+                          <span className="text-studio-500">Appearance: </span>
                           <span className="text-studio-300">{char.appearance}</span>
                         </div>
                         <div className="truncate">
-                          <span className="text-studio-500">Clothing: </span>
+                          <span className="text-studio-500">Wardrobe: </span>
                           <span className="text-studio-300">{char.clothing}</span>
                         </div>
                       </div>
                     </div>
 
-                    {/* Action Bar */}
+                    {/* Action Bar & Photo Generator Menu */}
                     <div
                       className="pt-2 border-t border-studio-800/60 flex items-center justify-between"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <button
-                        onClick={() => handleUploadReferenceImage(char.id)}
-                        className="text-[11px] text-brand-400 hover:text-brand-300 font-medium flex items-center gap-1"
-                      >
-                        <Upload size={12} />
-                        Add Photo
-                      </button>
+                      {/* Photo Generation Dropdown */}
+                      <div className="relative">
+                        <button
+                          onClick={() => setPhotoMenuCharId(isPhotoMenuOpen ? null : char.id)}
+                          disabled={isGeneratingThis}
+                          className="text-[11px] text-brand-400 hover:text-brand-300 font-bold flex items-center gap-1 px-2 py-1 rounded-lg bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/30"
+                        >
+                          <Camera size={12} />
+                          {isGeneratingThis ? 'Generating...' : 'Generate Photo'}
+                          <ChevronDown size={11} />
+                        </button>
+
+                        {/* Angle Selection Dropdown Menu */}
+                        {isPhotoMenuOpen && (
+                          <div className="absolute left-0 bottom-8 w-56 bg-studio-950 border border-studio-750 rounded-xl shadow-2xl p-1.5 z-30 space-y-1 text-left">
+                            <span className="text-[10px] text-studio-500 font-mono px-2 py-0.5 block uppercase">
+                              Select Camera Angle:
+                            </span>
+                            <button
+                              onClick={() => handleGeneratePhoto(char.id, 'front')}
+                              className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-studio-800 text-[11px] text-studio-200 flex items-center justify-between"
+                            >
+                              <span>📸 Front Portrait</span>
+                              <span className="text-[9px] text-brand-400 font-mono">Headshot</span>
+                            </button>
+                            <button
+                              onClick={() => handleGeneratePhoto(char.id, 'three_quarter')}
+                              className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-studio-800 text-[11px] text-studio-200 flex items-center justify-between"
+                            >
+                              <span>📐 3/4 Cinematic Angle</span>
+                              <span className="text-[9px] text-brand-400 font-mono">Dramatic</span>
+                            </button>
+                            <button
+                              onClick={() => handleGeneratePhoto(char.id, 'profile')}
+                              className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-studio-800 text-[11px] text-studio-200 flex items-center justify-between"
+                            >
+                              <span>👤 Side Profile</span>
+                              <span className="text-[9px] text-brand-400 font-mono">Silhouette</span>
+                            </button>
+                            <button
+                              onClick={() => handleGeneratePhoto(char.id, 'full_body')}
+                              className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-studio-800 text-[11px] text-studio-200 flex items-center justify-between"
+                            >
+                              <span>🧥 Full Wardrobe Shot</span>
+                              <span className="text-[9px] text-brand-400 font-mono">Costume</span>
+                            </button>
+                            <div className="border-t border-studio-800/80 my-1" />
+                            <button
+                              onClick={() => handleGenerateMultiAngleSuite(char.id)}
+                              className="w-full text-left px-2 py-1.5 rounded-lg bg-brand-500/15 hover:bg-brand-500/25 text-[11px] font-bold text-brand-300 flex items-center justify-between"
+                            >
+                              <span>✨ Generate All 3 Angles</span>
+                              <span className="text-[9px] text-brand-400 font-mono">Full Suite</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
 
                       <div className="flex items-center gap-1.5">
                         <button
+                          onClick={() => handleUploadReferenceImage(char.id)}
+                          className="p-1 rounded text-studio-400 hover:text-studio-200"
+                          title="Upload Custom Photo File"
+                        >
+                          <Upload size={13} />
+                        </button>
+                        <button
                           onClick={() => handleToggleLock(char)}
                           className="p-1 rounded text-studio-400 hover:text-amber-400"
-                          title={char.isLocked ? 'Unlock Appearance' : 'Lock Appearance for strict continuity'}
+                          title={char.isLocked ? 'Unlock Appearance' : 'Lock Appearance for strict video continuity'}
                         >
                           {char.isLocked ? <Lock size={13} className="text-amber-400" /> : <Unlock size={13} />}
                         </button>
@@ -358,7 +575,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
       {mode === 'create' && (
         <Card
           title={editingCharacter ? `Edit Character: ${editingCharacter.name}` : 'Create New AI Character'}
-          subtitle="Define persistent facial, wardrobe, and style parameters for continuous scene consistency"
+          subtitle="Define persistent appearance details and auto-generate reference photos for video consistency"
           action={
             <Button variant="secondary" size="sm" onClick={() => setMode('select')}>
               Back to Selection
@@ -406,7 +623,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
 
             <div>
               <label className="block text-xs font-medium text-studio-300 mb-1.5">
-                Permanent Appearance & Facial Details * (Preserved across all scene video prompts)
+                Permanent Appearance & Facial Details * (Used to generate the reference photo and scene prompts)
               </label>
               <textarea
                 rows={2}
@@ -419,7 +636,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
 
             <div>
               <label className="block text-xs font-medium text-studio-300 mb-1.5">
-                Wardrobe & Clothing Consistency (Keeps protagonist dressed identically across scenes)
+                Wardrobe & Clothing Consistency (Dresses protagonist identically across video scenes)
               </label>
               <textarea
                 rows={2}
@@ -436,6 +653,26 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
               value={form.visualStyle}
               onChange={(e) => setForm({ ...form, visualStyle: e.target.value })}
             />
+
+            {/* Checkbox: Auto-generate photo */}
+            {!editingCharacter && (
+              <div className="p-3 bg-brand-500/10 border border-brand-500/20 rounded-xl flex items-center justify-between text-xs">
+                <label className="flex items-center gap-2 cursor-pointer text-studio-200">
+                  <input
+                    type="checkbox"
+                    checked={autoGenerateOnSave}
+                    onChange={(e) => setAutoGenerateOnSave(e.target.checked)}
+                    className="rounded border-studio-700 text-brand-500 bg-studio-900"
+                  />
+                  <span className="font-semibold text-brand-300">
+                    Auto-Generate Initial AI Portrait Reference Photo on Save
+                  </span>
+                </label>
+                <span className="text-[10px] text-studio-400">
+                  Provides ready keyframe photo for video generation
+                </span>
+              </div>
+            )}
 
             {/* Lock Continuity & Save Button */}
             <div className="pt-4 border-t border-studio-800 flex items-center justify-between">
@@ -460,6 +697,58 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
             </div>
           </div>
         </Card>
+      )}
+
+      {/* Full Photo Preview Modal */}
+      {previewPhoto && (
+        <Modal
+          isOpen={Boolean(previewPhoto)}
+          onClose={() => setPreviewPhoto(null)}
+          title="Character Reference Photo (Keyframe)"
+          subtitle="Use this exact photo as the image input for video generation"
+          footer={
+            <div className="flex items-center justify-between w-full">
+              <span className="text-[10px] text-studio-500 font-mono truncate max-w-xs">
+                {previewPhoto.imagePath}
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Copy size={13} />}
+                  onClick={() => handleCopyPhotoToClipboard(previewPhoto.imagePath)}
+                >
+                  Copy Photo
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  icon={<Trash2 size={13} />}
+                  onClick={() => handleDeleteReference(previewPhoto.id)}
+                >
+                  Delete Photo
+                </Button>
+                <Button variant="primary" size="sm" onClick={() => setPreviewPhoto(null)}>
+                  Done
+                </Button>
+              </div>
+            </div>
+          }
+        >
+          <div className="space-y-3 text-xs">
+            <div className="max-h-[500px] bg-studio-950 rounded-xl overflow-hidden border border-studio-800 flex items-center justify-center p-2">
+              <img
+                src={`file://${previewPhoto.imagePath.replace(/\\/g, '/')}`}
+                alt="Full Character Reference"
+                className="max-h-[460px] object-contain rounded-lg"
+              />
+            </div>
+            <div className="p-3 bg-studio-950 rounded-xl border border-studio-800 text-[11px] text-studio-300">
+              <strong className="text-brand-300 block mb-1">Video Generation Continuity Instruction:</strong>
+              <p>{previewPhoto.prompt}</p>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

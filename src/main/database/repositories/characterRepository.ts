@@ -142,6 +142,15 @@ export class CharacterRepository {
     };
   }
 
+  public setPrimaryReference(characterId: string, referenceId: string): boolean {
+    const db = appDb.getRawDb();
+    db.transaction(() => {
+      db.prepare('UPDATE character_references SET is_primary = 0 WHERE character_id = ?').run(characterId);
+      db.prepare('UPDATE character_references SET is_primary = 1 WHERE id = ? AND character_id = ?').run(referenceId, characterId);
+    })();
+    return true;
+  }
+
   public deleteReference(referenceId: string): boolean {
     const db = appDb.getRawDb();
     const res = db.prepare('DELETE FROM character_references WHERE id = ?').run(referenceId);

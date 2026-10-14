@@ -378,6 +378,10 @@ export interface IElectronAPI {
   deleteCharacter: (id: string) => Promise<boolean>;
   addCharacterReference: (characterId: string, imagePath: string, prompt: string, isPrimary: boolean) => Promise<CharacterReference>;
   deleteCharacterReference: (referenceId: string) => Promise<boolean>;
+  generateCharacterPhoto: (characterId: string, angle?: 'front' | 'three_quarter' | 'profile' | 'full_body') => Promise<CharacterReference>;
+  generateCharacterSuite: (characterId: string) => Promise<CharacterReference[]>;
+  setCharacterPrimaryReference: (characterId: string, referenceId: string) => Promise<boolean>;
+  copyImageToClipboard: (imagePath: string) => Promise<boolean>;
 
   // Story Projects & Flow AI
   getProjects: () => Promise<StoryProject[]>;
