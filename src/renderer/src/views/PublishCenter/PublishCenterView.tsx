@@ -34,6 +34,54 @@ import {
   PlatformPostCheckResult,
 } from '../../../shared/types';
 
+interface PlatformMeta {
+  id: SocialPlatform;
+  name: string;
+  typeBadge: string;
+  maxDuration: string;
+  maxTitle: string;
+  color: string;
+  activeBorder: string;
+  activeBg: string;
+  activeText: string;
+}
+
+const PLATFORMS_INFO: PlatformMeta[] = [
+  {
+    id: 'youtube',
+    name: 'YouTube Shorts',
+    typeBadge: 'Shorts (60s)',
+    maxDuration: 'Max 60s',
+    maxTitle: '100 chars',
+    color: 'rose',
+    activeBorder: 'border-rose-500/80',
+    activeBg: 'bg-rose-950/40 text-rose-100',
+    activeText: 'text-rose-400',
+  },
+  {
+    id: 'tiktok',
+    name: 'TikTok',
+    typeBadge: 'Feed (10m)',
+    maxDuration: 'Max 10m',
+    maxTitle: '150 chars',
+    color: 'cyan',
+    activeBorder: 'border-cyan-500/80',
+    activeBg: 'bg-cyan-950/40 text-cyan-100',
+    activeText: 'text-cyan-400',
+  },
+  {
+    id: 'facebook',
+    name: 'Facebook Reels',
+    typeBadge: 'Reels (90s)',
+    maxDuration: 'Max 90s',
+    maxTitle: '255 chars',
+    color: 'blue',
+    activeBorder: 'border-blue-500/80',
+    activeBg: 'bg-blue-950/40 text-blue-100',
+    activeText: 'text-blue-400',
+  },
+];
+
 export const PublishCenterView: React.FC = () => {
   const { addToast, setCurrentSection } = useAppStore();
 
@@ -42,9 +90,10 @@ export const PublishCenterView: React.FC = () => {
   const [devices, setDevices] = useState<Device[]>([]);
   const [publishJobs, setPublishJobs] = useState<PublishJob[]>([]);
 
-  // Workflow Form State
+  // Workflow Form State: Multi-Platform Selection (1, 2, or 3)
+  const [selectedPlatforms, setSelectedPlatforms] = useState<SocialPlatform[]>(['youtube', 'tiktok']);
+  const [previewPlatform, setPreviewPlatform] = useState<SocialPlatform>('youtube');
   const [selectedAssetId, setSelectedAssetId] = useState<string>('');
-  const [selectedPlatform, setSelectedPlatform] = useState<SocialPlatform>('youtube');
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [publishMode, setPublishMode] = useState<'phone' | 'account'>('phone');
@@ -52,7 +101,7 @@ export const PublishCenterView: React.FC = () => {
 
   // Platform Check State
   const [checkQuery, setCheckQuery] = useState('');
-  const [checkResult, setCheckResult] = useState<PlatformPostCheckResult | null>(null);
+  const [multiCheckResults, setMultiCheckResults] = useState<Record<string, PlatformPostCheckResult>>({});
   const [isCheckingCanPost, setIsCheckingCanPost] = useState(false);
   const [showCheckDetails, setShowCheckDetails] = useState(true);
 
@@ -81,24 +130,22 @@ export const PublishCenterView: React.FC = () => {
       setPublishJobs(jList);
       setDevices(dList);
 
-      if (aList.length > 0 && !selectedAssetId) {
+      let curAssetId = selectedAssetId;
+      if (aList.length > 0 && !curAssetId) {
+        curAssetId = aList[0].id;
         setSelectedAssetId(aList[0].id);
         setPostTitle(aList[0].title);
       }
       if (accList.length > 0 && !selectedAccountId) {
         setSelectedAccountId(accList[0].id);
       }
-      if (dList.length > 0 && !selectedDeviceId) {
+      let curDevId = selectedDeviceId;
+      if (dList.length > 0 && !curDevId) {
+        curDevId = dList[0].id;
         setSelectedDeviceId(dList[0].id);
       }
 
-      // Initial check
-      runPostCheck(
-        selectedPlatform,
-        checkQuery,
-        aList[0]?.id,
-        dList[0]?.id
-      );
+      runMultiPostCheck(selectedPlatforms, checkQuery, curAssetId, curDevId);
     }
   };
 
@@ -112,7 +159,9 @@ export const PublishCenterView: React.FC = () => {
     try {
       const dList = await window.api.getConnectedDevices();
       setDevices(dList);
+      let devId = selectedDeviceId;
       if (dList.length > 0 && !selectedDeviceId) {
+        devId = dList[0].id;
         setSelectedDeviceId(dList[0].id);
       }
       addToast({
@@ -120,7 +169,7 @@ export const PublishCenterView: React.FC = () => {
         title: 'Devices Scanned',
         message: `Found ${dList.length} connected device(s).`,
       });
-      runPostCheck(selectedPlatform, checkQuery, selectedAssetId, dList[0]?.id);
+      runMultiPostCheck(selectedPlatforms, checkQuery, selectedAssetId, devId);
     } catch (err: any) {
       addToast({ type: 'error', title: 'Device scan failed', message: err.message });
     } finally {
@@ -128,36 +177,64 @@ export const PublishCenterView: React.FC = () => {
     }
   };
 
-  const runPostCheck = async (
-    platformToTest?: SocialPlatform,
+  const runMultiPostCheck = async (
+    platformsToCheck = selectedPlatforms,
     queryToTest?: string,
     assetIdToTest?: string,
     deviceIdToTest?: string
   ) => {
-    if (!window.api) return;
+    if (!window.api || platformsToCheck.length === 0) return;
     setIsCheckingCanPost(true);
     try {
-      const targetPlat = platformToTest || selectedPlatform;
       const targetDev = deviceIdToTest !== undefined ? deviceIdToTest : selectedDeviceId;
       const targetAsset = assetIdToTest !== undefined ? assetIdToTest : selectedAssetId;
       const targetQuery = queryToTest !== undefined ? queryToTest : checkQuery;
 
-      const res = await window.api.checkPlatformPostReadiness({
-        platform: targetPlat,
-        deviceId: targetDev,
-        mediaAssetId: targetAsset,
-        checkQuery: targetQuery,
-        title: postTitle,
-        caption: postCaption,
-        hashtags: postHashtags.split(/\s+/).filter(Boolean),
-        privacy,
-      });
-      setCheckResult(res);
+      const resultsMap: Record<string, PlatformPostCheckResult> = {};
+      for (const plat of platformsToCheck) {
+        const res = await window.api.checkPlatformPostReadiness({
+          platform: plat,
+          deviceId: targetDev,
+          mediaAssetId: targetAsset,
+          checkQuery: targetQuery,
+          title: postTitle,
+          caption: postCaption,
+          hashtags: postHashtags.split(/\s+/).filter(Boolean),
+          privacy,
+        });
+        resultsMap[plat] = res;
+      }
+      setMultiCheckResults(resultsMap);
     } catch (err: any) {
-      console.warn('Failed to run post readiness check:', err);
+      console.warn('Failed to run multi-platform post check:', err);
     } finally {
       setIsCheckingCanPost(false);
     }
+  };
+
+  const togglePlatform = (p: SocialPlatform) => {
+    let next: SocialPlatform[];
+    if (selectedPlatforms.includes(p)) {
+      if (selectedPlatforms.length === 1) {
+        addToast({ type: 'warn', title: 'At least 1 platform must be selected' });
+        return;
+      }
+      next = selectedPlatforms.filter((x) => x !== p);
+      if (previewPlatform === p) {
+        setPreviewPlatform(next[0]);
+      }
+    } else {
+      next = [...selectedPlatforms, p];
+      setPreviewPlatform(p);
+    }
+    setSelectedPlatforms(next);
+    runMultiPostCheck(next, checkQuery, selectedAssetId, selectedDeviceId);
+  };
+
+  const selectAllPlatforms = () => {
+    const all: SocialPlatform[] = ['youtube', 'tiktok', 'facebook'];
+    setSelectedPlatforms(all);
+    runMultiPostCheck(all, checkQuery, selectedAssetId, selectedDeviceId);
   };
 
   const handleRunCaptionAssistant = async () => {
@@ -167,7 +244,7 @@ export const PublishCenterView: React.FC = () => {
       const selected = assets.find((a) => a.id === selectedAssetId);
       const res = await window.api.generateCaptions({
         videoTitle: postTitle || selected?.title || 'Viral AI Story',
-        targetPlatform: selectedPlatform,
+        targetPlatform: previewPlatform,
         targetAudience: 'Content creators, mystery and short video lovers',
         language: 'en',
         tone: captionTone,
@@ -182,7 +259,7 @@ export const PublishCenterView: React.FC = () => {
         setPostHashtags(top.hashtags.join(' '));
         addToast({ type: 'success', title: 'Captions & Hashtags Generated' });
         setIsCaptionModalOpen(false);
-        runPostCheck(selectedPlatform, top.title, selectedAssetId, selectedDeviceId);
+        runMultiPostCheck(selectedPlatforms, top.title, selectedAssetId, selectedDeviceId);
       }
     } catch (err: any) {
       addToast({ type: 'error', title: 'Caption assistant failed', message: err.message });
@@ -194,6 +271,11 @@ export const PublishCenterView: React.FC = () => {
   const handleCreateAndPublish = async () => {
     if (!selectedAssetId || !window.api) {
       addToast({ type: 'warn', title: 'Please select a video asset to publish' });
+      return;
+    }
+
+    if (selectedPlatforms.length === 0) {
+      addToast({ type: 'warn', title: 'Please select at least 1 platform to post' });
       return;
     }
 
@@ -210,40 +292,61 @@ export const PublishCenterView: React.FC = () => {
     }
 
     setIsPublishing(true);
-    try {
-      // 1. Create publish job
-      const job = await window.api.createPublishJob({
-        mediaAssetId: selectedAssetId,
-        platform: selectedPlatform,
-        accountId: targetAccountId,
-        title: postTitle,
-        caption: postCaption,
-        hashtags: postHashtags.split(/\s+/).filter(Boolean),
-        tags: ['studio', 'ai'],
-        privacy,
-        scheduledFor: scheduleTime || undefined,
-        aiDisclosure,
-      });
+    let successCount = 0;
+    const errors: string[] = [];
 
-      // 2. Execute publish workflow
-      const result = await window.api.executePublishJob(job.id);
-      if (result.success) {
+    try {
+      for (const plat of selectedPlatforms) {
+        try {
+          // 1. Create publish job for this platform
+          const job = await window.api.createPublishJob({
+            mediaAssetId: selectedAssetId,
+            platform: plat,
+            accountId: targetAccountId,
+            title: postTitle,
+            caption: postCaption,
+            hashtags: postHashtags.split(/\s+/).filter(Boolean),
+            tags: ['studio', 'ai'],
+            privacy,
+            scheduledFor: scheduleTime || undefined,
+            aiDisclosure,
+          });
+
+          // 2. Execute publish workflow
+          const result = await window.api.executePublishJob(job.id);
+          if (result.success) {
+            successCount++;
+          } else {
+            errors.push(`${plat.toUpperCase()}: ${result.message}`);
+          }
+        } catch (jobErr: any) {
+          errors.push(`${plat.toUpperCase()}: ${jobErr.message}`);
+        }
+      }
+
+      if (successCount === selectedPlatforms.length) {
         addToast({
           type: 'success',
-          title: publishMode === 'phone' ? 'Video Pushed to Phone!' : 'Post Published Successfully!',
-          message: result.message || result.remotePostUrl || 'Check post history below.',
+          title: publishMode === 'phone' ? 'Transferred & Ready on Phone!' : 'Published Successfully!',
+          message: `Successfully processed for ${successCount} platform(s): ${selectedPlatforms.map((p) => p.toUpperCase()).join(', ')}.`,
+        });
+      } else if (successCount > 0) {
+        addToast({
+          type: 'warn',
+          title: `Published to ${successCount}/${selectedPlatforms.length} Platforms`,
+          message: errors.join('; '),
         });
       } else {
         addToast({
-          type: 'warn',
-          title: 'Publish Action Completed with Notes',
-          message: result.message,
+          type: 'error',
+          title: 'Publish Failed',
+          message: errors.join('; ') || 'Could not post to selected platforms.',
         });
       }
 
       await loadData();
     } catch (err: any) {
-      addToast({ type: 'error', title: 'Publish Failed', message: err.message });
+      addToast({ type: 'error', title: 'Publishing process error', message: err.message });
     } finally {
       setIsPublishing(false);
     }
@@ -285,18 +388,18 @@ export const PublishCenterView: React.FC = () => {
           </select>
         </div>
 
-        {/* Step 2: Destination Platform & Authorized Phone */}
+        {/* Step 2: Multi-Platform Selection (1, 2, or 3) & Authorized Phone */}
         <div className="space-y-3 pt-2 border-t border-studio-800">
           <div className="flex items-center justify-between">
             <label className="block text-xs font-semibold text-studio-300">
-              2. Platform & Destination
+              2. Platforms & Destination
             </label>
             <div className="flex items-center gap-1 bg-studio-850 p-0.5 rounded-lg border border-studio-750">
               <button
                 type="button"
                 onClick={() => {
                   setPublishMode('phone');
-                  runPostCheck(selectedPlatform, checkQuery, selectedAssetId, selectedDeviceId);
+                  runMultiPostCheck(selectedPlatforms, checkQuery, selectedAssetId, selectedDeviceId);
                 }}
                 className={`px-2 py-0.5 text-[10px] font-medium rounded-md transition-colors flex items-center gap-1 ${
                   publishMode === 'phone'
@@ -311,7 +414,7 @@ export const PublishCenterView: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setPublishMode('account');
-                  runPostCheck(selectedPlatform, checkQuery, selectedAssetId, '');
+                  runMultiPostCheck(selectedPlatforms, checkQuery, selectedAssetId, '');
                 }}
                 className={`px-2 py-0.5 text-[10px] font-medium rounded-md transition-colors flex items-center gap-1 ${
                   publishMode === 'account'
@@ -325,92 +428,147 @@ export const PublishCenterView: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="block text-xs font-semibold text-studio-300 mb-1.5">Platform</label>
-              <select
-                className="w-full bg-studio-850 border border-studio-750 rounded-lg p-2.5 text-studio-100 text-xs capitalize"
-                value={selectedPlatform}
-                onChange={(e) => {
-                  const plat = e.target.value as SocialPlatform;
-                  setSelectedPlatform(plat);
-                  runPostCheck(plat);
-                }}
+          {/* 3 Clickable Platform Cards (Select 1, 2, or All 3) */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-medium text-studio-300">
+                Click to Select Platforms ({selectedPlatforms.length} of 3 selected):
+              </span>
+              <button
+                type="button"
+                onClick={selectAllPlatforms}
+                className="text-[10px] text-brand-400 hover:text-brand-300 underline font-medium"
               >
-                <option value="youtube">YouTube (Shorts/Video)</option>
-                <option value="tiktok">TikTok (Content API/App)</option>
-                <option value="facebook">Facebook (Reels/Page)</option>
-              </select>
+                {selectedPlatforms.length === 3 ? 'All 3 Selected' : 'Select All 3'}
+              </button>
             </div>
 
-            <div>
-              {publishMode === 'phone' ? (
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-semibold text-studio-300 flex items-center gap-1">
-                      <Smartphone size={12} className="text-brand-400" />
-                      Authorized Phone
-                    </label>
-                    <button
-                      type="button"
-                      onClick={handleRefreshDevices}
-                      disabled={isScanningDevices}
-                      className="text-[10px] text-brand-400 hover:text-brand-300 flex items-center gap-1"
-                      title="Scan connected Android phones via ADB"
-                    >
-                      <RefreshCw size={10} className={isScanningDevices ? 'animate-spin' : ''} />
-                      Scan
-                    </button>
-                  </div>
-                  <select
-                    className="w-full bg-studio-850 border border-studio-750 rounded-lg p-2.5 text-studio-100 text-xs"
-                    value={selectedDeviceId}
-                    onChange={(e) => {
-                      setSelectedDeviceId(e.target.value);
-                      runPostCheck(selectedPlatform, checkQuery, selectedAssetId, e.target.value);
-                    }}
+            <div className="grid grid-cols-3 gap-2">
+              {PLATFORMS_INFO.map((p) => {
+                const isSelected = selectedPlatforms.includes(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => togglePlatform(p.id)}
+                    className={`relative p-2.5 rounded-xl border text-left transition-all flex flex-col justify-between ${
+                      isSelected
+                        ? `${p.activeBorder} ${p.activeBg} shadow-sm ring-1 ring-white/10`
+                        : 'border-studio-800 bg-studio-850/60 text-studio-400 hover:border-studio-700 hover:text-studio-300'
+                    }`}
                   >
-                    {devices.length === 0 ? (
-                      <option value="">📱 Virtual Android Phone (Staging)</option>
-                    ) : (
-                      devices.map((d) => {
-                        const app = d.installedApps?.find((a) =>
-                          selectedPlatform === 'youtube'
-                            ? a.packageName.includes('youtube')
-                            : selectedPlatform === 'tiktok'
-                            ? a.packageName.includes('musically')
-                            : a.packageName.includes('katana')
-                        );
-                        const appTag = app?.isInstalled ? '✓ App Ready' : 'Gallery Only';
-                        return (
-                          <option key={d.id} value={d.id}>
-                            📱 {d.model} ({d.status.toUpperCase()}) — {appTag}
-                          </option>
-                        );
-                      })
-                    )}
-                  </select>
-                </div>
-              ) : (
-                <div>
-                  <label className="block text-xs font-semibold text-studio-300 mb-1.5">
-                    Authorized Account
-                  </label>
-                  <select
-                    className="w-full bg-studio-850 border border-studio-750 rounded-lg p-2.5 text-studio-100 text-xs"
-                    value={selectedAccountId}
-                    onChange={(e) => setSelectedAccountId(e.target.value)}
-                  >
-                    {accounts.length === 0 && <option value="">No Accounts Connected</option>}
-                    {accounts.map((acc) => (
-                      <option key={acc.id} value={acc.id}>
-                        {acc.accountName} ({acc.platform})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-xs truncate">
+                        {p.name}
+                      </span>
+                      <div
+                        className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] shrink-0 ml-1 ${
+                          isSelected
+                            ? 'bg-brand-500 text-white font-bold'
+                            : 'border border-studio-600 text-transparent'
+                        }`}
+                      >
+                        ✓
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-studio-400 font-mono">
+                      <span>{p.typeBadge}</span>
+                      <span className={isSelected ? p.activeText : ''}>{p.maxDuration}</span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
+          </div>
+
+          {/* Destination Selector: Authorized Phone or Cloud Account */}
+          <div>
+            {publishMode === 'phone' ? (
+              <div className="p-3 bg-studio-850/80 rounded-xl border border-studio-750 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-semibold text-studio-200 flex items-center gap-1.5">
+                    <Smartphone size={13} className="text-brand-400" />
+                    Authorized Phone Destination
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleRefreshDevices}
+                    disabled={isScanningDevices}
+                    className="text-[10px] text-brand-400 hover:text-brand-300 flex items-center gap-1"
+                    title="Scan connected Android phones via ADB"
+                  >
+                    <RefreshCw size={10} className={isScanningDevices ? 'animate-spin' : ''} />
+                    Scan Phone
+                  </button>
+                </div>
+
+                <select
+                  className="w-full bg-studio-900 border border-studio-750 rounded-lg p-2 text-studio-100 text-xs"
+                  value={selectedDeviceId}
+                  onChange={(e) => {
+                    setSelectedDeviceId(e.target.value);
+                    runMultiPostCheck(selectedPlatforms, checkQuery, selectedAssetId, e.target.value);
+                  }}
+                >
+                  {devices.length === 0 ? (
+                    <option value="">📱 Virtual Android Phone (Staging Mode)</option>
+                  ) : (
+                    devices.map((d) => (
+                      <option key={d.id} value={d.id}>
+                        📱 {d.model} ({d.status.toUpperCase()}) — Battery {d.batteryLevel || 85}%
+                      </option>
+                    ))
+                  )}
+                </select>
+
+                {/* Show installed app readiness on phone for each selected platform */}
+                {devices.length > 0 && selectedDeviceId && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {selectedPlatforms.map((p) => {
+                      const d = devices.find((x) => x.id === selectedDeviceId);
+                      const appPkg =
+                        p === 'youtube'
+                          ? 'com.google.android.youtube'
+                          : p === 'tiktok'
+                          ? 'com.zhiliaoapp.musically'
+                          : 'com.facebook.katana';
+                      const isInstalled = d?.installedApps?.some((a) => a.packageName === appPkg && a.isInstalled);
+                      const appName = p === 'youtube' ? 'YouTube' : p === 'tiktok' ? 'TikTok' : 'Facebook';
+                      return (
+                        <span
+                          key={p}
+                          className={`text-[9px] px-2 py-0.5 rounded-full border ${
+                            isInstalled
+                              ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-300 font-medium'
+                              : 'bg-studio-800 border-studio-700 text-studio-400'
+                          }`}
+                        >
+                          {isInstalled ? `✓ ${appName} App Ready` : `${appName} (Gallery Push)`}
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-semibold text-studio-300 mb-1.5">
+                  Authorized Account
+                </label>
+                <select
+                  className="w-full bg-studio-850 border border-studio-750 rounded-lg p-2.5 text-studio-100 text-xs"
+                  value={selectedAccountId}
+                  onChange={(e) => setSelectedAccountId(e.target.value)}
+                >
+                  {accounts.length === 0 && <option value="">No Accounts Connected</option>}
+                  {accounts.map((acc) => (
+                    <option key={acc.id} value={acc.id}>
+                      {acc.accountName} ({acc.platform})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Platform Update & Check We Can Post Textbox */}
@@ -418,11 +576,18 @@ export const PublishCenterView: React.FC = () => {
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-semibold text-studio-200 flex items-center gap-1.5">
                 <CheckCircle2 size={13} className="text-cyan-400" />
-                Check We Can Post ({checkResult?.platformLimits.appName || selectedPlatform.toUpperCase()})
+                Check We Can Post ({selectedPlatforms.length} Selected)
               </span>
-              <span className="text-[10px] text-cyan-400 font-mono">
-                Max Title: {checkResult?.platformLimits.maxTitleLength || 100}c
-              </span>
+              <div className="flex items-center gap-1">
+                {selectedPlatforms.map((p) => (
+                  <span
+                    key={p}
+                    className="text-[9px] uppercase font-mono px-1.5 py-0.5 rounded bg-studio-800 text-studio-300 border border-studio-700"
+                  >
+                    {p}
+                  </span>
+                ))}
+              </div>
             </div>
 
             <div className="flex gap-2">
@@ -431,13 +596,11 @@ export const PublishCenterView: React.FC = () => {
                 className="flex-1 bg-studio-900 border border-studio-700 rounded-lg px-2.5 py-1.5 text-studio-100 text-xs placeholder:text-studio-500 focus:outline-none focus:ring-1 focus:ring-cyan-500"
                 placeholder="Enter test post text or query to check if we can post..."
                 value={checkQuery}
-                onChange={(e) => {
-                  setCheckQuery(e.target.value);
-                }}
+                onChange={(e) => setCheckQuery(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
                     e.preventDefault();
-                    runPostCheck(selectedPlatform, checkQuery);
+                    runMultiPostCheck();
                   }
                 }}
               />
@@ -446,76 +609,98 @@ export const PublishCenterView: React.FC = () => {
                 size="sm"
                 loading={isCheckingCanPost}
                 icon={<CheckCircle2 size={12} />}
-                onClick={() => runPostCheck(selectedPlatform, checkQuery)}
+                onClick={() => runMultiPostCheck()}
               >
-                Check
+                Check {selectedPlatforms.length} Platform{selectedPlatforms.length > 1 ? 's' : ''}
               </Button>
             </div>
 
-            {/* Diagnostic readout box */}
-            {checkResult && (
-              <div
-                className={`p-2.5 rounded-lg text-[11px] space-y-1.5 border transition-all ${
-                  checkResult.status === 'ready'
-                    ? 'bg-emerald-950/30 border-emerald-500/30 text-emerald-200'
-                    : checkResult.status === 'warning'
-                    ? 'bg-amber-950/30 border-amber-500/30 text-amber-200'
-                    : 'bg-rose-950/30 border-rose-500/30 text-rose-200'
-                }`}
-              >
-                <div className="flex items-center justify-between font-semibold">
-                  <span className="flex items-center gap-1.5">
-                    {checkResult.status === 'ready' ? (
-                      <CheckCircle2 size={13} className="text-emerald-400 shrink-0" />
-                    ) : checkResult.status === 'warning' ? (
-                      <AlertTriangle size={13} className="text-amber-400 shrink-0" />
-                    ) : (
-                      <XCircle size={13} className="text-rose-400 shrink-0" />
-                    )}
-                    {checkResult.summary}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowCheckDetails(!showCheckDetails)}
-                    className="text-[10px] underline hover:text-white"
-                  >
-                    {showCheckDetails ? 'Hide Details' : 'View Details'}
-                  </button>
+            {/* Diagnostic readout box across selected platforms */}
+            {selectedPlatforms.length > 0 && Object.keys(multiCheckResults).length > 0 && (
+              <div className="space-y-2 pt-1">
+                {/* Platform status cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                  {selectedPlatforms.map((p) => {
+                    const res = multiCheckResults[p];
+                    if (!res) return null;
+                    const isReady = res.status === 'ready';
+                    const isWarn = res.status === 'warning';
+                    return (
+                      <div
+                        key={p}
+                        className={`p-2 rounded-lg border text-[10px] space-y-1 ${
+                          isReady
+                            ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-200'
+                            : isWarn
+                            ? 'bg-amber-950/20 border-amber-500/30 text-amber-200'
+                            : 'bg-rose-950/20 border-rose-500/30 text-rose-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between font-bold capitalize">
+                          <span>{res.platformName}</span>
+                          <span>{isReady ? '✓ Ready' : isWarn ? '⚠ Notice' : '✗ Error'}</span>
+                        </div>
+                        <p className="text-[9px] text-studio-400 line-clamp-1">{res.summary}</p>
+                      </div>
+                    );
+                  })}
                 </div>
 
-                {showCheckDetails && (
-                  <div className="pt-1.5 border-t border-white/10 space-y-1">
-                    {checkResult.checks.map((c, i) => (
-                      <div key={i} className="flex items-start gap-1.5 text-[10px]">
-                        <span className="shrink-0 mt-0.5">
-                          {c.severity === 'success' ? (
-                            <span className="text-emerald-400 font-bold">✓</span>
-                          ) : c.severity === 'warn' ? (
-                            <span className="text-amber-400 font-bold">⚠</span>
-                          ) : (
-                            <span className="text-rose-400 font-bold">✗</span>
-                          )}
-                        </span>
-                        <span
-                          className={
-                            c.severity === 'success'
-                              ? 'text-studio-300'
-                              : c.severity === 'warn'
-                              ? 'text-amber-300'
-                              : 'text-rose-300'
-                          }
-                        >
-                          <strong className="text-studio-100">{c.name}:</strong> {c.message}
-                        </span>
-                      </div>
-                    ))}
-                    {checkResult.recommendations.length > 0 && (
-                      <div className="mt-1 text-[10px] text-cyan-300 bg-cyan-950/50 p-1.5 rounded border border-cyan-800/40">
-                        💡 <strong>Optimization Tip:</strong> {checkResult.recommendations[0]}
-                      </div>
-                    )}
+                {/* Detailed checks toggle */}
+                <div className="p-2.5 rounded-lg bg-studio-900 border border-studio-800 text-[11px] space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-studio-200 text-[10px]">
+                      Detailed Diagnostic Checklist ({selectedPlatforms.length} Platforms)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowCheckDetails(!showCheckDetails)}
+                      className="text-[10px] text-cyan-400 hover:text-cyan-300 underline"
+                    >
+                      {showCheckDetails ? 'Hide Details' : 'View Details'}
+                    </button>
                   </div>
-                )}
+
+                  {showCheckDetails && (
+                    <div className="pt-1.5 border-t border-studio-800 space-y-1 max-h-36 overflow-y-auto">
+                      {selectedPlatforms.map((p) => {
+                        const res = multiCheckResults[p];
+                        if (!res) return null;
+                        return (
+                          <div key={p} className="space-y-0.5 pb-1">
+                            <span className="text-[9px] uppercase font-bold text-studio-400 block">
+                              • {res.platformName}:
+                            </span>
+                            {res.checks.map((c, i) => (
+                              <div key={i} className="flex items-start gap-1.5 text-[10px] pl-2">
+                                <span className="shrink-0 mt-0.5">
+                                  {c.severity === 'success' ? (
+                                    <span className="text-emerald-400 font-bold">✓</span>
+                                  ) : c.severity === 'warn' ? (
+                                    <span className="text-amber-400 font-bold">⚠</span>
+                                  ) : (
+                                    <span className="text-rose-400 font-bold">✗</span>
+                                  )}
+                                </span>
+                                <span
+                                  className={
+                                    c.severity === 'success'
+                                      ? 'text-studio-300'
+                                      : c.severity === 'warn'
+                                      ? 'text-amber-300'
+                                      : 'text-rose-300'
+                                  }
+                                >
+                                  <strong>{c.name}:</strong> {c.message}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -609,10 +794,10 @@ export const PublishCenterView: React.FC = () => {
             onClick={handleCreateAndPublish}
           >
             {scheduleTime
-              ? 'Schedule Post'
+              ? `Schedule Post (${selectedPlatforms.length} Platform${selectedPlatforms.length > 1 ? 's' : ''})`
               : publishMode === 'phone'
-              ? 'Push to Phone & Open App'
-              : 'Publish Video Now'}
+              ? `Push to Phone & Post (${selectedPlatforms.length} Platform${selectedPlatforms.length > 1 ? 's' : ''})`
+              : `Publish to ${selectedPlatforms.length} Platform${selectedPlatforms.length > 1 ? 's' : ''}`}
           </Button>
         </div>
       </div>
@@ -620,15 +805,33 @@ export const PublishCenterView: React.FC = () => {
       {/* Right Column: Live Mockup Preview & Publishing History */}
       <div className="flex-1 flex flex-col overflow-hidden bg-studio-950">
         {/* Preview Header */}
-        <div className="px-6 py-4 border-b border-studio-800 bg-studio-900/60 flex items-center justify-between">
+        <div className="px-6 py-4 border-b border-studio-800 bg-studio-900/60 flex items-center justify-between flex-wrap gap-2">
           <h4 className="text-sm font-semibold text-studio-100 flex items-center gap-2">
             <Eye size={16} className="text-cyan-400" />
             Social Feed Live Mockup Preview
           </h4>
           <div className="flex items-center gap-2">
-            <Badge variant="brand" size="sm" className="capitalize">
-              {selectedPlatform} View
-            </Badge>
+            {/* Preview Platform Switcher for Selected Platforms */}
+            <div className="flex items-center bg-studio-800/90 p-0.5 rounded-lg border border-studio-700">
+              {selectedPlatforms.map((p) => {
+                const info = PLATFORMS_INFO.find((x) => x.id === p);
+                const isActive = previewPlatform === p;
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => setPreviewPlatform(p)}
+                    className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
+                      isActive
+                        ? 'bg-brand-600 text-white shadow-sm font-semibold'
+                        : 'text-studio-400 hover:text-studio-200'
+                    }`}
+                  >
+                    {info?.name.split(' ')[0] || p}
+                  </button>
+                );
+              })}
+            </div>
             {publishMode === 'phone' && (
               <Badge variant="default" size="sm" className="text-cyan-400 border-cyan-800/40 bg-cyan-950/40">
                 Phone Direct Push
@@ -665,16 +868,29 @@ export const PublishCenterView: React.FC = () => {
 
               {/* Feed overlay elements */}
               <div className="absolute bottom-4 left-3 right-12 text-white space-y-1.5 drop-shadow-md">
-                <span className="text-xs font-bold flex items-center gap-1">
-                  {publishMode === 'phone' ? (
-                    <>
-                      <Smartphone size={11} className="text-cyan-400 shrink-0" />
-                      @{devices.find((d) => d.id === selectedDeviceId)?.model?.replace(/\s+/g, '_').toLowerCase() || 'phone_creator'}
-                    </>
-                  ) : (
-                    `@${accounts.find((a) => a.id === selectedAccountId)?.accountName || 'creator'}`
-                  )}
-                </span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-bold flex items-center gap-1">
+                    {publishMode === 'phone' ? (
+                      <>
+                        <Smartphone size={11} className="text-cyan-400 shrink-0" />
+                        @{devices.find((d) => d.id === selectedDeviceId)?.model?.replace(/\s+/g, '_').toLowerCase() || 'phone_creator'}
+                      </>
+                    ) : (
+                      `@${accounts.find((a) => a.id === selectedAccountId)?.accountName || 'creator'}`
+                    )}
+                  </span>
+                  <span
+                    className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
+                      previewPlatform === 'youtube'
+                        ? 'bg-rose-600/80 text-white'
+                        : previewPlatform === 'tiktok'
+                        ? 'bg-cyan-500/80 text-black'
+                        : 'bg-blue-600/80 text-white'
+                    }`}
+                  >
+                    {previewPlatform === 'youtube' ? 'YouTube Shorts' : previewPlatform === 'tiktok' ? 'TikTok' : 'Facebook Reels'}
+                  </span>
+                </div>
                 <p className="text-[11px] font-semibold line-clamp-1">{postTitle || 'Video Title'}</p>
                 <p className="text-[10px] text-gray-200 line-clamp-2">{postCaption}</p>
                 <p className="text-[9px] text-cyan-300 font-mono">{postHashtags}</p>

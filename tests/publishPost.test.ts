@@ -169,4 +169,62 @@ describe('Publish Post Platform Readiness & Phone Destination Engine', () => {
       publishJobRepo.delete(job.id);
     } catch {}
   });
+
+  it('Multi-Platform Selection (1, 2, or 3 platforms): should validate and publish across selected platforms', async () => {
+    const selectedPlatforms: ('youtube' | 'tiktok' | 'facebook')[] = ['youtube', 'tiktok', 'facebook'];
+
+    // 1. Validate all 3 platforms in parallel
+    const checks = await Promise.all(
+      selectedPlatforms.map((plat) =>
+        socialPublisher.checkPostReadiness({
+          platform: plat,
+          deviceId: testDeviceId,
+          mediaAssetId: testAssetId,
+          checkQuery: 'Multi-platform viral hook #shorts #reels #tiktok',
+          title: 'Elena in the Multiverse',
+        })
+      )
+    );
+
+    expect(checks.length).toBe(3);
+    for (const c of checks) {
+      expect(c.canPost).toBe(true);
+      expect(c.status).toBe('ready');
+      expect(['youtube', 'tiktok', 'facebook']).toContain(c.platform);
+    }
+
+    // 2. Publish to all 3 selected platforms in a single workflow
+    const publishedJobIds: string[] = [];
+    for (const plat of selectedPlatforms) {
+      const job = publishJobRepo.create({
+        mediaAssetId: testAssetId,
+        platform: plat,
+        accountId: `phone_${testDeviceId}`,
+        title: `Elena in the Multiverse [${plat.toUpperCase()}]`,
+        caption: 'Cross-platform multi-post test',
+        hashtags: ['#ai', '#story'],
+        tags: ['multi-post'],
+        privacy: 'public',
+        aiDisclosure: true,
+      });
+      publishedJobIds.push(job.id);
+
+      const pubRes = await socialPublisher.publish(job.id);
+      expect(pubRes.success).toBe(true);
+      expect(pubRes.remotePostUrl).toContain('Phone:');
+
+      const updated = publishJobRepo.getById(job.id);
+      expect(updated?.status).toBe('published');
+    }
+
+    expect(publishedJobIds.length).toBe(3);
+
+    // Clean up created jobs
+    for (const id of publishedJobIds) {
+      try {
+        publishJobRepo.delete(id);
+      } catch {}
+    }
+  });
 });
+
