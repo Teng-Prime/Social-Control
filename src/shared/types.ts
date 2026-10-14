@@ -608,7 +608,7 @@ export interface FlowConnectionInfo {
 }
 
 export interface FlowConnectOptions {
-  mode?: 'interactive' | 'external' | 'google_sso';
+  mode?: 'interactive' | 'external' | 'google_sso' | 'browser';
   email?: string;
 }
 
@@ -680,6 +680,7 @@ export interface IElectronAPI {
   getFlowConnectionStatus: () => Promise<FlowConnectionInfo>;
   connectGoogleFlow: (options?: FlowConnectOptions) => Promise<FlowConnectionInfo>;
   verifyGoogleFlowAccount: (email: string) => Promise<FlowConnectionInfo>;
+  openBrowserGoogleAuth: (suggestedEmail?: string) => Promise<{ success: boolean; url: string; port: number }>;
   checkFlowConnection: () => Promise<FlowConnectionInfo>;
   disconnectGoogleFlow: () => Promise<FlowConnectionInfo>;
   onFlowConnectionChanged?: (callback: (info: FlowConnectionInfo) => void) => () => void;

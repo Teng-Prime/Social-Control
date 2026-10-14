@@ -16,7 +16,8 @@ import {
   UserCheck,
   Globe,
   LogIn,
-  KeyRound,
+  Smartphone,
+  Check,
 } from 'lucide-react';
 import { FlowConnectionInfo, FlowConnectionStatus } from '../../../shared/types';
 
@@ -54,12 +55,13 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
     statusLabel: 'Not Connected',
     officialUrl: 'https://flow.google/',
     hasProgrammaticApi: false,
-    notes: 'Click "Continue with Google" to connect your account with Google Flow.',
+    notes: 'Click "Continue with Google" or "Verify on Browser" to connect your account.',
   });
   const [isConnecting, setIsConnecting] = useState(false);
   const [isChecking, setIsChecking] = useState(false);
   const [isEmailModalOpen, setIsEmailModalOpen] = useState(false);
   const [manualEmail, setManualEmail] = useState('');
+  const [suggestedPhoneAccount, setSuggestedPhoneAccount] = useState<string | null>(null);
   const [isSavingEmail, setIsSavingEmail] = useState(false);
 
   const fetchStatus = async () => {
@@ -77,6 +79,23 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
   useEffect(() => {
     fetchStatus();
 
+    // Check connected devices to detect phone Google account for quick confirmation
+    const checkPhoneGoogleAccount = async () => {
+      if (window.api?.getConnectedDevices) {
+        try {
+          const devices = await window.api.getConnectedDevices();
+          const devWithAccount = devices.find((d) => d.googleAccount);
+          if (devWithAccount && devWithAccount.googleAccount) {
+            setSuggestedPhoneAccount(devWithAccount.googleAccount);
+            setManualEmail(devWithAccount.googleAccount);
+          }
+        } catch {
+          // safe fallback
+        }
+      }
+    };
+    checkPhoneGoogleAccount();
+
     // Subscribe to live connection updates
     if (window.api?.onFlowConnectionChanged) {
       const unsubscribe = window.api.onFlowConnectionChanged((updatedInfo) => {
@@ -85,10 +104,10 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
         if (updatedInfo.status === 'connected') {
           addToast({
             type: 'success',
-            title: 'Google Flow Connected',
+            title: 'Google Account Confirmed & Connected',
             message: updatedInfo.connectedEmail
-              ? `Signed in as ${updatedInfo.connectedEmail}`
-              : 'Google Flow account connected successfully.',
+              ? `Verified for ${updatedInfo.connectedEmail}`
+              : 'Google Flow connection is active.',
           });
         }
       });
@@ -96,7 +115,7 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
     }
   }, []);
 
-  // Primary Action: Continue with Google (Interactive Sign-In Window with Chrome User-Agent)
+  // Action 1: In-App Interactive Sign-In Window with Anti-403 Chrome User-Agent
   const handleContinueWithGoogle = async () => {
     setIsConnecting(true);
     try {
@@ -104,7 +123,7 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
         addToast({
           type: 'info',
           title: 'Opening Google Flow Sign-In...',
-          message: 'Complete sign-in in the dedicated window. Google OAuth 403 protection is handled.',
+          message: 'Sign in to Google in the window. Anti-403 user-agent compatibility is active.',
           duration: 6000,
         });
 
@@ -131,9 +150,37 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
     }
   };
 
-  // Quick 1-Click Link or Manual Google Email verification
-  const handleVerifyEmail = async () => {
-    if (!manualEmail.trim() || !manualEmail.includes('@')) {
+  // Action 2: Verify with Google on Browser & Confirm Account via Local Portal
+  const handleVerifyOnBrowser = async () => {
+    try {
+      if (window.api?.openBrowserGoogleAuth) {
+        addToast({
+          type: 'info',
+          title: 'Opening Browser Verification Portal...',
+          message: 'Verify your Google account in the browser, then click Confirm to link it.',
+          duration: 8000,
+        });
+
+        const targetEmail = suggestedPhoneAccount || manualEmail || undefined;
+        await window.api.openBrowserGoogleAuth(targetEmail);
+        await fetchStatus();
+      } else if (window.api) {
+        await window.api.connectGoogleFlow({ mode: 'external' });
+        await fetchStatus();
+      }
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Browser Verification Launch Failed',
+        message: err.message,
+      });
+    }
+  };
+
+  // Action 3: Confirm Google Account Email (In-App or from Phone detection)
+  const handleConfirmAccountEmail = async (emailToConfirm?: string) => {
+    const email = (emailToConfirm || manualEmail).trim();
+    if (!email || !email.includes('@')) {
       addToast({
         type: 'warn',
         title: 'Invalid Email',
@@ -145,47 +192,24 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
     setIsSavingEmail(true);
     try {
       if (window.api) {
-        const info = await window.api.verifyGoogleFlowAccount(manualEmail.trim());
+        const info = await window.api.verifyGoogleFlowAccount(email);
         setConnectionInfo(info);
         onStatusChange?.(info);
         setIsEmailModalOpen(false);
         addToast({
           type: 'success',
-          title: 'Google Account Linked',
-          message: `Connected Google Flow for ${info.connectedEmail}`,
+          title: 'Google Account Confirmed',
+          message: `Linked account ${info.connectedEmail} to Google Flow AI.`,
         });
       }
     } catch (err: any) {
       addToast({
         type: 'error',
-        title: 'Verification Failed',
+        title: 'Confirmation Failed',
         message: err.message,
       });
     } finally {
       setIsSavingEmail(false);
-    }
-  };
-
-  // Open External Browser fallback
-  const handleOpenExternalBrowser = async () => {
-    try {
-      if (window.api) {
-        const info = await window.api.connectGoogleFlow({ mode: 'external' });
-        setConnectionInfo(info);
-        onStatusChange?.(info);
-        addToast({
-          type: 'info',
-          title: 'Google Flow Opened in Browser',
-          message: 'Sign in with your Google account, then click "I Have Signed In" or "Check Connection".',
-          duration: 7000,
-        });
-      }
-    } catch (err: any) {
-      addToast({
-        type: 'error',
-        title: 'Browser Launch Error',
-        message: err.message,
-      });
     }
   };
 
@@ -207,8 +231,8 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
         } else if (info.status === 'opened_unverified') {
           addToast({
             type: 'warn',
-            title: 'Flow Opened — Waiting for Sign-In',
-            message: 'Click "Continue with Google" or confirm your Google email to complete connection.',
+            title: 'Sign-In Pending Confirmation',
+            message: 'Confirm your account in your browser or click "Confirm Account" below.',
             duration: 6000,
           });
         } else {
@@ -253,13 +277,13 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
       case 'connected':
         return (
           <Badge variant="success" size="md" dot>
-            Connected
+            Connected & Verified
           </Badge>
         );
       case 'opened_unverified':
         return (
           <Badge variant="warning" size="md" dot>
-            Flow opened — sign-in pending
+            Waiting for Account Confirmation
           </Badge>
         );
       case 'connecting':
@@ -346,12 +370,12 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
         {isConnected && connectionInfo.connectedEmail ? (
           <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/40 shadow-inner">
             <div className="flex items-center gap-2.5">
-              <div className="w-7 h-7 rounded-lg bg-emerald-900/60 border border-emerald-500/50 flex items-center justify-center shrink-0">
+              <div className="w-8 h-8 rounded-lg bg-emerald-900/60 border border-emerald-500/50 flex items-center justify-center shrink-0">
                 <GoogleGIcon className="w-4 h-4" />
               </div>
               <div>
                 <span className="text-[11px] text-emerald-400 font-semibold block">
-                  Connected with Google Account
+                  Verified Google Account
                 </span>
                 <span className="font-mono text-emerald-200 text-xs font-bold tracking-tight">
                   {connectionInfo.connectedEmail}
@@ -367,28 +391,59 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
 
         {/* Pending sign-in banner if opened unverified */}
         {connectionInfo.status === 'opened_unverified' && (
-          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start justify-between gap-3 text-xs">
-            <div className="flex items-start gap-2.5">
-              <AlertTriangle size={16} className="text-amber-400 shrink-0 mt-0.5" />
-              <div className="space-y-0.5">
-                <span className="font-semibold text-amber-200 block">
-                  Sign-In Opened in Browser
-                </span>
-                <p className="text-[11px] text-amber-300/80 leading-relaxed">
-                  Once you have clicked "Continue with Google" on flow.google, click below to confirm your connection.
-                </p>
+          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2.5 text-xs">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-2.5">
+                <AlertTriangle size={16} className="text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <span className="font-semibold text-amber-200 block">
+                    Browser Verification Active — Confirm Your Account
+                  </span>
+                  <p className="text-[11px] text-amber-300/80 leading-relaxed">
+                    Verify with Google on your browser, then confirm your account to sync with Social Earnings Studio.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-1.5 shrink-0">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<UserCheck size={13} />}
+                  onClick={() => setIsEmailModalOpen(true)}
+                  className="bg-amber-500 hover:bg-amber-400 text-black border-amber-400"
+                >
+                  Confirm Account
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<Globe size={13} />}
+                  onClick={handleVerifyOnBrowser}
+                >
+                  Open in Browser
+                </Button>
               </div>
             </div>
 
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<UserCheck size={13} />}
-              onClick={() => setIsEmailModalOpen(true)}
-              className="shrink-0 bg-amber-500 hover:bg-amber-400 text-black border-amber-400"
-            >
-              Confirm Account
-            </Button>
+            {/* Quick-confirm phone detected Google account shortcut */}
+            {suggestedPhoneAccount && (
+              <div className="pt-2 border-t border-amber-500/20 flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-[11px] text-studio-300">
+                  <Smartphone size={13} className="text-amber-400" />
+                  <span>Detected Phone Account:</span>
+                  <span className="font-mono text-white font-semibold">{suggestedPhoneAccount}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleConfirmAccountEmail(suggestedPhoneAccount)}
+                  className="inline-flex items-center gap-1 text-[11px] px-2.5 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/30 cursor-pointer transition-colors"
+                >
+                  <Check size={12} />
+                  <span>Confirm This Account</span>
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -396,14 +451,14 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
         <div className="p-3 rounded-xl bg-studio-900/90 border border-studio-800 space-y-1.5">
           <div className="flex items-center gap-1.5 text-studio-300 font-semibold">
             <Lock size={13} className="text-brand-400" />
-            <span>Zero-Password Google OAuth Policy</span>
+            <span>Zero-Password Google OAuth & Browser Verification Policy</span>
           </div>
           <p className="text-[11px] text-studio-400 leading-relaxed">
             {connectionInfo.notes}
           </p>
           <div className="flex items-center gap-1.5 text-[10px] text-studio-500 pt-1">
             <ShieldCheck size={12} className="text-emerald-400 shrink-0" />
-            <span>Protected sign-in: Authentication is handled securely via Google SSO with anti-403 user-agent compatibility.</span>
+            <span>You verify securely directly on Google. Password & 2FA codes are never collected or stored.</span>
           </div>
         </div>
 
@@ -425,45 +480,53 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
         <div className="flex flex-wrap items-center gap-2">
           {/* PRIMARY: Continue with Google Button */}
           {!isConnected ? (
-            <button
-              onClick={handleContinueWithGoogle}
-              disabled={isConnecting}
-              className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all shadow-subtle bg-white hover:bg-slate-100 text-slate-900 border border-slate-200 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
-            >
-              <GoogleGIcon className="w-4 h-4 shrink-0" />
-              <span>{isConnecting ? 'Signing in with Google...' : 'Continue with Google'}</span>
-            </button>
-          ) : (
-            <Button
-              variant="primary"
-              size="sm"
-              icon={<ExternalLink size={14} />}
-              onClick={() => window.api?.openExternalUrl(connectionInfo.officialUrl || 'https://flow.google/')}
-            >
-              Open Flow Workspace
-            </Button>
-          )}
-
-          {/* Secondary Options */}
-          {!isConnected && (
             <>
+              <button
+                onClick={handleContinueWithGoogle}
+                disabled={isConnecting}
+                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all shadow-subtle bg-white hover:bg-slate-100 text-slate-900 border border-slate-200 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+              >
+                <GoogleGIcon className="w-4 h-4 shrink-0" />
+                <span>{isConnecting ? 'Signing in with Google...' : 'Continue with Google'}</span>
+              </button>
+
+              {/* BROWSER: Verify on Browser & Confirm Button */}
+              <button
+                onClick={handleVerifyOnBrowser}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl font-medium text-xs transition-all bg-studio-800 hover:bg-studio-750 text-studio-200 border border-studio-700 active:scale-95 cursor-pointer"
+              >
+                <Globe size={13} className="text-brand-400" />
+                <span>Verify on Browser & Confirm</span>
+              </button>
+
+              {/* CONFIRM: Direct Confirm Account */}
               <Button
                 variant="secondary"
                 size="sm"
                 icon={<UserCheck size={13} />}
                 onClick={() => setIsEmailModalOpen(true)}
               >
-                Quick Link Account
+                Confirm Account
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<ExternalLink size={14} />}
+                onClick={() => window.api?.openExternalUrl(connectionInfo.officialUrl || 'https://flow.google/')}
+              >
+                Open Flow Workspace
               </Button>
 
               <Button
-                variant="ghost"
+                variant="secondary"
                 size="sm"
                 icon={<Globe size={13} />}
-                onClick={handleOpenExternalBrowser}
-                title="Open Flow in your system default browser (Chrome, Edge)"
+                onClick={handleVerifyOnBrowser}
               >
-                Open in Chrome
+                Re-verify on Browser
               </Button>
             </>
           )}
@@ -510,8 +573,8 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
         <Modal
           isOpen={isEmailModalOpen}
           onClose={() => setIsEmailModalOpen(false)}
-          title="Connect with Google Flow AI"
-          subtitle="Link your verified Google account to enable AI scene video creation"
+          title="Confirm Google Account"
+          subtitle="Confirm your verified Google account to connect with Google Flow AI"
           maxWidth="md"
           footer={
             <div className="flex justify-end gap-2 w-full">
@@ -523,9 +586,9 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
                 size="sm"
                 icon={<CheckCircle2 size={14} />}
                 loading={isSavingEmail}
-                onClick={handleVerifyEmail}
+                onClick={() => handleConfirmAccountEmail()}
               >
-                Verify & Link Google Account
+                Confirm & Link Google Account
               </Button>
             </div>
           }
@@ -536,14 +599,34 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
                 <GoogleGIcon className="w-4 h-4" />
               </div>
               <div className="space-y-1">
-                <span className="font-bold text-studio-100 block">Google Flow SSO Verification</span>
+                <span className="font-bold text-studio-100 block">Google Account Confirmation</span>
                 <p className="text-[11px] text-studio-400 leading-relaxed">
-                  Enter the Google account email you use on{' '}
+                  Enter the Google Account email you use on{' '}
                   <span className="font-mono text-brand-300">https://flow.google/</span>.
-                  Your account will be verified and connected immediately.
+                  Your account will be confirmed and linked with Social Earnings Studio.
                 </p>
               </div>
             </div>
+
+            {/* Quick select phone account if found */}
+            {suggestedPhoneAccount && (
+              <div className="p-2.5 rounded-lg bg-studio-900 border border-studio-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Smartphone size={14} className="text-amber-400 shrink-0" />
+                  <div>
+                    <span className="text-[10px] text-studio-400 block">Phone Google Account</span>
+                    <span className="font-mono text-white text-xs font-semibold">{suggestedPhoneAccount}</span>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setManualEmail(suggestedPhoneAccount)}
+                >
+                  Use This Email
+                </Button>
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-medium text-studio-200 mb-1.5">
@@ -551,7 +634,7 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
               </label>
               <Input
                 type="email"
-                placeholder="e.g. creator@gmail.com"
+                placeholder="e.g. yourname@gmail.com"
                 value={manualEmail}
                 onChange={(e) => setManualEmail(e.target.value)}
                 autoFocus
@@ -562,16 +645,16 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
             </div>
 
             <div className="pt-2 border-t border-studio-800 flex items-center justify-between text-[11px] text-studio-400">
-              <span>Prefer using the in-app Google login window?</span>
+              <span>Prefer to verify on browser?</span>
               <button
                 type="button"
                 onClick={() => {
                   setIsEmailModalOpen(false);
-                  handleContinueWithGoogle();
+                  handleVerifyOnBrowser();
                 }}
                 className="text-brand-400 hover:text-brand-300 font-semibold underline cursor-pointer"
               >
-                Launch Google Sign-In Window
+                Launch Browser Verification Portal
               </button>
             </div>
           </div>

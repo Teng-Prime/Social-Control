@@ -114,4 +114,27 @@ describe('FlowService & Script / Caption Generation', () => {
     expect(reset.status).toBe('not_connected');
     expect(reset.connectedEmail).toBeUndefined();
   });
+
+  it('should launch browser Google authentication portal and confirm account', async () => {
+    await service.disconnectGoogleFlow();
+
+    // 1. Launch browser portal
+    const res = await service.openBrowserGoogleAuth('user.test@gmail.com');
+    expect(res.success).toBe(true);
+    expect(res.url).toContain('localhost');
+    expect(decodeURIComponent(res.url)).toContain('user.test@gmail.com');
+
+    // 2. Status transitions to opened_unverified while waiting for browser confirmation
+    const status = service.getFlowConnectionStatus();
+    expect(status.status).toBe('opened_unverified');
+    expect(status.notes).toContain('Browser verification portal active');
+
+    // 3. Confirm account via verification
+    const confirmed = await service.verifyGoogleFlowAccount('user.test@gmail.com');
+    expect(confirmed.status).toBe('connected');
+    expect(confirmed.connectedEmail).toBe('user.test@gmail.com');
+
+    // 4. Disconnect cleans up
+    await service.disconnectGoogleFlow();
+  });
 });

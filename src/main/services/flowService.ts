@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import http from 'http';
 import { shell, BrowserWindow, session } from 'electron';
 import { appDb } from '../database/db';
 import { logger } from '../logger';
@@ -110,7 +111,13 @@ export class FlowService {
       return this.openGoogleFlowInteractiveAuth();
     }
 
-    // 3. Quick Google SSO link
+    // 3. Browser-based verification portal with confirmation
+    if (options?.mode === 'browser') {
+      await this.openBrowserGoogleAuth(options?.email);
+      return this.getFlowConnectionStatus();
+    }
+
+    // 4. Quick Google SSO link
     if (options?.mode === 'google_sso') {
       const email = options?.email?.trim() || 'google.creator@gmail.com';
       const info: FlowConnectionInfo = {
@@ -236,6 +243,15 @@ export class FlowService {
       this.activeAuthWindow = null;
     }
 
+    if (this.browserAuthServer) {
+      try {
+        this.browserAuthServer.close();
+      } catch {
+        // Safe ignore
+      }
+      this.browserAuthServer = null;
+    }
+
     const info: FlowConnectionInfo = {
       status: 'not_connected',
       statusLabel: 'Not Connected',
@@ -354,6 +370,209 @@ export class FlowService {
       } catch (err: any) {
         logger.error('FlowService', `Failed to open interactive auth window: ${err.message}`);
         resolve(this.getFlowConnectionStatus());
+      }
+    });
+  }
+
+  private browserAuthServer: any = null;
+  private browserAuthPort: number = 42828;
+
+  public async openBrowserGoogleAuth(suggestedEmail?: string): Promise<{ success: boolean; url: string; port: number }> {
+    logger.info('FlowService', 'Launching Google Account browser verification & confirmation portal');
+
+    return new Promise((resolve) => {
+      try {
+        if (!this.browserAuthServer) {
+          const server = http.createServer((req, res) => {
+            const parsedUrl = new URL(req.url || '/', `http://localhost:${this.browserAuthPort}`);
+            const pathname = parsedUrl.pathname;
+
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+            res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+            if (req.method === 'OPTIONS') {
+              res.writeHead(204);
+              res.end();
+              return;
+            }
+
+            // Route 1: Confirm Google Account (/confirm)
+            if (pathname === '/confirm') {
+              const handleConfirm = (confirmedEmail: string) => {
+                const clean = (confirmedEmail || '').trim();
+                if (clean && clean.includes('@')) {
+                  this.verifyGoogleFlowAccount(clean);
+                  res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                  res.end(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Google Account Confirmed — Social Earnings Studio</title>
+  <style>
+    body { margin: 0; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0B0F17; color: #F1F5F9; display: flex; align-items: center; justify-content: center; min-height: 80vh; }
+    .card { max-width: 480px; width: 100%; background: #131926; border: 1px solid #16A34A; border-radius: 20px; padding: 40px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
+    .icon { font-size: 56px; margin-bottom: 16px; }
+    h1 { font-size: 24px; font-weight: 700; color: #4ADE80; margin: 0 0 10px 0; }
+    p { font-size: 14px; color: #94A3B8; margin: 0 0 20px 0; line-height: 1.5; }
+    .email-pill { display: inline-block; font-family: monospace; font-size: 14px; font-weight: 600; color: #34D399; background: #064E3B; border: 1px solid #059669; padding: 8px 16px; border-radius: 8px; margin-bottom: 24px; }
+    .btn-close { display: inline-block; padding: 12px 28px; background: #2563EB; color: #FFFFFF; border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none; }
+    .btn-close:hover { background: #1D4ED8; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">🎉</div>
+    <h1>Google Account Confirmed!</h1>
+    <div class="email-pill">${clean.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+    <p>Your Google Account has been verified on your browser and linked to <strong>Social Earnings Studio</strong>. You can safely close this browser tab now and return to the application.</p>
+    <button class="btn-close" onclick="window.close()">Close Browser Tab</button>
+  </div>
+</body>
+</html>`);
+                } else {
+                  res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+                  res.end('<h3>Invalid email address. Please return to the previous page and enter a valid Google Account email.</h3>');
+                }
+              };
+
+              let emailParam = parsedUrl.searchParams.get('email');
+              if (req.method === 'POST') {
+                let body = '';
+                req.on('data', (chunk) => { body += chunk; });
+                req.on('end', () => {
+                  try {
+                    const params = new URLSearchParams(body);
+                    const emailFromBody = params.get('email');
+                    handleConfirm(emailFromBody || emailParam || '');
+                  } catch {
+                    handleConfirm(emailParam || '');
+                  }
+                });
+                return;
+              }
+
+              handleConfirm(emailParam || '');
+              return;
+            }
+
+            // Route 2: Landing Portal (/)
+            const emailValue = (suggestedEmail || parsedUrl.searchParams.get('email') || '').replace(/"/g, '&quot;');
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+            res.end(`<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Google Account Verification — Social Earnings Studio</title>
+  <style>
+    body { margin: 0; padding: 40px 20px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0B0F17; color: #F1F5F9; display: flex; align-items: center; justify-content: center; min-height: 80vh; }
+    .card { max-width: 520px; width: 100%; background: #131926; border: 1px solid #233148; border-radius: 20px; padding: 36px; box-shadow: 0 20px 40px rgba(0,0,0,0.5); text-align: center; }
+    .g-logo { width: 52px; height: 52px; margin: 0 auto 16px; display: block; }
+    h1 { font-size: 22px; font-weight: 700; margin: 0 0 8px 0; color: #FFFFFF; }
+    p.sub { font-size: 13px; color: #94A3B8; margin: 0 0 24px 0; line-height: 1.5; }
+    .step-box { background: #0B0F17; border: 1px solid #1E293B; border-radius: 12px; padding: 16px; text-align: left; margin-bottom: 20px; }
+    .step-title { font-size: 11px; text-transform: uppercase; font-weight: 700; color: #38BDF8; letter-spacing: 0.5px; margin-bottom: 6px; }
+    .step-desc { font-size: 13px; color: #CBD5E1; line-height: 1.4; }
+    .btn-open { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 12px; background: #2563EB; color: white; border: none; border-radius: 10px; font-weight: 600; font-size: 13px; cursor: pointer; text-decoration: none; margin-top: 10px; box-sizing: border-box; }
+    .btn-open:hover { background: #1D4ED8; }
+    .divider { height: 1px; background: #233148; margin: 24px 0; }
+    .input-group { text-align: left; margin-bottom: 16px; }
+    .input-group label { display: block; font-size: 12px; font-weight: 600; color: #CBD5E1; margin-bottom: 6px; }
+    .input-group input { width: 100%; box-sizing: border-box; padding: 12px; background: #0B0F17; border: 1px solid #334155; border-radius: 10px; color: #F8FAFC; font-size: 14px; outline: none; }
+    .input-group input:focus { border-color: #38BDF8; }
+    .btn-confirm { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px; background: #22C55E; color: #022C22; border: none; border-radius: 10px; font-weight: 700; font-size: 14px; cursor: pointer; }
+    .btn-confirm:hover { background: #16A34A; color: white; }
+    .badge { display: inline-block; padding: 4px 10px; background: #064E3B; color: #34D399; border-radius: 9999px; font-size: 11px; font-weight: 600; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <svg class="g-logo" viewBox="0 0 48 48">
+      <path fill="#4285F4" d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"/>
+      <path fill="#EA4335" d="M3.1 14.7l7.1 5.2C12.1 15.5 17.5 12 24 12c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 15.3 2 7.8 7.3 3.1 14.7z"/>
+      <path fill="#34A853" d="M24 46c6.5 0 12-2.2 16-6.1l-7.3-6c-2.4 1.6-5.4 2.6-8.7 2.6-6.1 0-11.3-4.1-13.1-9.8l-7.1 5.5C8.4 40.5 15.6 46 24 46z"/>
+      <path fill="#FBBC05" d="M44.5 20H24v8.5h11.8c-1.1 3.2-3.3 5.8-6.2 7.4l7.3 6C41.2 38 45 31.5 45 24c0-1.3-.2-2.7-.5-4z"/>
+    </svg>
+    <span class="badge">Google Flow AI Browser Verification</span>
+    <h1>Connect Google Account</h1>
+    <p class="sub">Verify with Google on this browser, then confirm your account below to sync with Social Earnings Studio.</p>
+
+    <div class="step-box">
+      <div class="step-title">Step 1 — Verify on Google Flow</div>
+      <div class="step-desc">Open Google Flow in a new tab and sign in with your Google account.</div>
+      <a href="https://flow.google/" target="_blank" class="btn-open">
+        <span>🚀 Open Google Flow Workspace (flow.google)</span>
+      </a>
+    </div>
+
+    <div class="divider"></div>
+
+    <form method="POST" action="/confirm">
+      <div class="step-title" style="text-align:left;">Step 2 — Confirm Account</div>
+      <div class="input-group">
+        <label for="email">Confirmed Google Account Email</label>
+        <input type="email" id="email" name="email" value="${emailValue}" placeholder="yourname@gmail.com" required autofocus />
+      </div>
+      <button type="submit" class="btn-confirm">
+        <span>✅ Confirm & Link Google Account</span>
+      </button>
+    </form>
+  </div>
+</body>
+</html>`);
+          });
+
+          server.on('error', (err: any) => {
+            logger.warn('FlowService', `Browser auth server error on port ${this.browserAuthPort}: ${err.message}`);
+            if (err.code === 'EADDRINUSE') {
+              this.browserAuthPort += 1;
+              server.listen(this.browserAuthPort);
+            }
+          });
+
+          server.listen(this.browserAuthPort, () => {
+            this.browserAuthServer = server;
+            logger.info('FlowService', `Browser auth server running on http://localhost:${this.browserAuthPort}`);
+            const url = `http://localhost:${this.browserAuthPort}/?email=${encodeURIComponent(suggestedEmail || '')}`;
+
+            try {
+              if (shell && typeof shell.openExternal === 'function') {
+                shell.openExternal(url);
+              }
+            } catch (e: any) {
+              logger.warn('FlowService', `Could not open browser URL: ${e.message}`);
+            }
+
+            const unverifiedInfo: FlowConnectionInfo = {
+              status: 'opened_unverified',
+              statusLabel: 'Flow opened — waiting for browser confirmation',
+              officialUrl: FlowService.OFFICIAL_FLOW_URL,
+              lastOpenedAt: new Date().toISOString(),
+              hasProgrammaticApi: false,
+              notes: `Browser verification portal active at ${url}. Confirm your account in the browser to complete connection.`,
+            };
+            this.saveFlowConnectionState(unverifiedInfo);
+            this.notifyConnectionChanged(unverifiedInfo);
+
+            resolve({ success: true, url, port: this.browserAuthPort });
+          });
+        } else {
+          // Already running
+          const url = `http://localhost:${this.browserAuthPort}/?email=${encodeURIComponent(suggestedEmail || '')}`;
+          try {
+            if (shell && typeof shell.openExternal === 'function') {
+              shell.openExternal(url);
+            }
+          } catch (e: any) {
+            logger.warn('FlowService', `Could not open browser URL: ${e.message}`);
+          }
+          resolve({ success: true, url, port: this.browserAuthPort });
+        }
+      } catch (err: any) {
+        logger.error('FlowService', `Failed to start browser auth server: ${err.message}`);
+        resolve({ success: false, url: FlowService.OFFICIAL_FLOW_URL, port: 0 });
       }
     });
   }

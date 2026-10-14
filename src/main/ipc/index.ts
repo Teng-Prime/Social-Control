@@ -486,6 +486,10 @@ export function registerIpcHandlers(): void {
     return flowService.verifyGoogleFlowAccount(email);
   });
 
+  ipcMain.handle('openBrowserGoogleAuth', async (_, suggestedEmail?: string) => {
+    return flowService.openBrowserGoogleAuth(suggestedEmail);
+  });
+
   ipcMain.handle('checkFlowConnection', async () => {
     return flowService.checkFlowConnection();
   });

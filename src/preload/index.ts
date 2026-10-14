@@ -64,6 +64,7 @@ const api: IElectronAPI = {
   getFlowConnectionStatus: () => ipcRenderer.invoke('getFlowConnectionStatus'),
   connectGoogleFlow: (options) => ipcRenderer.invoke('connectGoogleFlow', options),
   verifyGoogleFlowAccount: (email) => ipcRenderer.invoke('verifyGoogleFlowAccount', email),
+  openBrowserGoogleAuth: (suggestedEmail) => ipcRenderer.invoke('openBrowserGoogleAuth', suggestedEmail),
   checkFlowConnection: () => ipcRenderer.invoke('checkFlowConnection'),
   disconnectGoogleFlow: () => ipcRenderer.invoke('disconnectGoogleFlow'),
   onFlowConnectionChanged: (callback) => {
