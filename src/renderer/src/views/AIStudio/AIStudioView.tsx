@@ -24,7 +24,8 @@ import {
   ChevronDown,
   Users,
 } from 'lucide-react';
-import { Character, Scene, StoryProject } from '../../../shared/types';
+import { Character, Scene, StoryProject, FlowConnectionInfo } from '../../../shared/types';
+import { FlowConnectionCard } from './FlowConnectionCard';
 
 export const AIStudioView: React.FC = () => {
   const { addToast, setCurrentSection } = useAppStore();
@@ -142,8 +143,15 @@ export const AIStudioView: React.FC = () => {
     }
   };
 
-  const handleOpenFlowAssistant = (scene: Scene) => {
+  const handleOpenFlowAssistant = async (scene: Scene) => {
     if (!activeProject) return;
+
+    // Check actual integration status first
+    let connectionInfo: FlowConnectionInfo | null = null;
+    if (window.api) {
+      connectionInfo = await window.api.getFlowConnectionStatus();
+    }
+
     const char = characters.find((c) => c.id === scene.characterId);
     const flowText = `
 [GOOGLE FLOW SCENE PROMPT]
@@ -161,9 +169,14 @@ ${scene.narration}
 `.trim();
 
     setFlowPackage({
-      url: 'https://flow.google.com',
+      url: connectionInfo?.officialUrl || 'https://flow.google/',
       prompt: flowText,
       sceneId: scene.id,
+      connectionStatus: connectionInfo?.status || 'not_connected',
+      statusLabel: connectionInfo?.statusLabel || 'Not Connected',
+      connectedEmail: connectionInfo?.connectedEmail,
+      hasProgrammaticApi: Boolean(connectionInfo?.hasProgrammaticApi),
+      notes: connectionInfo?.notes,
     });
     setIsFlowModalOpen(true);
   };
@@ -172,11 +185,22 @@ ${scene.narration}
     if (window.api) {
       const file = await window.api.openFileDialog(['mp4', 'mov', 'webm']);
       if (file) {
+        // Also import into Video Library so it's tracked in local library
+        try {
+          await window.api.importMediaAsset(file, 'Drafts');
+        } catch {
+          // If already in library, ignore duplicate import error
+        }
+
         await window.api.updateScene(sceneId, {
           videoPath: file,
           status: 'ready',
         });
-        addToast({ type: 'success', title: 'Scene Clip Bound', message: 'Ready for final assembly.' });
+        addToast({
+          type: 'success',
+          title: 'Scene Clip Imported',
+          message: 'Video added to library and bound to storyboard scene.',
+        });
         const refreshed = await window.api.getProjectById(activeProject!.id);
         setActiveProject(refreshed);
         const updatedScene = refreshed?.scenes.find((s) => s.id === sceneId);
@@ -387,6 +411,9 @@ ${scene.narration}
 
         {/* Storyboard Cards Flow */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
+          {/* Prominent Google Flow Provider Connection Card */}
+          <FlowConnectionCard className="mb-2" />
+
           {activeProject?.scenes && activeProject.scenes.length > 0 ? (
             activeProject.scenes.map((scene) => {
               const isSelected = activeScene?.id === scene.id;
@@ -438,15 +465,15 @@ ${scene.narration}
 
                       <div className="flex items-center gap-2">
                         <Button
-                          variant="secondary"
+                          variant="primary"
                           size="sm"
-                          icon={<Sparkles size={13} className="text-brand-400" />}
+                          icon={<Sparkles size={13} />}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleOpenFlowAssistant(scene);
                           }}
                         >
-                          Flow Prompt Assistant
+                          Generate with Flow
                         </Button>
 
                         <Button
@@ -689,8 +716,8 @@ ${scene.narration}
         <Modal
           isOpen={isFlowModalOpen}
           onClose={() => setIsFlowModalOpen(false)}
-          title="Google Flow AI Guided Generation"
-          subtitle="Prepare prompts, reference assets, and import generated video clips"
+          title="Google Flow AI Production Assistant"
+          subtitle="Prepare prompts & character references, generate in official Flow workspace, and import"
           maxWidth="lg"
           footer={
             <div className="flex items-center justify-between w-full">
@@ -712,10 +739,10 @@ ${scene.narration}
                   size="sm"
                   icon={<ExternalLink size={14} />}
                   onClick={async () => {
-                    if (window.api) await window.api.openExternalUrl('https://flow.google.com');
+                    if (window.api) await window.api.openExternalUrl('https://flow.google/');
                   }}
                 >
-                  Open Google Flow Web
+                  Open Google Flow (flow.google)
                 </Button>
 
                 <Button
@@ -727,26 +754,50 @@ ${scene.narration}
                     await handleImportSceneVideo(flowPackage.sceneId);
                   }}
                 >
-                  Import Generated Clip
+                  Import Generated Clip to Library
                 </Button>
               </div>
             </div>
           }
         >
           <div className="space-y-4 text-xs">
+            {/* Status & Compliance Banner */}
             <div className="p-3.5 bg-studio-900 rounded-xl border border-studio-800 space-y-2">
-              <span className="font-semibold text-brand-400 block">Step-by-Step Flow Instructions:</span>
-              <ol className="list-decimal list-inside space-y-1 text-studio-300">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-studio-200">Google Flow Integration Status:</span>
+                <Badge
+                  variant={
+                    flowPackage.connectionStatus === 'connected'
+                      ? 'success'
+                      : flowPackage.connectionStatus === 'opened_unverified'
+                      ? 'warning'
+                      : 'neutral'
+                  }
+                  size="sm"
+                  dot
+                >
+                  {flowPackage.statusLabel || 'Not Connected'}
+                </Badge>
+              </div>
+
+              <p className="text-studio-400 text-[11px] leading-relaxed">
+                Google operates Flow as a creative web workspace at <span className="text-studio-200 font-mono">https://flow.google/</span> without public third-party REST APIs or OAuth scopes. This assisted workflow lets you authenticate securely in your default browser, prepare scene prompts and character consistency references with 1 click, and import completed videos directly into your Video Library.
+              </p>
+            </div>
+
+            <div className="p-3 bg-studio-950/80 rounded-xl border border-studio-800 space-y-1.5">
+              <span className="font-semibold text-brand-400 block">Workflow Steps:</span>
+              <ol className="list-decimal list-inside space-y-1 text-studio-300 text-[11px]">
                 <li>Click <strong>Copy Prompt Package</strong> below.</li>
-                <li>Click <strong>Open Google Flow Web</strong> to launch the official Flow interface.</li>
-                <li>Paste the prompt and attach your character reference image.</li>
-                <li>Download the completed video clip from Flow.</li>
-                <li>Click <strong>Import Generated Clip</strong> to bind it directly to this scene.</li>
+                <li>Click <strong>Open Google Flow</strong> to launch <span className="font-mono text-studio-200">flow.google</span>.</li>
+                <li>Sign in securely with your Google account (your password is never touched by this app).</li>
+                <li>Paste the prompt and drag in your character reference images.</li>
+                <li>Download the rendered MP4 video and click <strong>Import Generated Clip to Library</strong>.</li>
               </ol>
             </div>
 
             <div>
-              <label className="text-studio-400 font-medium block mb-1">Prepared Flow Prompt Package</label>
+              <label className="text-studio-400 font-medium block mb-1">Prepared Scene Prompt & Continuity Package</label>
               <textarea
                 readOnly
                 rows={8}

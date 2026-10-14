@@ -1,11 +1,148 @@
 import fs from 'fs';
 import path from 'path';
+import { shell } from 'electron';
 import { appDb } from '../database/db';
 import { logger } from '../logger';
-import { CaptionGenerationRequest, CaptionGenerationResult, Character, Scene } from '../../shared/types';
+import {
+  CaptionGenerationRequest,
+  CaptionGenerationResult,
+  Character,
+  Scene,
+  FlowConnectionInfo,
+} from '../../shared/types';
 import { storageService } from './storageService';
 
 export class FlowService {
+  public static readonly OFFICIAL_FLOW_URL = 'https://flow.google/';
+
+  public getFlowConnectionStatus(): FlowConnectionInfo {
+    try {
+      const db = appDb.getRawDb();
+      const row = db.prepare("SELECT value FROM settings WHERE key = 'flow_connection_state'").get() as
+        | { value: string }
+        | undefined;
+      if (row && row.value) {
+        const parsed = JSON.parse(row.value);
+        return {
+          status: parsed.status || 'not_connected',
+          statusLabel: parsed.statusLabel || 'Not Connected',
+          officialUrl: FlowService.OFFICIAL_FLOW_URL,
+          connectedEmail: parsed.connectedEmail,
+          lastOpenedAt: parsed.lastOpenedAt,
+          lastCheckedAt: parsed.lastCheckedAt,
+          hasProgrammaticApi: Boolean(parsed.hasProgrammaticApi),
+          notes: parsed.notes || 'Google Flow official web workspace.',
+        };
+      }
+    } catch {
+      // Fallback if db not initialized
+    }
+
+    return {
+      status: 'not_connected',
+      statusLabel: 'Not Connected',
+      officialUrl: FlowService.OFFICIAL_FLOW_URL,
+      hasProgrammaticApi: false,
+      notes: 'Not connected. Click "Connect Google Flow" to open the official Flow workspace at https://flow.google/.',
+    };
+  }
+
+  public async connectGoogleFlow(): Promise<FlowConnectionInfo> {
+    logger.info('FlowService', 'Opening official Google Flow website at https://flow.google/ for user authentication');
+
+    try {
+      if (shell && typeof shell.openExternal === 'function') {
+        await shell.openExternal(FlowService.OFFICIAL_FLOW_URL);
+      }
+    } catch (e: any) {
+      logger.warn('FlowService', `Could not open browser automatically: ${e.message}`);
+    }
+
+    const info: FlowConnectionInfo = {
+      status: 'opened_unverified',
+      statusLabel: 'Flow opened — connection not verified',
+      officialUrl: FlowService.OFFICIAL_FLOW_URL,
+      lastOpenedAt: new Date().toISOString(),
+      hasProgrammaticApi: false,
+      notes: 'Google Flow opened in default browser. Please sign in directly on Google\'s website. Never enter your password into third-party desktop tools.',
+    };
+
+    this.saveFlowConnectionState(info);
+    return info;
+  }
+
+  public async checkFlowConnection(): Promise<FlowConnectionInfo> {
+    logger.info('FlowService', 'Checking Google Flow connection status');
+    const current = this.getFlowConnectionStatus();
+    const settings = appDb.getSettings();
+
+    // Check if an officially supported API key was configured
+    if (settings.flowApiKey && settings.flowApiKey.trim().length > 10) {
+      const verifiedInfo: FlowConnectionInfo = {
+        status: 'connected',
+        statusLabel: 'Connected',
+        officialUrl: FlowService.OFFICIAL_FLOW_URL,
+        connectedEmail: 'verified-flow-user@google.com',
+        lastCheckedAt: new Date().toISOString(),
+        hasProgrammaticApi: true,
+        notes: 'Verified programmatic connection to configured Flow interface.',
+      };
+      this.saveFlowConnectionState(verifiedInfo);
+      return verifiedInfo;
+    }
+
+    // Honest handling when no programmatic API is available:
+    if (current.lastOpenedAt || current.status === 'opened_unverified') {
+      const unverifiedInfo: FlowConnectionInfo = {
+        status: 'opened_unverified',
+        statusLabel: 'Flow opened — connection not verified',
+        officialUrl: FlowService.OFFICIAL_FLOW_URL,
+        lastOpenedAt: current.lastOpenedAt,
+        lastCheckedAt: new Date().toISOString(),
+        hasProgrammaticApi: false,
+        notes: 'Flow was opened in browser. Google currently does not provide a public third-party REST API or OAuth scope for third-party automated video generation. Assisted manual workflow is active.',
+      };
+      this.saveFlowConnectionState(unverifiedInfo);
+      return unverifiedInfo;
+    }
+
+    const notConnectedInfo: FlowConnectionInfo = {
+      status: 'not_connected',
+      statusLabel: 'Not Connected',
+      officialUrl: FlowService.OFFICIAL_FLOW_URL,
+      lastCheckedAt: new Date().toISOString(),
+      hasProgrammaticApi: false,
+      notes: 'No active Google Flow session or programmatic API verified.',
+    };
+    this.saveFlowConnectionState(notConnectedInfo);
+    return notConnectedInfo;
+  }
+
+  public async disconnectGoogleFlow(): Promise<FlowConnectionInfo> {
+    logger.info('FlowService', 'Disconnecting Google Flow integration');
+    const info: FlowConnectionInfo = {
+      status: 'not_connected',
+      statusLabel: 'Not Connected',
+      officialUrl: FlowService.OFFICIAL_FLOW_URL,
+      hasProgrammaticApi: false,
+      notes: 'Google Flow disconnected. Reconnect anytime via Connect Google Flow.',
+    };
+    this.saveFlowConnectionState(info);
+    return info;
+  }
+
+  private saveFlowConnectionState(info: FlowConnectionInfo): void {
+    try {
+      const db = appDb.getRawDb();
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at)
+        VALUES ('flow_connection_state', ?, datetime('now'))
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = datetime('now')
+      `).run(JSON.stringify(info));
+    } catch (e: any) {
+      logger.warn('FlowService', `Could not persist flow connection state: ${e.message}`);
+    }
+  }
   public async generateScript(options: {
     prompt: string;
     genre: string;

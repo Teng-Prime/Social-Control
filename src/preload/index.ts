@@ -45,6 +45,10 @@ const api: IElectronAPI = {
   reorderScenes: (projectId, sceneIds) => ipcRenderer.invoke('reorderScenes', projectId, sceneIds),
   generateScript: (prompt, genre, len) => ipcRenderer.invoke('generateScript', prompt, genre, len),
   renderProjectVideo: (projectId) => ipcRenderer.invoke('renderProjectVideo', projectId),
+  getFlowConnectionStatus: () => ipcRenderer.invoke('getFlowConnectionStatus'),
+  connectGoogleFlow: () => ipcRenderer.invoke('connectGoogleFlow'),
+  checkFlowConnection: () => ipcRenderer.invoke('checkFlowConnection'),
+  disconnectGoogleFlow: () => ipcRenderer.invoke('disconnectGoogleFlow'),
 
   // Social Accounts & Publishing
   getSocialAccounts: () => ipcRenderer.invoke('getSocialAccounts'),

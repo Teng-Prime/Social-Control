@@ -1,12 +1,43 @@
-import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
 import { storageService } from '../services/storageService';
 import { logger } from '../logger';
 import { StudioSettings } from '../../shared/types';
+class SqliteNodeFallback {
+  private sync: any;
+  constructor(dbPath: string) {
+    const { DatabaseSync } = require('node:sqlite');
+    this.sync = new DatabaseSync(dbPath);
+  }
+  pragma(cmd: string) {
+    try {
+      this.sync.exec(`PRAGMA ${cmd};`);
+    } catch {}
+  }
+  prepare(sql: string) {
+    const stmt = this.sync.prepare(sql);
+    return {
+      all: (...args: any[]) => stmt.all(...args),
+      get: (...args: any[]) => stmt.get(...args),
+      run: (...args: any[]) => stmt.run(...args),
+    };
+  }
+  exec(sql: string) {
+    return this.sync.exec(sql);
+  }
+  transaction(fn: Function) {
+    return (...args: any[]) => fn(...args);
+  }
+  backup(dest: string) {
+    fs.copyFileSync(storageService.getFolder('Data') + '/social_earnings_studio.db', dest);
+  }
+  close() {
+    return this.sync.close();
+  }
+}
 
 export class AppDatabase {
-  private db: Database.Database | null = null;
+  private db: any = null;
   private dbPath: string;
 
   constructor() {
@@ -16,7 +47,13 @@ export class AppDatabase {
 
   public init(): void {
     try {
-      this.db = new Database(this.dbPath);
+      try {
+        const BetterSqlite = require('better-sqlite3');
+        this.db = new BetterSqlite(this.dbPath);
+      } catch {
+        this.db = new SqliteNodeFallback(this.dbPath);
+      }
+
       this.db.pragma('journal_mode = WAL');
       this.db.pragma('foreign_keys = ON');
 
@@ -29,7 +66,7 @@ export class AppDatabase {
     }
   }
 
-  public getRawDb(): Database.Database {
+  public getRawDb(): any {
     if (!this.db) {
       this.init();
     }

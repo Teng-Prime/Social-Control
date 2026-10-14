@@ -248,6 +248,25 @@ export interface CaptionVariation {
   searchKeywords: string[];
 }
 
+export type FlowConnectionStatus =
+  | 'not_connected'
+  | 'connecting'
+  | 'opened_unverified'
+  | 'connected'
+  | 'session_expired'
+  | 'error';
+
+export interface FlowConnectionInfo {
+  status: FlowConnectionStatus;
+  statusLabel: string;
+  officialUrl: string;
+  connectedEmail?: string;
+  lastOpenedAt?: string;
+  lastCheckedAt?: string;
+  hasProgrammaticApi: boolean;
+  notes: string;
+}
+
 export interface CaptionGenerationResult {
   variations: CaptionVariation[];
   platformLimitNotes: string;
@@ -297,6 +316,10 @@ export interface IElectronAPI {
   reorderScenes: (projectId: string, sceneIds: string[]) => Promise<boolean>;
   generateScript: (prompt: string, genre: string, lengthMinutes: number) => Promise<{ hook: string; intro: string; scenes: Array<{ scriptText: string; narration: string; prompt: string }>; climax: string; ending: string }>;
   renderProjectVideo: (projectId: string) => Promise<{ jobId: string }>;
+  getFlowConnectionStatus: () => Promise<FlowConnectionInfo>;
+  connectGoogleFlow: () => Promise<FlowConnectionInfo>;
+  checkFlowConnection: () => Promise<FlowConnectionInfo>;
+  disconnectGoogleFlow: () => Promise<FlowConnectionInfo>;
 
   // Social Accounts & Publishing
   getSocialAccounts: () => Promise<SocialAccount[]>;

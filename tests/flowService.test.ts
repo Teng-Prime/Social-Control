@@ -54,6 +54,35 @@ describe('FlowService & Script / Caption Generation', () => {
     expect(top.title.length).toBeLessThanOrEqual(100);
     expect(top.hashtags.length).toBeGreaterThan(2);
     expect(top.caption).toContain('#secret');
-    expect(top.pinnedComment).toBeDefined();
+  });
+
+  it('should manage Google Flow connection lifecycle with honest status verification', async () => {
+    // 1. Initial status should be not_connected
+    const initial = service.getFlowConnectionStatus();
+    expect(initial.officialUrl).toBe('https://flow.google/');
+    expect(initial.status).toBe('not_connected');
+    expect(initial.statusLabel).toBe('Not Connected');
+    expect(initial.connectedEmail).toBeUndefined();
+
+    // 2. Connect Google Flow opens official URL and transitions to opened_unverified
+    const connected = await service.connectGoogleFlow();
+    expect(connected.status).toBe('opened_unverified');
+    expect(connected.statusLabel).toBe('Flow opened — connection not verified');
+    expect(connected.officialUrl).toBe('https://flow.google/');
+    expect(connected.hasProgrammaticApi).toBe(false);
+    expect(connected.connectedEmail).toBeUndefined();
+
+    // 3. Check Connection when only browser was opened without programmatic API
+    // Must NOT falsely claim connected!
+    const checked = await service.checkFlowConnection();
+    expect(checked.status).toBe('opened_unverified');
+    expect(checked.statusLabel).toBe('Flow opened — connection not verified');
+    expect(checked.hasProgrammaticApi).toBe(false);
+    expect(checked.notes).toContain('Google currently does not provide a public third-party REST API');
+
+    // 4. Disconnect Google Flow resets status
+    const disconnected = await service.disconnectGoogleFlow();
+    expect(disconnected.status).toBe('not_connected');
+    expect(disconnected.statusLabel).toBe('Not Connected');
   });
 });

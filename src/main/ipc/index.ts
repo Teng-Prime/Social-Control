@@ -306,6 +306,23 @@ export function registerIpcHandlers(): void {
     return { jobId: task.id };
   });
 
+  // Google Flow Connection
+  ipcMain.handle('getFlowConnectionStatus', async () => {
+    return flowService.getFlowConnectionStatus();
+  });
+
+  ipcMain.handle('connectGoogleFlow', async () => {
+    return flowService.connectGoogleFlow();
+  });
+
+  ipcMain.handle('checkFlowConnection', async () => {
+    return flowService.checkFlowConnection();
+  });
+
+  ipcMain.handle('disconnectGoogleFlow', async () => {
+    return flowService.disconnectGoogleFlow();
+  });
+
   // 9. Social Accounts
   ipcMain.handle('getSocialAccounts', async () => {
     return socialAccountRepo.getAll();
