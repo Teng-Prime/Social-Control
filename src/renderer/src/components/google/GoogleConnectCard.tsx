@@ -115,6 +115,18 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
     if (isLoading || authState.status === 'connecting') {
       return; // Prevent duplicate authentication requests
     }
+
+    const effectiveClientId = clientIdInput.trim();
+    if (!authState.clientIdConfigured && (!effectiveClientId || effectiveClientId.includes('appdesktop'))) {
+      setShowConfigModal(true);
+      addToast({
+        type: 'warning',
+        title: 'Google Client ID Required',
+        message: 'Please paste your Google Cloud Desktop Client ID to connect.',
+      });
+      return;
+    }
+
     setIsLoading(true);
     try {
       addToast({
@@ -217,14 +229,31 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
 
   const handleSaveClientId = async () => {
     if (!window.api) return;
-    await window.api.setGoogleClientId(clientIdInput.trim());
+    const cleanId = clientIdInput.trim();
+    if (!cleanId) {
+      addToast({
+        type: 'warning',
+        title: 'Input Required',
+        message: 'Please paste your Google Cloud Desktop Client ID.',
+      });
+      return;
+    }
+    if (cleanId.includes('appdesktop') || cleanId.includes('placeholder')) {
+      addToast({
+        type: 'warning',
+        title: 'Placeholder Client ID',
+        message: 'Please paste your own actual Client ID from Google Cloud Console.',
+      });
+      return;
+    }
+    await window.api.setGoogleClientId(cleanId);
     addToast({
       type: 'success',
-      title: 'OAuth Client ID Updated',
-      message: 'New Google Cloud credentials configured.',
+      title: 'OAuth Client ID Saved',
+      message: 'Google credentials configured. You can now connect with Google.',
     });
     setShowConfigModal(false);
-    fetchStatus();
+    await fetchStatus();
   };
 
   const renderStatusBadge = (status: GoogleConnectionStatus) => {
@@ -308,6 +337,30 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
             </Button>
           </div>
         </div>
+
+        {/* Client ID not configured banner */}
+        {!authState.clientIdConfigured && (
+          <div className="mt-4 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-start gap-2.5">
+              <Key size={16} className="text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold text-amber-200">Google Cloud Client ID Required</span>
+                <p className="text-amber-300/80 text-[11px] mt-0.5">
+                  Google requires a registered Desktop OAuth Client ID to log in. Click "Config Client ID" to paste your credentials.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Settings size={13} />}
+              onClick={() => setShowConfigModal(true)}
+              className="border-amber-500/40 text-amber-200 hover:bg-amber-500/20 shrink-0"
+            >
+              Config Client ID
+            </Button>
+          </div>
+        )}
 
         {/* Error notification banner if connection failed */}
         {hasError && authState.error && (
@@ -503,9 +556,9 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
           <div className="p-3.5 rounded-xl bg-brand-500/10 border border-brand-500/30 flex items-start gap-3">
             <Info className="text-brand-400 shrink-0 mt-0.5" size={16} />
             <div className="space-y-1">
-              <span className="font-semibold text-studio-200">Google Cloud Console Setup</span>
+              <span className="font-semibold text-studio-200">Google Cloud Console Setup (Desktop App)</span>
               <p className="text-studio-400 leading-relaxed text-[11px]">
-                To authenticate via Google OAuth 2.0, create a Desktop client in Google Cloud Console or use the default pre-configured client ID.
+                Google error <strong>"Error 401: invalid_client / The OAuth client was not found"</strong> occurs when using an uncreated client ID. Follow the steps below to create your official Desktop client.
               </p>
             </div>
           </div>
@@ -517,19 +570,19 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
             <Input
               value={clientIdInput}
               onChange={(e) => setClientIdInput(e.target.value)}
-              placeholder="e.g. 123456789-abcdef.apps.googleusercontent.com"
-              helperText="Desktop OAuth clients use PKCE (S256). No Client Secret is needed or accepted in native desktop apps."
+              placeholder="e.g. 1234567890-abcdef.apps.googleusercontent.com"
+              helperText="Desktop OAuth clients use PKCE (S256). No Client Secret is needed or allowed in native desktop applications."
             />
           </div>
 
           <div className="p-3.5 rounded-xl bg-studio-900 border border-studio-800 space-y-2 text-[11px]">
-            <span className="font-semibold text-studio-200 block">Google Cloud Console Instructions:</span>
-            <ol className="list-decimal list-inside space-y-1 text-studio-400">
-              <li>Open Google Cloud Console &gt; APIs &amp; Services &gt; Credentials</li>
-              <li>Click <strong>Create Credentials</strong> &gt; <strong>OAuth client ID</strong></li>
-              <li>Select Application type: <strong>Desktop app</strong></li>
-              <li>Add Authorized redirect URI: <code className="text-brand-300 bg-studio-950 px-1 py-0.5 rounded">http://127.0.0.1:42828/oauth2callback</code></li>
-              <li>Enable APIs: <strong>YouTube Data API v3</strong> &amp; <strong>Google People API</strong></li>
+            <span className="font-semibold text-studio-200 block">How to get your Client ID in 1 minute:</span>
+            <ol className="list-decimal list-inside space-y-1.5 text-studio-300">
+              <li>Open <strong>Google Cloud Console &gt; Credentials</strong> (button below).</li>
+              <li>Click <strong>Create Credentials &gt; OAuth client ID</strong>.</li>
+              <li>Set Application type to <strong>Desktop app</strong> (name: <em>Social Control Desktop</em>).</li>
+              <li>Click <strong>Create</strong> and copy your <strong>Client ID</strong>.</li>
+              <li><em>Note:</em> In <strong>OAuth consent screen</strong>, ensure your Gmail is added under <strong>Test users</strong> (if your app is in Testing mode).</li>
             </ol>
           </div>
 

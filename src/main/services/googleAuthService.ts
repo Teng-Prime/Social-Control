@@ -149,7 +149,17 @@ export class GoogleAuthService {
 
   public isCustomClientIdConfigured(): boolean {
     const configured = secureStorageService.getSecret('oauth_google_client_id');
-    return Boolean(configured && configured.trim().length > 0);
+    if (configured && configured.trim().length > 0 && !configured.includes('appdesktop')) {
+      return true;
+    }
+    if (
+      process.env.GOOGLE_CLIENT_ID &&
+      process.env.GOOGLE_CLIENT_ID.trim().length > 0 &&
+      !process.env.GOOGLE_CLIENT_ID.includes('appdesktop')
+    ) {
+      return true;
+    }
+    return false;
   }
 
   // ==========================================
@@ -534,6 +544,20 @@ export class GoogleAuthService {
     this.cancelPendingOAuth();
 
     const clientId = customClientId?.trim() || this.getClientId();
+    if (!clientId || clientId.includes('appdesktop') || clientId.includes('placeholder')) {
+      const errorMsg =
+        'Google OAuth Client ID is not configured. Please click "Config Client ID" to paste your Google Cloud Desktop Client ID.';
+      logger.warn('GoogleAuthService', errorMsg);
+      const notConfiguredState: GoogleAuthState = {
+        status: 'error',
+        statusLabel: 'Client ID Required',
+        error: errorMsg,
+        clientIdConfigured: false,
+      };
+      this.broadcastStatus(notConfiguredState);
+      return { success: false, state: notConfiguredState };
+    }
+
     const codeVerifier = this.generateCodeVerifier(32);
     const codeChallenge = this.generateCodeChallenge(codeVerifier);
     const state = this.generateState(24);
