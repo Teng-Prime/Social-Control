@@ -93,6 +93,7 @@ const api: IElectronAPI = {
   getSocialAccounts: () => ipcRenderer.invoke('getSocialAccounts'),
   connectSocialAccount: (platform) => ipcRenderer.invoke('connectSocialAccount', platform),
   disconnectSocialAccount: (id) => ipcRenderer.invoke('disconnectSocialAccount', id),
+  deleteSocialAccount: (id: string) => ipcRenderer.invoke('deleteSocialAccount', id),
   getGoogleAuthStatus: () => ipcRenderer.invoke('getGoogleAuthStatus'),
   connectGoogleAccount: (clientId?: string, clientSecret?: string) =>
     ipcRenderer.invoke('connectGoogleAccount', clientId, clientSecret),

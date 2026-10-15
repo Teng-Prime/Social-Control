@@ -704,6 +704,13 @@ export function registerIpcHandlers(): void {
     return socialAccountRepo.disconnect(id);
   });
 
+  ipcMain.handle('deleteSocialAccount', async (_, id: string) => {
+    if (id.startsWith('google_')) {
+      await googleAuthService.disconnect(id);
+    }
+    return socialAccountRepo.delete(id);
+  });
+
   // Google OAuth 2.0 (Official Loopback + PKCE & OIDC)
   ipcMain.handle('getGoogleAuthStatus', async (event) => {
     if (!validateIpcSender(event)) throw new Error('Unauthorized IPC sender');

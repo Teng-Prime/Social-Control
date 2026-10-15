@@ -869,6 +869,7 @@ export interface IElectronAPI {
   getSocialAccounts: () => Promise<SocialAccount[]>;
   connectSocialAccount: (platform: SocialPlatform, authCode?: string) => Promise<{ authUrl?: string; account?: SocialAccount }>;
   disconnectSocialAccount: (id: string) => Promise<boolean>;
+  deleteSocialAccount: (id: string) => Promise<boolean>;
   getGoogleAuthStatus: () => Promise<GoogleAuthState>;
   connectGoogleAccount: (customClientId?: string, customClientSecret?: string) => Promise<{ success: boolean; state: GoogleAuthState; authUrl?: string }>;
   disconnectGoogleAccount: (accountId?: string) => Promise<{ success: boolean; state: GoogleAuthState }>;
