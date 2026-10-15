@@ -10,6 +10,7 @@ import {
   BarChart3,
   ListTodo,
   FileText,
+  Share2,
   Settings,
 } from 'lucide-react';
 import { NavigationSection, useAppStore } from '../../stores/useAppStore';
@@ -39,6 +40,7 @@ export const Sidebar: React.FC = () => {
       icon: <ListTodo size={18} />,
       badge: stats?.queueSummary?.pending ? `${stats.queueSummary.pending}` : undefined,
     },
+    { id: 'accounts', label: 'Accounts', icon: <Share2 size={18} /> },
     { id: 'logs', label: 'Logs & Errors', icon: <FileText size={18} /> },
     { id: 'settings', label: 'Settings', icon: <Settings size={18} /> },
   ];

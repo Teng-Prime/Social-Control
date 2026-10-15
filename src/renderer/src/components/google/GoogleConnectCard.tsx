@@ -112,7 +112,9 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
   }, []);
 
   const handleConnect = async () => {
-    if (!window.api) return;
+    if (isLoading || authState.status === 'connecting') {
+      return; // Prevent duplicate authentication requests
+    }
     setIsLoading(true);
     try {
       addToast({
@@ -120,7 +122,11 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
         title: 'Opening Google Sign-In',
         message: 'Please complete authorization in your default web browser.',
       });
-      const res = await window.api.connectGoogleAccount(clientIdInput || undefined);
+      const auth = window.authAPI || window.api;
+      if (!auth) return;
+      const res = window.authAPI
+        ? await window.authAPI.signInWithGoogle(clientIdInput || undefined)
+        : await window.api.connectGoogleAccount(clientIdInput || undefined);
       setAuthState(res.state);
       if (res.success) {
         addToast({
@@ -238,13 +244,19 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
       case 'expired':
         return (
           <Badge variant="warning" size="sm" dot>
-            Expired
+            Connection Expired
           </Badge>
         );
       case 'error':
         return (
           <Badge variant="danger" size="sm" dot>
-            Error
+            Authentication Failed
+          </Badge>
+        );
+      case 'disconnected':
+        return (
+          <Badge variant="neutral" size="sm">
+            Disconnected
           </Badge>
         );
       case 'not_connected':
@@ -428,7 +440,7 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
               <div className="p-3 rounded-lg bg-studio-900 border border-studio-800">
                 <span className="text-studio-500 block mb-0.5">Approved Permissions</span>
                 <span className="text-studio-200">
-                  Profile, Email, YouTube Data API
+                  OpenID Connect (openid, email, profile)
                 </span>
               </div>
               <div className="p-3 rounded-lg bg-studio-900 border border-studio-800">
@@ -447,25 +459,25 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
             <div className="p-5 rounded-xl bg-studio-850/60 border border-studio-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-1">
                 <span className="font-semibold text-sm text-studio-200">
-                  Securely link your Google Account
+                  Sign in with Google Account
                 </span>
                 <p className="text-xs text-studio-400 leading-relaxed max-w-xl">
-                  Connect your Google account via official Google OAuth 2.0. Authorizes YouTube Shorts uploads, YouTube Data API v3 management, and Google Flow AI integration.
+                  Connect your Google account via official OAuth 2.0 with PKCE (S256). Strictly requests OpenID Connect identity scopes (openid, email, profile).
                 </p>
               </div>
 
               {/* Official Google-styled Sign-In Button */}
               <button
                 onClick={handleConnect}
-                disabled={isLoading}
+                disabled={isLoading || authState.status === 'connecting'}
                 className="inline-flex items-center justify-center gap-3 px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-800 font-semibold text-xs transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed shrink-0 border border-slate-200"
               >
-                {isLoading ? (
+                {isLoading || authState.status === 'connecting' ? (
                   <RefreshCw size={16} className="animate-spin text-slate-600" />
                 ) : (
                   <GoogleLogoSvg size={18} />
                 )}
-                <span>{isLoading ? 'Connecting...' : 'Connect with Google'}</span>
+                <span>{isLoading || authState.status === 'connecting' ? 'Connecting...' : 'Continue with Google'}</span>
               </button>
             </div>
 

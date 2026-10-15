@@ -632,7 +632,8 @@ export type GoogleConnectionStatus =
   | 'connecting'
   | 'connected'
   | 'expired'
-  | 'error';
+  | 'error'
+  | 'disconnected';
 
 export interface GoogleAuthState {
   status: GoogleConnectionStatus;
@@ -643,6 +644,15 @@ export interface GoogleAuthState {
   lastConnectedAt?: string;
   hasRefreshToken?: boolean;
   clientIdConfigured?: boolean;
+}
+
+export interface IAuthAPI {
+  signInWithGoogle: (clientId?: string) => Promise<{ success: boolean; state: GoogleAuthState; authUrl?: string }>;
+  getSession: () => Promise<GoogleAuthState>;
+  signOut: (accountId?: string) => Promise<{ success: boolean; state: GoogleAuthState }>;
+  reconnect: (accountId?: string) => Promise<{ success: boolean; state: GoogleAuthState }>;
+  refreshToken: (accountId?: string) => Promise<{ success: boolean; state: GoogleAuthState }>;
+  onAuthStateChanged: (callback: (state: GoogleAuthState) => void) => () => void;
 }
 
 // Window Electron API bridge definition
@@ -789,5 +799,6 @@ export interface IElectronAPI {
 declare global {
   interface Window {
     api: IElectronAPI;
+    authAPI: IAuthAPI;
   }
 }

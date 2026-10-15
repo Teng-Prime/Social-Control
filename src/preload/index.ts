@@ -150,4 +150,18 @@ const api: IElectronAPI = {
   restoreDatabase: (path) => ipcRenderer.invoke('restoreDatabase', path),
 };
 
+const authAPI = {
+  signInWithGoogle: (clientId?: string) => ipcRenderer.invoke('connectGoogleAccount', clientId),
+  getSession: () => ipcRenderer.invoke('getGoogleAuthStatus'),
+  signOut: (accountId?: string) => ipcRenderer.invoke('disconnectGoogleAccount', accountId),
+  reconnect: (accountId?: string) => ipcRenderer.invoke('reconnectGoogleAccount', accountId),
+  refreshToken: (accountId?: string) => ipcRenderer.invoke('refreshGoogleToken', accountId),
+  onAuthStateChanged: (callback: (state: any) => void) => {
+    const handler = (_: any, state: any) => callback(state);
+    ipcRenderer.on('googleAuthChanged', handler);
+    return () => ipcRenderer.removeListener('googleAuthChanged', handler);
+  },
+};
+
 contextBridge.exposeInMainWorld('api', api);
+contextBridge.exposeInMainWorld('authAPI', authAPI);

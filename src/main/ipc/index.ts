@@ -23,6 +23,17 @@ import { activityLogRepo } from '../database/repositories/activityLogRepository'
 import { logger } from '../logger';
 import { CaptionGenerationRequest, DashboardStats, SystemHealth } from '../../shared/types';
 
+export function validateIpcSender(event: Electron.IpcMainInvokeEvent): boolean {
+  if (!event || !event.senderFrame) return true; // CLI or test mock context
+  const url = event.senderFrame.url;
+  if (!url) return true;
+  if (url.startsWith('http://localhost:5173') || url.startsWith('file://')) {
+    return true;
+  }
+  logger.warn('IPC', `Blocked IPC request from unauthorized origin: ${url}`);
+  return false;
+}
+
 export function registerIpcHandlers(): void {
   // 1. System Health
   ipcMain.handle('getSystemHealth', async (): Promise<SystemHealth> => {
@@ -540,37 +551,45 @@ export function registerIpcHandlers(): void {
     return socialAccountRepo.disconnect(id);
   });
 
-  // Google OAuth 2.0 (Official Loopback + PKCE)
-  ipcMain.handle('getGoogleAuthStatus', async () => {
+  // Google OAuth 2.0 (Official Loopback + PKCE & OIDC)
+  ipcMain.handle('getGoogleAuthStatus', async (event) => {
+    if (!validateIpcSender(event)) throw new Error('Unauthorized IPC sender');
     return googleAuthService.getStatus();
   });
 
-  ipcMain.handle('connectGoogleAccount', async (_, customClientId?: string) => {
+  ipcMain.handle('connectGoogleAccount', async (event, customClientId?: string) => {
+    if (!validateIpcSender(event)) throw new Error('Unauthorized IPC sender');
     return googleAuthService.startOAuthFlow(customClientId);
   });
 
-  ipcMain.handle('disconnectGoogleAccount', async (_, accountId?: string) => {
+  ipcMain.handle('disconnectGoogleAccount', async (event, accountId?: string) => {
+    if (!validateIpcSender(event)) throw new Error('Unauthorized IPC sender');
     return googleAuthService.disconnect(accountId);
   });
 
-  ipcMain.handle('reconnectGoogleAccount', async (_, accountId?: string) => {
+  ipcMain.handle('reconnectGoogleAccount', async (event, accountId?: string) => {
+    if (!validateIpcSender(event)) throw new Error('Unauthorized IPC sender');
     return googleAuthService.startOAuthFlow();
   });
 
-  ipcMain.handle('refreshGoogleToken', async (_, accountId?: string) => {
+  ipcMain.handle('refreshGoogleToken', async (event, accountId?: string) => {
+    if (!validateIpcSender(event)) throw new Error('Unauthorized IPC sender');
     return googleAuthService.refreshAccessToken(accountId);
   });
 
-  ipcMain.handle('setGoogleClientId', async (_, clientId: string) => {
+  ipcMain.handle('setGoogleClientId', async (event, clientId: string) => {
+    if (!validateIpcSender(event)) throw new Error('Unauthorized IPC sender');
     googleAuthService.setClientId(clientId);
     return true;
   });
 
-  ipcMain.handle('getGoogleClientId', async () => {
+  ipcMain.handle('getGoogleClientId', async (event) => {
+    if (!validateIpcSender(event)) throw new Error('Unauthorized IPC sender');
     return googleAuthService.getClientId();
   });
 
-  ipcMain.handle('cancelGoogleAuth', async () => {
+  ipcMain.handle('cancelGoogleAuth', async (event) => {
+    if (!validateIpcSender(event)) throw new Error('Unauthorized IPC sender');
     return googleAuthService.cancelPendingOAuth();
   });
 

@@ -17,6 +17,7 @@ export const Header: React.FC = () => {
     'phone-control': 'Android Phone Control & ADB',
     analytics: 'Performance & Content Insights',
     'automation-queue': 'Background Task Queue',
+    accounts: 'Connected Accounts & Google Sign-In',
     logs: 'Activity & Error Logs',
     settings: 'Studio Preferences & API Settings',
   };

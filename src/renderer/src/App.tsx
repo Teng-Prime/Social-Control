@@ -15,6 +15,7 @@ import { ContentCalendarView } from './views/ContentCalendar/ContentCalendarView
 import { PhoneControlView } from './views/PhoneControl/PhoneControlView';
 import { AnalyticsView } from './views/Analytics/AnalyticsView';
 import { AutomationQueueView } from './views/AutomationQueue/AutomationQueueView';
+import { SocialAccountsView } from './views/SocialAccounts/SocialAccountsView';
 import { LogsErrorsView } from './views/LogsErrors/LogsErrorsView';
 import { SettingsView } from './views/Settings/SettingsView';
 
@@ -48,6 +49,8 @@ export const App: React.FC = () => {
         return <AnalyticsView />;
       case 'automation-queue':
         return <AutomationQueueView />;
+      case 'accounts':
+        return <SocialAccountsView />;
       case 'logs':
         return <LogsErrorsView />;
       case 'settings':

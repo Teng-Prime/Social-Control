@@ -12,6 +12,7 @@ export type NavigationSection =
   | 'phone-control'
   | 'analytics'
   | 'automation-queue'
+  | 'accounts'
   | 'logs'
   | 'settings';
 
