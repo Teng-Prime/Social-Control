@@ -22,6 +22,8 @@ import { mediaAssetRepo } from '../database/repositories/mediaAssetRepository';
 import { characterImageGenerator } from './characterImageGenerator';
 import { ffmpegService } from './ffmpegService';
 
+import { googleConnectionStatusService } from './googleConnectionStatusService';
+
 // Helper to generate a valid, clean WAV audio file for previews & rendering
 function createSampleWav(filePath: string, durationSec: number, freq: number = 440): string {
   if (fs.existsSync(filePath)) return filePath;
@@ -67,6 +69,21 @@ export class FlowService {
   private activeAuthWindow: any = null;
 
   public getFlowConnectionStatus(): FlowConnectionInfo {
+    // 1. Check Google OAuth connection status first
+    const googleStatus = googleConnectionStatusService.getStatus();
+    if (googleStatus.status === 'connected' && googleStatus.profile?.email) {
+      return {
+        status: 'connected',
+        statusLabel: 'Connected to Google Flow',
+        officialUrl: FlowService.OFFICIAL_FLOW_URL,
+        connectedEmail: googleStatus.profile.email,
+        lastOpenedAt: googleStatus.lastConnectedAt,
+        lastCheckedAt: new Date().toISOString(),
+        hasProgrammaticApi: false,
+        notes: `Google Account (${googleStatus.profile.email}) connected. Assisted Flow AI studio workflow is active for https://flow.google/.`,
+      };
+    }
+
     try {
       const db = appDb.getRawDb();
       const row = db.prepare("SELECT value FROM settings WHERE key = 'flow_connection_state'").get() as
@@ -94,7 +111,7 @@ export class FlowService {
       statusLabel: 'Not Connected',
       officialUrl: FlowService.OFFICIAL_FLOW_URL,
       hasProgrammaticApi: false,
-      notes: 'Not connected. Click "Continue with Google" to connect your account with Google Flow.',
+      notes: 'Not connected. Click "Connect Google" to authenticate your account for Google Flow workflows.',
     };
   }
 
@@ -106,9 +123,25 @@ export class FlowService {
       return this.verifyGoogleFlowAccount(options.email.trim());
     }
 
-    // 2. Interactive in-app Google Auth Window with standard Chrome User-Agent (bypasses 403 disallowed_useragent)
+    // 2. Interactive OAuth 2.0 PKCE via GoogleConnectionStatusService
     if (options?.mode === 'interactive') {
-      return this.openGoogleFlowInteractiveAuth();
+      const authRes = await googleConnectionStatusService.connectGoogle();
+      if (authRes.success && authRes.state.profile?.email) {
+        const info: FlowConnectionInfo = {
+          status: 'connected',
+          statusLabel: 'Connected to Google Flow',
+          officialUrl: FlowService.OFFICIAL_FLOW_URL,
+          connectedEmail: authRes.state.profile.email,
+          lastOpenedAt: new Date().toISOString(),
+          lastCheckedAt: new Date().toISOString(),
+          hasProgrammaticApi: false,
+          notes: `Google Account (${authRes.state.profile.email}) authenticated via OAuth 2.0 PKCE. Assisted Flow AI workflow is active.`,
+        };
+        this.saveFlowConnectionState(info);
+        this.notifyConnectionChanged(info);
+        return info;
+      }
+      return this.getFlowConnectionStatus();
     }
 
     // 3. Browser-based verification portal with confirmation
@@ -1357,3 +1390,7 @@ ${scene.narration}
 }
 
 export const flowService = new FlowService();
+export const FlowAIService = FlowService;
+export const flowAIService = flowService;
+
+

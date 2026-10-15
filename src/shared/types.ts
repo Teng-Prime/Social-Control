@@ -754,9 +754,18 @@ export type GoogleConnectionStatus =
   | 'error'
   | 'disconnected';
 
+export type GoogleFailureReason =
+  | 'configuration_missing'
+  | 'user_cancelled'
+  | 'access_denied'
+  | 'network_error'
+  | 'token_expired'
+  | 'connection_error';
+
 export interface GoogleAuthState {
   status: GoogleConnectionStatus;
   statusLabel: string;
+  failureReason?: GoogleFailureReason;
   profile?: GoogleUserProfile;
   account?: SocialAccount;
   error?: string;

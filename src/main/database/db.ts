@@ -126,7 +126,7 @@ export class AppDatabase {
       ffmpegPath: 'ffmpeg',
       adbPath: 'adb',
       flowApiKey: '',
-      flowApiEndpoint: 'https://flow.google.com/api',
+      flowApiEndpoint: '',
       flowIntegrationMode: 'manual_assisted',
       defaultAiProvider: 'google-flow',
       defaultResolution: '1080x1920',

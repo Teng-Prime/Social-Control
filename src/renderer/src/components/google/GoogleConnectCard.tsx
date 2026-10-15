@@ -8,6 +8,7 @@ import { useAppStore } from '../../stores/useAppStore';
 import {
   GoogleAuthState,
   GoogleConnectionStatus,
+  GoogleFailureReason,
 } from '../../../../shared/types';
 import {
   Shield,
@@ -17,9 +18,12 @@ import {
   Settings,
   AlertCircle,
   CheckCircle2,
-  Clock,
   Key,
   Info,
+  Sparkles,
+  HelpCircle,
+  Globe,
+  Sliders,
 } from 'lucide-react';
 
 export const GoogleLogoSvg: React.FC<{ size?: number; className?: string }> = ({
@@ -70,6 +74,7 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [clientIdInput, setClientIdInput] = useState('');
+  const [testResult, setTestResult] = useState<{ valid: boolean; message: string } | null>(null);
 
   const fetchStatus = async () => {
     if (!window.api) return;
@@ -77,7 +82,9 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
       const state = await window.api.getGoogleAuthStatus();
       setAuthState(state);
       const configuredId = await window.api.getGoogleClientId();
-      setClientIdInput(configuredId || '');
+      if (configuredId) {
+        setClientIdInput(configuredId);
+      }
     } catch (err: any) {
       console.warn('Could not fetch Google auth status:', err);
     }
@@ -95,14 +102,14 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
         if (newState.status === 'connected') {
           addToast({
             type: 'success',
-            title: 'Google Connected',
-            message: `Authenticated as ${newState.profile?.email || 'Google User'}.`,
+            title: 'Google Flow AI Connected',
+            message: `Signed in as ${newState.profile?.email || 'Google User'}.`,
           });
           onAccountUpdated?.();
         } else if (newState.status === 'error') {
           addToast({
             type: 'error',
-            title: 'Google Auth Error',
+            title: 'Sign-In Incomplete',
             message: newState.error || 'Connection failed',
           });
         }
@@ -111,18 +118,37 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
     }
   }, []);
 
+  // Validate Client ID format in real-time
+  const validateClientIdSyntax = (id: string): { valid: boolean; error?: string } => {
+    const trimmed = id.trim();
+    if (!trimmed) {
+      return { valid: false, error: 'Client ID is required.' };
+    }
+    if (trimmed.includes('appdesktop') || trimmed.includes('placeholder') || trimmed.includes('your-client-id')) {
+      return { valid: false, error: 'Placeholder Client ID detected. Please paste your actual Google Cloud Desktop Client ID.' };
+    }
+    if (!trimmed.endsWith('.apps.googleusercontent.com')) {
+      return { valid: false, error: 'Must end with ".apps.googleusercontent.com". (Google Cloud Console > Desktop app).' };
+    }
+    return { valid: true };
+  };
+
+  // Primary Connect Action
   const handleConnect = async () => {
     if (isLoading || authState.status === 'connecting') {
       return; // Prevent duplicate authentication requests
     }
 
+    // Check if Client ID is configured
     const effectiveClientId = clientIdInput.trim();
-    if (!authState.clientIdConfigured && (!effectiveClientId || effectiveClientId.includes('appdesktop'))) {
+    const validation = validateClientIdSyntax(effectiveClientId);
+
+    if (!authState.clientIdConfigured && !validation.valid) {
       setShowConfigModal(true);
       addToast({
         type: 'warning',
         title: 'Google Client ID Required',
-        message: 'Please paste your Google Cloud Desktop Client ID to connect.',
+        message: 'A Google Cloud Desktop Client ID is required to connect.',
       });
       return;
     }
@@ -132,25 +158,24 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
       addToast({
         type: 'info',
         title: 'Opening Google Sign-In',
-        message: 'Please complete authorization in your default web browser.',
+        message: 'Opening your default browser to sign in and authorize with Google.',
+        duration: 8000,
       });
-      const auth = window.authAPI || window.api;
-      if (!auth) return;
-      const res = window.authAPI
-        ? await window.authAPI.signInWithGoogle(clientIdInput || undefined)
-        : await window.api.connectGoogleAccount(clientIdInput || undefined);
+
+      const res = await window.api.connectGoogleAccount(effectiveClientId || undefined);
       setAuthState(res.state);
+
       if (res.success) {
         addToast({
           type: 'success',
-          title: 'Google Account Connected',
-          message: `Connected ${res.state.profile?.name || res.state.profile?.email}.`,
+          title: 'Google Flow AI Connected',
+          message: `Connected account ${res.state.profile?.email || res.state.profile?.name}.`,
         });
         onAccountUpdated?.();
       } else if (res.state.error) {
         addToast({
           type: 'error',
-          title: 'Connection Incomplete',
+          title: res.state.failureReason === 'user_cancelled' ? 'Sign-In Cancelled' : 'Connection Failed',
           message: res.state.error,
         });
       }
@@ -165,11 +190,12 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
     }
   };
 
+  // Disconnect Action
   const handleDisconnect = async () => {
     if (!window.api) return;
     if (
       !window.confirm(
-        'Disconnect Google Account? This will revoke the session and delete tokens from the OS encrypted vault.'
+        'Disconnect Google Flow AI? This will revoke the session and delete tokens from the secure OS encrypted vault.'
       )
     ) {
       return;
@@ -181,8 +207,8 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
       setAuthState(res.state);
       addToast({
         type: 'info',
-        title: 'Google Account Disconnected',
-        message: 'Tokens cleared from secure OS storage.',
+        title: 'Google Flow AI Disconnected',
+        message: 'Credentials cleared from secure storage.',
       });
       onAccountUpdated?.();
     } catch (err: any) {
@@ -196,67 +222,77 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
     }
   };
 
-  const handleRefreshToken = async () => {
-    if (!window.api) return;
-    setIsRefreshing(true);
+  // Reconnect Action
+  const handleReconnect = async () => {
+    if (isLoading || authState.status === 'connecting') return;
+    setIsLoading(true);
     try {
-      const res = await window.api.refreshGoogleToken();
+      addToast({
+        type: 'info',
+        title: 'Reconnecting to Google...',
+        message: 'Launching browser sign-in to renew authorization.',
+      });
+      const res = await window.api.reconnectGoogleAccount();
       setAuthState(res.state);
       if (res.success) {
         addToast({
           type: 'success',
-          title: 'Token Refreshed',
-          message: 'Google OAuth access token renewed successfully.',
+          title: 'Google Flow AI Reconnected',
+          message: `Active session for ${res.state.profile?.email}.`,
         });
         onAccountUpdated?.();
-      } else {
-        addToast({
-          type: 'warn',
-          title: 'Token Refresh Incomplete',
-          message: res.state.error || 'Please reconnect your Google account.',
-        });
       }
     } catch (err: any) {
       addToast({
         type: 'error',
-        title: 'Refresh Error',
+        title: 'Reconnect Failed',
         message: err.message,
       });
     } finally {
-      setIsRefreshing(false);
+      setIsLoading(false);
     }
   };
 
+  // Test Client ID in Modal
+  const handleTestClientId = () => {
+    const val = validateClientIdSyntax(clientIdInput);
+    if (!val.valid) {
+      setTestResult({ valid: false, message: val.error || 'Invalid Client ID' });
+    } else {
+      setTestResult({
+        valid: true,
+        message: 'Valid Google Desktop Client ID syntax. Ready to save and connect.',
+      });
+    }
+  };
+
+  // Save Client ID in Modal
   const handleSaveClientId = async () => {
     if (!window.api) return;
     const cleanId = clientIdInput.trim();
-    if (!cleanId) {
+    const val = validateClientIdSyntax(cleanId);
+    if (!val.valid) {
       addToast({
         type: 'warning',
-        title: 'Input Required',
-        message: 'Please paste your Google Cloud Desktop Client ID.',
+        title: 'Invalid Client ID',
+        message: val.error || 'Please enter a valid Desktop Client ID.',
       });
       return;
     }
-    if (cleanId.includes('appdesktop') || cleanId.includes('placeholder')) {
-      addToast({
-        type: 'warning',
-        title: 'Placeholder Client ID',
-        message: 'Please paste your own actual Client ID from Google Cloud Console.',
-      });
-      return;
-    }
+
     await window.api.setGoogleClientId(cleanId);
     addToast({
       type: 'success',
-      title: 'OAuth Client ID Saved',
-      message: 'Google credentials configured. You can now connect with Google.',
+      title: 'Client ID Configured',
+      message: 'Google credentials saved. You can now connect your Google account.',
     });
     setShowConfigModal(false);
+    setTestResult(null);
     await fetchStatus();
   };
 
-  const renderStatusBadge = (status: GoogleConnectionStatus) => {
+  // Status Badge Rendering
+  const renderStatusBadge = (status: GoogleConnectionStatus, failureReason?: GoogleFailureReason) => {
     switch (status) {
       case 'connected':
         return (
@@ -267,27 +303,43 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
       case 'connecting':
         return (
           <Badge variant="brand" size="sm" dot>
-            Connecting...
+            Connecting to Google...
           </Badge>
         );
       case 'expired':
         return (
           <Badge variant="warning" size="sm" dot>
-            Connection Expired
+            Session Expired
           </Badge>
         );
       case 'error':
+        if (failureReason === 'configuration_missing') {
+          return (
+            <Badge variant="warning" size="sm" dot>
+              Configuration Required
+            </Badge>
+          );
+        }
+        if (failureReason === 'user_cancelled') {
+          return (
+            <Badge variant="neutral" size="sm">
+              Sign-In Cancelled
+            </Badge>
+          );
+        }
+        if (failureReason === 'access_denied') {
+          return (
+            <Badge variant="danger" size="sm" dot>
+              Permissions Denied
+            </Badge>
+          );
+        }
         return (
           <Badge variant="danger" size="sm" dot>
-            Authentication Failed
+            Connection Error
           </Badge>
         );
       case 'disconnected':
-        return (
-          <Badge variant="neutral" size="sm">
-            Disconnected
-          </Badge>
-        );
       case 'not_connected':
       default:
         return (
@@ -299,8 +351,9 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
   };
 
   const isConnected = authState.status === 'connected';
+  const isConnecting = authState.status === 'connecting' || isLoading;
   const isExpired = authState.status === 'expired';
-  const hasError = authState.status === 'error';
+  const isError = authState.status === 'error';
 
   return (
     <>
@@ -313,18 +366,19 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
         <div className="absolute -top-16 -right-16 w-56 h-56 bg-brand-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute -bottom-16 -left-16 w-56 h-56 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-studio-700/50">
+        {/* Header: Google Flow AI Logo, Title & Status */}
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-studio-700/50">
           <div className="flex items-center gap-3.5">
             <div className="w-12 h-12 rounded-2xl bg-white shadow-lg shadow-black/20 flex items-center justify-center p-2.5 border border-white/40 shrink-0">
               <GoogleLogoSvg size={26} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-base text-white tracking-tight">Google Account</h3>
-                {renderStatusBadge(authState.status)}
+                <h3 className="font-bold text-base text-white tracking-tight">Google Flow AI</h3>
+                {renderStatusBadge(authState.status, authState.failureReason)}
               </div>
               <p className="text-xs text-studio-300 mt-0.5">
-                Official OAuth 2.0 PKCE Authorization & OS Protected Credential Vault
+                Secure OAuth 2.0 PKCE authentication for Google Flow AI workflows
               </p>
             </div>
           </div>
@@ -333,99 +387,31 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
             <Button
               variant="outline"
               size="sm"
-              icon={<Settings size={13} />}
+              icon={<Sliders size={13} />}
               onClick={() => setShowConfigModal(true)}
-              title="Google Cloud Console Client ID Configuration"
+              title="Google Cloud OAuth Client ID"
             >
-              Config Client ID
+              Configure Client ID
             </Button>
           </div>
         </div>
 
-        {/* Client ID not configured banner */}
-        {!authState.clientIdConfigured && (
-          <div className="relative z-10 mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-md shadow-amber-500/5">
-            <div className="flex items-start gap-2.5">
-              <Key size={16} className="text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-semibold text-amber-200">Google Cloud Client ID Required</span>
-                <p className="text-amber-300/80 text-[11px] mt-0.5">
-                  Google requires a registered Desktop OAuth Client ID to log in. Click "Config Client ID" to paste your credentials.
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              icon={<Settings size={13} />}
-              onClick={() => setShowConfigModal(true)}
-              className="border-amber-500/40 text-amber-200 hover:bg-amber-500/20 shrink-0"
-            >
-              Config Client ID
-            </Button>
-          </div>
-        )}
-
-        {/* Error notification banner if connection failed */}
-        {hasError && authState.error && (
-          <div className="relative z-10 mt-4 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 backdrop-blur-md flex items-start justify-between gap-3 text-xs shadow-md shadow-rose-500/5">
-            <div className="flex items-start gap-2.5">
-              <AlertCircle size={16} className="text-rose-400 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-semibold text-rose-200">Connection Error</span>
-                <p className="text-rose-300/90 mt-0.5">{authState.error}</p>
-              </div>
-            </div>
-            <Button
-              variant="danger"
-              size="sm"
-              onClick={handleConnect}
-              loading={isLoading}
-            >
-              Retry
-            </Button>
-          </div>
-        )}
-
-        {/* Expired session banner */}
-        {isExpired && (
-          <div className="relative z-10 mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 backdrop-blur-md flex items-start justify-between gap-3 text-xs shadow-md shadow-amber-500/5">
-            <div className="flex items-start gap-2.5">
-              <AlertCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-semibold text-amber-200">Session Expired or Revoked</span>
-                <p className="text-amber-300/90 mt-0.5">
-                  {authState.error || 'Your Google authorization has expired. Please reconnect to refresh tokens.'}
-                </p>
-              </div>
-            </div>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleConnect}
-              loading={isLoading}
-            >
-              Reconnect
-            </Button>
-          </div>
-        )}
-
-        {/* Connected Account Display */}
+        {/* STATE 1: Connected View */}
         {isConnected && authState.profile ? (
-          <div className="relative z-10 mt-5 space-y-4">
-            <div className="p-5 rounded-2xl bg-studio-850/80 backdrop-blur-md border border-studio-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg shadow-studio-950/30">
-              <div className="flex items-center gap-4">
+          <div className="relative z-10 mt-4 space-y-4">
+            <div className="p-4 rounded-xl bg-studio-850/90 border border-emerald-500/40 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg shadow-studio-950/30">
+              <div className="flex items-center gap-3.5">
                 {authState.profile.picture ? (
                   <img
                     src={authState.profile.picture}
                     alt={authState.profile.name}
-                    className="w-14 h-14 rounded-2xl border-2 border-cyan-400/50 object-cover shadow-lg shadow-cyan-500/20"
+                    className="w-12 h-12 rounded-xl border border-cyan-400/50 object-cover shadow-md shadow-cyan-500/20 shrink-0"
                     onError={(e) => {
                       (e.target as HTMLElement).style.display = 'none';
                     }}
                   />
                 ) : (
-                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-cyan-500 border border-cyan-400/40 flex items-center justify-center font-bold text-lg text-white shadow-lg shadow-brand-500/20">
+                  <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-brand-600 to-cyan-500 border border-cyan-400/40 flex items-center justify-center font-bold text-base text-white shadow-md shadow-brand-500/20 shrink-0">
                     {authState.profile.name?.[0]?.toUpperCase() || 'G'}
                   </div>
                 )}
@@ -439,36 +425,34 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
                       Verified
                     </Badge>
                   </div>
-                  <p className="text-xs text-studio-300 font-mono mt-0.5">
+                  <p className="text-xs text-emerald-300 font-mono mt-0.5">
                     {authState.profile.email}
                   </p>
-                  <div className="flex items-center gap-2 mt-1.5 text-[11px] text-studio-400">
-                    <Shield size={13} className="text-emerald-400" />
-                    <span>Protected by Windows DPAPI / macOS Keychain</span>
+                  <div className="flex items-center gap-1.5 mt-1 text-[11px] text-studio-400">
+                    <Shield size={12} className="text-emerald-400" />
+                    <span>Credentials protected by native OS encrypted vault (safeStorage)</span>
                   </div>
                 </div>
               </div>
 
-              {/* Action Buttons */}
+              {/* Connected Actions */}
               <div className="flex flex-wrap items-center gap-2">
                 <Button
-                  variant="outline"
+                  variant="primary"
                   size="sm"
-                  icon={<RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />}
-                  loading={isRefreshing}
-                  onClick={handleRefreshToken}
-                  title="Exchange refresh token for updated access token"
+                  icon={<ExternalLink size={13} />}
+                  onClick={() => window.api?.openExternalUrl('https://flow.google/')}
                 >
-                  Refresh Token
+                  Open Flow Workspace
                 </Button>
 
                 <Button
                   variant="secondary"
                   size="sm"
                   icon={<RefreshCw size={13} />}
-                  onClick={handleConnect}
+                  onClick={handleReconnect}
                   loading={isLoading}
-                  title="Re-run OAuth sign-in flow"
+                  title="Re-authenticate session"
                 >
                   Reconnect
                 </Button>
@@ -479,90 +463,174 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
                   icon={<LogOut size={13} />}
                   onClick={handleDisconnect}
                   loading={isLoading}
-                  title="Disconnect and revoke tokens"
+                  title="Disconnect and revoke credentials"
                 >
                   Disconnect
                 </Button>
               </div>
             </div>
 
-            {/* Account Details & Permissions */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px] text-studio-400">
-              <div className="p-3.5 rounded-xl bg-studio-900/80 border border-studio-700/50 backdrop-blur-sm">
-                <span className="text-studio-400 block mb-1 font-medium">Channel / User ID</span>
-                <span className="font-mono text-studio-100 truncate block text-xs">
-                  {authState.account?.channelId || authState.profile.id}
-                </span>
+            {/* Workflow Guidance */}
+            <div className="p-3.5 rounded-xl bg-studio-900/80 border border-studio-700/50 backdrop-blur-sm space-y-1.5 text-xs">
+              <div className="flex items-center gap-2 text-white font-semibold">
+                <Sparkles size={13} className="text-cyan-400" />
+                <span>Supported Flow AI Workflow Active</span>
               </div>
-              <div className="p-3.5 rounded-xl bg-studio-900/80 border border-studio-700/50 backdrop-blur-sm">
-                <span className="text-studio-400 block mb-1 font-medium">Approved Permissions</span>
-                <span className="text-studio-200 text-xs">
-                  OpenID Connect (openid, email, profile)
-                </span>
-              </div>
-              <div className="p-3.5 rounded-xl bg-studio-900/80 border border-studio-700/50 backdrop-blur-sm">
-                <span className="text-studio-400 block mb-1 font-medium">Token Expiry</span>
-                <span className="text-studio-200 text-xs font-mono">
-                  {authState.account?.tokenExpiry
-                    ? new Date(authState.account.tokenExpiry).toLocaleTimeString()
-                    : 'Auto-refresh active'}
-                </span>
-              </div>
+              <p className="text-[11px] text-studio-300 leading-relaxed">
+                Your authenticated Google account is ready for the Flow Studio pipeline: generate scene prompts, export character keyframe reference photos, and import finished video clips directly into your project.
+              </p>
             </div>
           </div>
-        ) : (
-          /* Disconnected State / Connect CTA */
-          <div className="relative z-10 mt-5 space-y-4">
-            <div className="p-6 rounded-2xl bg-gradient-to-r from-studio-850/90 via-studio-850/60 to-studio-900/80 border border-studio-700/60 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-xl shadow-studio-950/20">
-              <div className="space-y-1.5">
+        ) : null}
+
+        {/* STATE 2: Connecting View */}
+        {isConnecting && !isConnected && (
+          <div className="relative z-10 mt-4 p-5 rounded-2xl bg-brand-500/10 border border-brand-500/30 backdrop-blur-md flex items-center justify-between gap-4 text-xs">
+            <div className="flex items-center gap-3">
+              <RefreshCw size={20} className="animate-spin text-cyan-400 shrink-0" />
+              <div>
+                <span className="font-bold text-white block">
+                  Waiting for Google Authorization...
+                </span>
+                <p className="text-studio-300 text-[11px] mt-0.5">
+                  Your default web browser has opened to Google sign-in. Please sign in and approve permissions to complete connection.
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.api?.cancelGoogleAuth()}
+            >
+              Cancel
+            </Button>
+          </div>
+        )}
+
+        {/* STATE 3: Failure States & Alerts */}
+        {isError && (
+          <div className="relative z-10 mt-4 p-4 rounded-xl bg-rose-500/10 border border-rose-500/30 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle size={16} className="text-rose-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold text-rose-200 block">
+                  {authState.statusLabel}
+                </span>
+                <p className="text-rose-300/90 text-[11px] mt-0.5 leading-relaxed">
+                  {authState.error || 'Google connection could not be established.'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-2 shrink-0">
+              {authState.failureReason === 'configuration_missing' ? (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  icon={<Sliders size={13} />}
+                  onClick={() => setShowConfigModal(true)}
+                >
+                  Configure Client ID
+                </Button>
+              ) : (
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleConnect}
+                  loading={isLoading}
+                >
+                  Retry Connection
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* STATE 4: Session Expired Alert */}
+        {isExpired && (
+          <div className="relative z-10 mt-4 p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-semibold text-amber-200 block">
+                  Google Session Expired
+                </span>
+                <p className="text-amber-300/90 text-[11px] mt-0.5">
+                  {authState.error || 'Your Google OAuth authorization has expired. Reconnect to renew your session.'}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="primary"
+              size="sm"
+              icon={<RefreshCw size={13} />}
+              onClick={handleReconnect}
+              loading={isLoading}
+              className="bg-amber-500 hover:bg-amber-400 text-black border-amber-400 shrink-0"
+            >
+              Reconnect
+            </Button>
+          </div>
+        )}
+
+        {/* STATE 5: Not Connected (Primary CTA) */}
+        {!isConnected && !isConnecting && (
+          <div className="relative z-10 mt-4 space-y-4">
+            <div className="p-5 rounded-2xl bg-studio-850/70 border border-studio-700/60 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-lg shadow-studio-950/20">
+              <div className="space-y-1">
                 <span className="font-bold text-sm text-white">
-                  Sign in with Google Account
+                  Connect Your Google Account
                 </span>
                 <p className="text-xs text-studio-300 leading-relaxed max-w-xl">
-                  Connect your Google account via official OAuth 2.0 with PKCE (S256). Strictly requests OpenID Connect identity scopes (openid, email, profile).
+                  Sign in securely using official Google OAuth 2.0 with PKCE (S256). Strictly requests OpenID identity permissions (email and profile).
                 </p>
               </div>
 
-              {/* Official Google-styled Sign-In Button */}
+              {/* Primary Connect Google Button */}
               <button
+                type="button"
                 onClick={handleConnect}
-                disabled={isLoading || authState.status === 'connecting'}
+                disabled={isLoading}
                 className="inline-flex items-center justify-center gap-3 px-6 py-3 rounded-xl bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-800 font-bold text-xs transition-all shadow-lg hover:shadow-cyan-500/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 border border-white/40 cursor-pointer"
               >
-                {isLoading || authState.status === 'connecting' ? (
+                {isLoading ? (
                   <RefreshCw size={16} className="animate-spin text-slate-600" />
                 ) : (
                   <GoogleLogoSvg size={18} />
                 )}
-                <span>{isLoading || authState.status === 'connecting' ? 'Connecting...' : 'Continue with Google'}</span>
+                <span>{isLoading ? 'Connecting...' : 'Connect Google'}</span>
               </button>
             </div>
 
-            {/* Security Guarantee Notice */}
+            {/* Zero Password Guarantee Note */}
             <div className="flex items-center gap-2 text-[11px] text-studio-400">
               <Shield size={13} className="text-emerald-400 shrink-0" />
               <span>
-                Zero Password Storage: Uses Authorization Code Flow with PKCE (S256). Passwords are never entered or stored in this application.
+                Zero Password Storage: Uses Authorization Code Flow with PKCE (S256). Passwords are never entered or stored inside this application.
               </span>
             </div>
           </div>
         )}
       </Card>
 
-      {/* Google Cloud Console Setup & Client ID Modal */}
+      {/* Configure Client ID Modal (Advanced Settings) */}
       <Modal
         isOpen={showConfigModal}
-        onClose={() => setShowConfigModal(false)}
-        title="Google OAuth 2.0 Configuration"
+        onClose={() => {
+          setShowConfigModal(false);
+          setTestResult(null);
+        }}
+        title="Configure Google OAuth Client ID"
+        subtitle="Desktop application authentication credentials"
         size="md"
       >
         <div className="space-y-5 text-xs text-studio-300">
-          <div className="p-4 rounded-2xl bg-brand-500/10 border border-brand-500/30 backdrop-blur-md flex items-start gap-3">
+          <div className="p-4 rounded-xl bg-brand-500/10 border border-brand-500/30 backdrop-blur-md flex items-start gap-3">
             <Info className="text-brand-400 shrink-0 mt-0.5" size={16} />
             <div className="space-y-1">
-              <span className="font-semibold text-white">Google Cloud Console Setup (Desktop App)</span>
+              <span className="font-semibold text-white">Google Cloud Desktop Client ID</span>
               <p className="text-studio-300 leading-relaxed text-[11px]">
-                Google error <strong>"Error 401: invalid_client / The OAuth client was not found"</strong> occurs when using an uncreated client ID. Follow the steps below to create your official Desktop client.
+                Google requires external desktop applications to use an official OAuth Client ID registered as <strong>"Desktop app"</strong> in Google Cloud Console. No client secret is required or allowed in native desktop apps.
               </p>
             </div>
           </div>
@@ -573,24 +641,40 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
             </label>
             <Input
               value={clientIdInput}
-              onChange={(e) => setClientIdInput(e.target.value)}
-              placeholder="e.g. 1234567890-abcdef.apps.googleusercontent.com"
-              helperText="Desktop OAuth clients use PKCE (S256). No Client Secret is needed or allowed in native desktop applications."
+              onChange={(e) => {
+                setClientIdInput(e.target.value);
+                setTestResult(null);
+              }}
+              placeholder="e.g. 1234567890-abcdef123456.apps.googleusercontent.com"
+              helperText="Must end with '.apps.googleusercontent.com'. Desktop clients use PKCE (S256)."
             />
+
+            {testResult && (
+              <div
+                className={`p-2.5 rounded-lg text-[11px] flex items-center gap-2 ${
+                  testResult.valid
+                    ? 'bg-emerald-950/40 text-emerald-300 border border-emerald-500/40'
+                    : 'bg-rose-950/40 text-rose-300 border border-rose-500/40'
+                }`}
+              >
+                {testResult.valid ? <CheckCircle2 size={13} /> : <AlertCircle size={13} />}
+                <span>{testResult.message}</span>
+              </div>
+            )}
           </div>
 
-          <div className="p-4 rounded-2xl bg-studio-900/90 border border-studio-700/60 backdrop-blur-sm space-y-2.5 text-[11px]">
+          <div className="p-4 rounded-xl bg-studio-900/90 border border-studio-700/60 backdrop-blur-sm space-y-2 text-[11px]">
             <span className="font-semibold text-white block">How to get your Client ID in 1 minute:</span>
-            <ol className="list-decimal list-inside space-y-1.5 text-studio-300">
-              <li>Open <strong>Google Cloud Console &gt; Credentials</strong> (button below).</li>
+            <ol className="list-decimal list-inside space-y-1 text-studio-300">
+              <li>Open <strong>Google Cloud Console &gt; Credentials</strong> (link below).</li>
               <li>Click <strong>Create Credentials &gt; OAuth client ID</strong>.</li>
-              <li>Set Application type to <strong>Desktop app</strong> (name: <em>Social Control Desktop</em>).</li>
+              <li>Select Application type: <strong>Desktop app</strong> (name: <em>Social Earnings Studio</em>).</li>
               <li>Click <strong>Create</strong> and copy your <strong>Client ID</strong>.</li>
               <li><em>Note:</em> In <strong>OAuth consent screen</strong>, ensure your Gmail is added under <strong>Test users</strong> (if your app is in Testing mode).</li>
             </ol>
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-studio-700/50">
+          <div className="flex items-center justify-between pt-3 border-t border-studio-700/50">
             <Button
               variant="outline"
               size="sm"
@@ -601,10 +685,18 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
             </Button>
 
             <div className="flex gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setShowConfigModal(false)}>
-                Cancel
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleTestClientId}
+              >
+                Test Configuration
               </Button>
-              <Button variant="primary" size="sm" onClick={handleSaveClientId}>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={handleSaveClientId}
+              >
                 Save Configuration
               </Button>
             </div>

@@ -240,40 +240,48 @@ export const SettingsView: React.FC = () => {
           </div>
         </Card>
 
-        {/* AI & Flow Integration */}
-        <Card title="Flow AI & LLM Providers" subtitle="Google Flow integration and scene prompt models" className="glass-card rounded-2xl border-studio-700/60 shadow-xl">
-          <div className="space-y-4">
-            <Select
-              label="Flow AI Integration Mode"
-              value={formData.flowIntegrationMode || 'manual_assisted'}
-              onChange={(e) => handleChange('flowIntegrationMode', e.target.value)}
-              options={[
-                { value: 'manual_assisted', label: 'User-Assisted / Guided Workflow (Recommended)' },
-                { value: 'api', label: 'Direct Flow API Endpoint (Requires API access)' },
-              ]}
-              helperText="Guided workflow formats prompts, exports references, opens Flow Web, and imports clips."
-            />
+        {/* Google Flow AI Connection Card (Primary) */}
+        <div className="md:col-span-2">
+          <GoogleConnectCard />
+        </div>
 
-            <Input
-              label="Flow API Endpoint (If available)"
-              value={formData.flowApiEndpoint || ''}
-              onChange={(e) => handleChange('flowApiEndpoint', e.target.value)}
-              placeholder="https://flow.google.com/api"
-            />
+        {/* Advanced / Custom LLM & Flow Endpoint (Optional for Enterprise/Proxy) */}
+        <Card
+          title="Advanced Flow & AI Provider Settings"
+          subtitle="Optional configuration for custom AI proxies or enterprise endpoints"
+          className="glass-card rounded-2xl border-studio-700/60 shadow-xl md:col-span-2"
+        >
+          <div className="space-y-4 text-xs">
+            <div className="p-3.5 rounded-xl bg-studio-900/80 border border-studio-700/50 flex items-start gap-3">
+              <Sliders size={16} className="text-cyan-400 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <span className="font-semibold text-white">Google Flow AI Workflow</span>
+                <p className="text-[11px] text-studio-300 leading-relaxed">
+                  Google Flow officially operates via the web creative workspace (<span className="text-cyan-300 font-mono">https://flow.google/</span>). The studio provides automated scene prompt generation, character reference photo keyframing, and one-click video importing. Custom endpoints below are only needed if routing through an enterprise AI proxy.
+                </p>
+              </div>
+            </div>
 
-            <Input
-              label="Flow API Key / Token"
-              type="password"
-              value={formData.flowApiKey || ''}
-              onChange={(e) => handleChange('flowApiKey', e.target.value)}
-              placeholder="••••••••••••••••••••••••"
-              helperText="Stored in encrypted OS vault using safeStorage (DPAPI/Keychain)."
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Custom Flow API Endpoint (Optional)"
+                value={formData.flowApiEndpoint || ''}
+                onChange={(e) => handleChange('flowApiEndpoint', e.target.value)}
+                placeholder="Leave blank for standard Google Flow Web"
+                helperText="Optional custom proxy URL. Official Google Flow runs in browser."
+              />
+
+              <Input
+                label="Custom Provider API Key / Token"
+                type="password"
+                value={formData.flowApiKey || ''}
+                onChange={(e) => handleChange('flowApiKey', e.target.value)}
+                placeholder="••••••••••••••••••••••••"
+                helperText="Optional API token, encrypted via OS safeStorage (DPAPI/Keychain)."
+              />
+            </div>
           </div>
         </Card>
-
-        {/* Google Account & OAuth 2.0 Security */}
-        <GoogleConnectCard />
 
         {/* Video Rendering Defaults */}
         <Card title="Video Generation Defaults" subtitle="Default aspect ratio, resolution, and concurrency" className="glass-card rounded-2xl border-studio-700/60 shadow-xl md:col-span-2">
