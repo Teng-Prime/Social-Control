@@ -11,6 +11,7 @@ import { characterImageGenerator } from '../services/characterImageGenerator';
 import { socialPublisher } from '../services/social/socialPublisher';
 import { analyticsService } from '../services/analyticsService';
 import { queueService } from '../services/queueService';
+import { googleAuthService } from '../services/googleAuthService';
 import { mediaAssetRepo } from '../database/repositories/mediaAssetRepository';
 import { characterRepo } from '../database/repositories/characterRepository';
 import { projectRepo } from '../database/repositories/projectRepository';
@@ -505,6 +506,11 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('connectSocialAccount', async (_, platform: string) => {
     logger.info('SocialAccounts', `Initiating OAuth flow for ${platform}`);
+    if (platform === 'google') {
+      const res = await googleAuthService.startOAuthFlow();
+      return { account: res.state.account };
+    }
+
     // Create demo/authorized connected account
     const dummyNames: Record<string, string> = {
       youtube: 'Studio Creator (YouTube)',
@@ -527,7 +533,45 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('disconnectSocialAccount', async (_, id: string) => {
+    if (id.startsWith('google_')) {
+      await googleAuthService.disconnect(id);
+      return true;
+    }
     return socialAccountRepo.disconnect(id);
+  });
+
+  // Google OAuth 2.0 (Official Loopback + PKCE)
+  ipcMain.handle('getGoogleAuthStatus', async () => {
+    return googleAuthService.getStatus();
+  });
+
+  ipcMain.handle('connectGoogleAccount', async (_, customClientId?: string) => {
+    return googleAuthService.startOAuthFlow(customClientId);
+  });
+
+  ipcMain.handle('disconnectGoogleAccount', async (_, accountId?: string) => {
+    return googleAuthService.disconnect(accountId);
+  });
+
+  ipcMain.handle('reconnectGoogleAccount', async (_, accountId?: string) => {
+    return googleAuthService.startOAuthFlow();
+  });
+
+  ipcMain.handle('refreshGoogleToken', async (_, accountId?: string) => {
+    return googleAuthService.refreshAccessToken(accountId);
+  });
+
+  ipcMain.handle('setGoogleClientId', async (_, clientId: string) => {
+    googleAuthService.setClientId(clientId);
+    return true;
+  });
+
+  ipcMain.handle('getGoogleClientId', async () => {
+    return googleAuthService.getClientId();
+  });
+
+  ipcMain.handle('cancelGoogleAuth', async () => {
+    return googleAuthService.cancelPendingOAuth();
   });
 
   // 10. Publish Jobs

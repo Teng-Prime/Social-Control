@@ -120,6 +120,10 @@ export class SocialAccountRepository {
   public getAccessToken(id: string): string | null {
     return secureStorageService.getSecret(`oauth_${id}_access_token`);
   }
+
+  public getRefreshToken(id: string): string | null {
+    return secureStorageService.getSecret(`oauth_${id}_refresh_token`);
+  }
 }
 
 export const socialAccountRepo = new SocialAccountRepository();

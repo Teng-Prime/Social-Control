@@ -375,6 +375,15 @@ export class SocialPublisherService {
         appName: 'Facebook',
         platformName: 'Facebook Reels',
       },
+      google: {
+        maxTitleLength: 100,
+        maxCaptionLength: 5000,
+        maxDurationSeconds: 60,
+        recommendedAspectRatio: '9:16',
+        packageName: 'com.google.android.youtube',
+        appName: 'Google / YouTube',
+        platformName: 'Google Account',
+      },
     };
 
     const limits = limitsMap[platform] || limitsMap.youtube;

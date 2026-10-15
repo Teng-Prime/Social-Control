@@ -73,10 +73,22 @@ const api: IElectronAPI = {
     return () => ipcRenderer.removeListener('flowConnectionChanged', handler);
   },
 
-  // Social Accounts & Publishing
   getSocialAccounts: () => ipcRenderer.invoke('getSocialAccounts'),
   connectSocialAccount: (platform) => ipcRenderer.invoke('connectSocialAccount', platform),
   disconnectSocialAccount: (id) => ipcRenderer.invoke('disconnectSocialAccount', id),
+  getGoogleAuthStatus: () => ipcRenderer.invoke('getGoogleAuthStatus'),
+  connectGoogleAccount: (clientId) => ipcRenderer.invoke('connectGoogleAccount', clientId),
+  disconnectGoogleAccount: (accountId) => ipcRenderer.invoke('disconnectGoogleAccount', accountId),
+  reconnectGoogleAccount: (accountId) => ipcRenderer.invoke('reconnectGoogleAccount', accountId),
+  refreshGoogleToken: (accountId) => ipcRenderer.invoke('refreshGoogleToken', accountId),
+  setGoogleClientId: (clientId) => ipcRenderer.invoke('setGoogleClientId', clientId),
+  getGoogleClientId: () => ipcRenderer.invoke('getGoogleClientId'),
+  cancelGoogleAuth: () => ipcRenderer.invoke('cancelGoogleAuth'),
+  onGoogleAuthChanged: (callback) => {
+    const handler = (_: any, state: any) => callback(state);
+    ipcRenderer.on('googleAuthChanged', handler);
+    return () => ipcRenderer.removeListener('googleAuthChanged', handler);
+  },
   getPublishJobs: (filter) => ipcRenderer.invoke('getPublishJobs', filter),
   createPublishJob: (job) => ipcRenderer.invoke('createPublishJob', job),
   executePublishJob: (jobId) => ipcRenderer.invoke('executePublishJob', jobId),

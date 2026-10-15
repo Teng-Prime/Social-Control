@@ -16,6 +16,7 @@ import {
   Lock,
 } from 'lucide-react';
 import { SocialAccount, SocialPlatform } from '../../../shared/types';
+import { GoogleConnectCard } from '../../components/google/GoogleConnectCard';
 
 export const SocialAccountsView: React.FC = () => {
   const { addToast } = useAppStore();
@@ -125,6 +126,9 @@ export const SocialAccountsView: React.FC = () => {
         </div>
       </div>
 
+      {/* Official Google OAuth 2.0 Connection Card */}
+      <GoogleConnectCard onAccountUpdated={fetchAccounts} />
+
       {/* Available Platform Connectors */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         {platforms.map((p) => {
@@ -190,9 +194,20 @@ export const SocialAccountsView: React.FC = () => {
                 className="p-4 rounded-xl bg-studio-900 border border-studio-800 flex items-center justify-between"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-studio-800 border border-studio-700 flex items-center justify-center font-bold text-studio-200">
-                    {acc.platform[0].toUpperCase()}
-                  </div>
+                  {acc.avatarUrl ? (
+                    <img
+                      src={acc.avatarUrl}
+                      alt={acc.accountName}
+                      className="w-10 h-10 rounded-xl object-cover border border-studio-700 shadow-sm"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-xl bg-studio-800 border border-studio-700 flex items-center justify-center font-bold text-studio-200">
+                      {acc.platform[0].toUpperCase()}
+                    </div>
+                  )}
                   <div>
                     <div className="flex items-center gap-2">
                       <h4 className="text-xs font-semibold text-studio-100">{acc.accountName}</h4>

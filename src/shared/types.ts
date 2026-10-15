@@ -1,4 +1,4 @@
-export type SocialPlatform = 'youtube' | 'tiktok' | 'facebook';
+export type SocialPlatform = 'youtube' | 'tiktok' | 'facebook' | 'google';
 
 export type PublishStatus = 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
 
@@ -525,6 +525,7 @@ export interface StudioSettings {
   queueConcurrency: number;
   logLevel: string;
   theme: 'dark' | 'light';
+  googleClientId?: string;
 }
 
 export interface ActivityLog {
@@ -617,6 +618,33 @@ export interface CaptionGenerationResult {
   platformLimitNotes: string;
 }
 
+export interface GoogleUserProfile {
+  id: string;
+  email: string;
+  name: string;
+  picture?: string;
+  verifiedEmail?: boolean;
+  locale?: string;
+}
+
+export type GoogleConnectionStatus =
+  | 'not_connected'
+  | 'connecting'
+  | 'connected'
+  | 'expired'
+  | 'error';
+
+export interface GoogleAuthState {
+  status: GoogleConnectionStatus;
+  statusLabel: string;
+  profile?: GoogleUserProfile;
+  account?: SocialAccount;
+  error?: string;
+  lastConnectedAt?: string;
+  hasRefreshToken?: boolean;
+  clientIdConfigured?: boolean;
+}
+
 // Window Electron API bridge definition
 export interface IElectronAPI {
   // App & System
@@ -689,6 +717,15 @@ export interface IElectronAPI {
   getSocialAccounts: () => Promise<SocialAccount[]>;
   connectSocialAccount: (platform: SocialPlatform, authCode?: string) => Promise<{ authUrl?: string; account?: SocialAccount }>;
   disconnectSocialAccount: (id: string) => Promise<boolean>;
+  getGoogleAuthStatus: () => Promise<GoogleAuthState>;
+  connectGoogleAccount: (customClientId?: string) => Promise<{ success: boolean; state: GoogleAuthState; authUrl?: string }>;
+  disconnectGoogleAccount: (accountId?: string) => Promise<{ success: boolean; state: GoogleAuthState }>;
+  reconnectGoogleAccount: (accountId?: string) => Promise<{ success: boolean; state: GoogleAuthState }>;
+  refreshGoogleToken: (accountId?: string) => Promise<{ success: boolean; state: GoogleAuthState }>;
+  setGoogleClientId: (clientId: string) => Promise<boolean>;
+  getGoogleClientId: () => Promise<string>;
+  cancelGoogleAuth: () => Promise<boolean>;
+  onGoogleAuthChanged?: (callback: (state: GoogleAuthState) => void) => () => void;
   getPublishJobs: (filter?: { status?: string; platform?: string }) => Promise<PublishJob[]>;
   createPublishJob: (job: Omit<PublishJob, 'id' | 'createdAt' | 'updatedAt' | 'progress' | 'status'>) => Promise<PublishJob>;
   executePublishJob: (jobId: string) => Promise<{ success: boolean; remotePostId?: string; remotePostUrl?: string; message?: string }>;

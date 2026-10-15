@@ -38,6 +38,7 @@ export class AnalyticsService {
       youtube: this.computePlatformBreakdown('youtube', allPosts),
       tiktok: this.computePlatformBreakdown('tiktok', allPosts),
       facebook: this.computePlatformBreakdown('facebook', allPosts),
+      google: this.computePlatformBreakdown('google', allPosts),
     };
 
     // Genre Breakdown (Dynamic grouping from story tags)
@@ -162,6 +163,7 @@ export class AnalyticsService {
       youtube: 'YouTube Shorts',
       tiktok: 'TikTok',
       facebook: 'Facebook Reels',
+      google: 'Google',
     };
 
     return {

@@ -19,6 +19,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { StudioSettings } from '../../../shared/types';
+import { GoogleConnectCard } from '../../components/google/GoogleConnectCard';
 
 export const SettingsView: React.FC = () => {
   const { settings, fetchSettings, updateSettings, health, fetchSystemHealth, addToast } = useAppStore();
@@ -265,6 +266,9 @@ export const SettingsView: React.FC = () => {
             />
           </div>
         </Card>
+
+        {/* Google Account & OAuth 2.0 Security */}
+        <GoogleConnectCard />
 
         {/* Video Rendering Defaults */}
         <Card title="Video Generation Defaults" subtitle="Default aspect ratio, resolution, and concurrency">
