@@ -21,7 +21,7 @@ import { deviceRepo } from '../database/repositories/deviceRepository';
 import { taskQueueRepo } from '../database/repositories/taskQueueRepository';
 import { activityLogRepo } from '../database/repositories/activityLogRepository';
 import { logger } from '../logger';
-import { CaptionGenerationRequest, DashboardStats, SystemHealth } from '../../shared/types';
+import { CaptionGenerationRequest, DashboardStats, SystemHealth, MediaAsset } from '../../shared/types';
 
 export function validateIpcSender(event: Electron.IpcMainInvokeEvent): boolean {
   if (!event || !event.senderFrame) return true; // CLI or test mock context
@@ -189,8 +189,91 @@ export function registerIpcHandlers(): void {
     return asset;
   });
 
+  ipcMain.handle('createMediaAsset', async (_, assetData: Partial<MediaAsset> & { title: string }) => {
+    let destPath = assetData.filePath || '';
+    let fileName = assetData.fileName || '';
+    let fileSize = assetData.fileSize || 0;
+    let duration = assetData.duration || 60;
+    let width = assetData.width || 1080;
+    let height = assetData.height || 1920;
+    let aspectRatio = assetData.aspectRatio || '9:16';
+    let format = assetData.format || 'mp4';
+    let thumbnailPath = assetData.thumbnailPath || '';
+
+    if (destPath && fs.existsSync(destPath)) {
+      try {
+        fileName = path.basename(destPath);
+        const stats = fs.statSync(destPath);
+        fileSize = stats.size;
+        const meta = await ffmpegService.probeMedia(destPath);
+        duration = meta.duration || duration;
+        width = meta.width || width;
+        height = meta.height || height;
+        aspectRatio = meta.aspectRatio || aspectRatio;
+        format = meta.format || format;
+        if (!thumbnailPath) {
+          thumbnailPath = await ffmpegService.generateThumbnail(destPath);
+        }
+      } catch (err) {
+        logger.warn('MediaLibrary', `Probe failed for asset: ${err}`);
+      }
+    }
+
+    const created = mediaAssetRepo.create({
+      id: assetData.id || 'asset_' + Math.random().toString(36).substring(2, 11),
+      title: assetData.title,
+      filePath: destPath,
+      fileName,
+      fileSize,
+      duration,
+      width,
+      height,
+      aspectRatio,
+      format,
+      thumbnailPath,
+      tags: assetData.tags || [],
+      folder: assetData.folder || 'Drafts',
+      isFavorite: assetData.isFavorite || false,
+      projectId: assetData.projectId,
+    });
+
+    activityLogRepo.create({
+      id: Math.random().toString(36).substring(2, 11),
+      level: 'info',
+      category: 'MediaLibrary',
+      message: `Created video asset: ${created.title}`,
+      createdAt: new Date().toISOString(),
+    });
+
+    return created;
+  });
+
+  ipcMain.handle('batchCreateMediaAssets', async (_, assetsList: Array<Partial<MediaAsset> & { title: string }>) => {
+    const created = mediaAssetRepo.batchCreate(assetsList);
+    activityLogRepo.create({
+      id: Math.random().toString(36).substring(2, 11),
+      level: 'info',
+      category: 'MediaLibrary',
+      message: `Batch created ${created.length} video assets`,
+      createdAt: new Date().toISOString(),
+    });
+    return created;
+  });
+
   ipcMain.handle('updateMediaAsset', async (_, id: string, updates) => {
     return mediaAssetRepo.update(id, updates);
+  });
+
+  ipcMain.handle('batchUpdateMediaAssets', async (_, ids: string[], updates: Partial<MediaAsset>) => {
+    const updated = mediaAssetRepo.batchUpdate(ids, updates);
+    activityLogRepo.create({
+      id: Math.random().toString(36).substring(2, 11),
+      level: 'info',
+      category: 'MediaLibrary',
+      message: `Batch updated ${updated.length} video assets`,
+      createdAt: new Date().toISOString(),
+    });
+    return updated;
   });
 
   ipcMain.handle('deleteMediaAsset', async (_, id: string, deleteFile = false) => {
@@ -203,6 +286,28 @@ export function registerIpcHandlers(): void {
       }
     }
     return mediaAssetRepo.delete(id);
+  });
+
+  ipcMain.handle('batchDeleteMediaAssets', async (_, ids: string[], deleteFiles = false) => {
+    if (deleteFiles) {
+      for (const id of ids) {
+        const asset = mediaAssetRepo.getById(id);
+        if (asset && fs.existsSync(asset.filePath)) {
+          try {
+            fs.unlinkSync(asset.filePath);
+          } catch {}
+        }
+      }
+    }
+    const count = mediaAssetRepo.batchDelete(ids);
+    activityLogRepo.create({
+      id: Math.random().toString(36).substring(2, 11),
+      level: 'info',
+      category: 'MediaLibrary',
+      message: `Batch deleted ${count} video assets`,
+      createdAt: new Date().toISOString(),
+    });
+    return count > 0;
   });
 
   ipcMain.handle('generateThumbnail', async (_, videoPath: string) => {

@@ -18,9 +18,13 @@ const api: IElectronAPI = {
   // Media
   getMediaAssets: (filter) => ipcRenderer.invoke('getMediaAssets', filter),
   getMediaAssetById: (id) => ipcRenderer.invoke('getMediaAssetById', id),
+  createMediaAsset: (asset) => ipcRenderer.invoke('createMediaAsset', asset),
+  batchCreateMediaAssets: (assets) => ipcRenderer.invoke('batchCreateMediaAssets', assets),
   importMediaAsset: (filePath, targetFolder) => ipcRenderer.invoke('importMediaAsset', filePath, targetFolder),
   updateMediaAsset: (id, updates) => ipcRenderer.invoke('updateMediaAsset', id, updates),
+  batchUpdateMediaAssets: (ids, updates) => ipcRenderer.invoke('batchUpdateMediaAssets', ids, updates),
   deleteMediaAsset: (id, deleteFile) => ipcRenderer.invoke('deleteMediaAsset', id, deleteFile),
+  batchDeleteMediaAssets: (ids, deleteFiles) => ipcRenderer.invoke('batchDeleteMediaAssets', ids, deleteFiles),
   generateThumbnail: (videoPath) => ipcRenderer.invoke('generateThumbnail', videoPath),
 
   // Characters

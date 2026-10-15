@@ -673,9 +673,13 @@ export interface IElectronAPI {
   // Media & Video Library
   getMediaAssets: (filter?: { folder?: string; query?: string; favorite?: boolean }) => Promise<MediaAsset[]>;
   getMediaAssetById: (id: string) => Promise<MediaAsset | null>;
+  createMediaAsset: (asset: Partial<MediaAsset> & { title: string; filePath?: string }) => Promise<MediaAsset>;
+  batchCreateMediaAssets: (assets: Array<Partial<MediaAsset> & { title: string; filePath?: string }>) => Promise<MediaAsset[]>;
   importMediaAsset: (filePath: string, targetFolder?: 'Drafts' | 'ReadyToPublish' | 'Published') => Promise<MediaAsset>;
   updateMediaAsset: (id: string, updates: Partial<MediaAsset>) => Promise<MediaAsset>;
+  batchUpdateMediaAssets: (ids: string[], updates: Partial<MediaAsset>) => Promise<MediaAsset[]>;
   deleteMediaAsset: (id: string, deleteFile?: boolean) => Promise<boolean>;
+  batchDeleteMediaAssets: (ids: string[], deleteFiles?: boolean) => Promise<boolean>;
   generateThumbnail: (videoPath: string) => Promise<string>;
 
   // Characters

@@ -76,9 +76,18 @@ export class MediaAssetRepository {
     };
   }
 
-  public create(asset: Partial<MediaAsset> & { title: string; filePath: string }): MediaAsset {
+  public create(asset: Partial<MediaAsset> & { title: string; filePath?: string }): MediaAsset {
     const db = appDb.getRawDb();
     const id = asset.id || `asset_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const cleanTitle = (asset.title || 'Untitled Video').trim();
+    const fileName =
+      asset.fileName ||
+      `${cleanTitle.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 50) || 'video'}.mp4`;
+    const finalFilePath =
+      asset.filePath && asset.filePath.trim().length > 0
+        ? asset.filePath
+        : `library://videos/${id}/${fileName}`;
+
     const stmt = db.prepare(`
       INSERT INTO media_assets (
         id, title, file_path, file_name, file_size, duration, width, height,
@@ -93,13 +102,13 @@ export class MediaAssetRepository {
 
     stmt.run(
       id,
-      asset.title,
-      asset.filePath,
-      asset.fileName || '',
+      cleanTitle,
+      finalFilePath,
+      fileName,
       asset.fileSize || 0,
-      asset.duration || 0,
-      asset.width || 0,
-      asset.height || 0,
+      asset.duration || 60,
+      asset.width || 1080,
+      asset.height || 1920,
       asset.aspectRatio || '9:16',
       asset.format || 'mp4',
       asset.thumbnailPath || '',
@@ -120,7 +129,8 @@ export class MediaAssetRepository {
     const newObj = { ...current, ...updates, updatedAt: new Date().toISOString() };
     const stmt = db.prepare(`
       UPDATE media_assets
-      SET title = ?, folder = ?, tags = ?, is_favorite = ?, thumbnail_path = ?, updated_at = datetime('now')
+      SET title = ?, folder = ?, tags = ?, is_favorite = ?, thumbnail_path = ?,
+          file_path = ?, file_name = ?, aspect_ratio = ?, duration = ?, updated_at = datetime('now')
       WHERE id = ?
     `);
 
@@ -130,6 +140,10 @@ export class MediaAssetRepository {
       JSON.stringify(newObj.tags || []),
       newObj.isFavorite ? 1 : 0,
       newObj.thumbnailPath,
+      newObj.filePath,
+      newObj.fileName,
+      newObj.aspectRatio,
+      newObj.duration,
       id
     );
 
@@ -140,6 +154,35 @@ export class MediaAssetRepository {
     const db = appDb.getRawDb();
     const res = db.prepare('DELETE FROM media_assets WHERE id = ?').run(id);
     return res.changes > 0;
+  }
+
+  public batchCreate(assets: Array<Partial<MediaAsset> & { title: string; filePath?: string }>): MediaAsset[] {
+    const created: MediaAsset[] = [];
+    for (const a of assets) {
+      if (!a.title || a.title.trim().length === 0) continue;
+      created.push(this.create(a));
+    }
+    return created;
+  }
+
+  public batchUpdate(ids: string[], updates: Partial<MediaAsset>): MediaAsset[] {
+    const updated: MediaAsset[] = [];
+    for (const id of ids) {
+      try {
+        updated.push(this.update(id, updates));
+      } catch {}
+    }
+    return updated;
+  }
+
+  public batchDelete(ids: string[]): number {
+    let count = 0;
+    for (const id of ids) {
+      if (this.delete(id)) {
+        count++;
+      }
+    }
+    return count;
   }
 }
 
