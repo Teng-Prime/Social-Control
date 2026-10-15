@@ -18,16 +18,16 @@ export const ToastContainer: React.FC = () => {
         };
 
         const borders = {
-          success: 'border-emerald-500/30 bg-studio-850/95',
-          warn: 'border-amber-500/30 bg-studio-850/95',
-          error: 'border-rose-500/30 bg-studio-850/95',
-          info: 'border-brand-500/30 bg-studio-850/95',
+          success: 'border-emerald-500/40 bg-[#0B1D3B]/95 shadow-[0_4px_24px_rgba(22,217,160,0.18)]',
+          warn: 'border-amber-500/40 bg-[#0B1D3B]/95 shadow-[0_4px_24px_rgba(255,190,85,0.18)]',
+          error: 'border-rose-500/40 bg-[#0B1D3B]/95 shadow-[0_4px_24px_rgba(255,92,122,0.18)]',
+          info: 'border-brand-500/40 bg-[#0B1D3B]/95 shadow-[0_4px_24px_rgba(8,123,255,0.18)]',
         };
 
         return (
           <div
             key={toast.id}
-            className={`pointer-events-auto flex items-start gap-3 p-3.5 rounded-xl border shadow-elevated backdrop-blur-md transition-all animate-slide-up ${borders[toast.type]}`}
+            className={`pointer-events-auto flex items-start gap-3 p-4 rounded-2xl border shadow-elevated backdrop-blur-xl transition-all animate-slide-up ${borders[toast.type]}`}
           >
             <div className="mt-0.5">{icons[toast.type]}</div>
             <div className="flex-1 min-w-0">

@@ -316,7 +316,7 @@ export const AIStudioView: React.FC = () => {
       {/* 2. Main Guided Workspace */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Step Progress Stepper Bar */}
-        <div className="px-6 py-3 border-b border-studio-800 bg-studio-950/70 shrink-0">
+        <div className="px-6 py-3 border-b border-[rgba(91,145,255,0.18)] bg-[#07112A]/90 backdrop-blur-md shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none">
               {stepsConfig.map((s, idx) => {
@@ -328,17 +328,17 @@ export const AIStudioView: React.FC = () => {
                     <div
                       className={`flex items-center rounded-xl transition-all shrink-0 border ${
                         isActive
-                          ? 'bg-brand-500 border-brand-400 text-white shadow-subtle'
+                          ? 'bg-gradient-to-r from-brand-500 to-cyan-500 border-brand-400 text-white shadow-[0_0_15px_rgba(8,123,255,0.35)]'
                           : isPassed
-                          ? 'bg-studio-850 border-studio-750 text-studio-200'
-                          : 'bg-studio-900 border-studio-800 text-studio-500'
+                          ? 'bg-[#102A50] border-[rgba(91,145,255,0.25)] text-studio-100'
+                          : 'bg-[#081633]/60 border-[rgba(91,145,255,0.15)] text-studio-400 hover:text-studio-200'
                       }`}
                     >
                       <button
                         onClick={() => handleStepClick(s.num)}
                         className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold hover:opacity-90"
                       >
-                        <span className={isActive ? 'text-white' : isPassed ? 'text-emerald-400' : 'text-studio-500'}>
+                        <span className={isActive ? 'text-white' : isPassed ? 'text-cyan-400' : 'text-studio-500'}>
                           {isPassed ? <CheckCircle2 size={13} /> : s.icon}
                         </span>
                         <span>
@@ -354,7 +354,7 @@ export const AIStudioView: React.FC = () => {
                         className={`p-1 mr-1.5 rounded-md text-[10px] flex items-center gap-1 transition-colors ${
                           isActive
                             ? 'hover:bg-white/20 text-white/90'
-                            : 'hover:bg-studio-800 text-studio-400 hover:text-studio-200'
+                            : 'hover:bg-[#102A50] text-studio-400 hover:text-studio-100'
                         }`}
                         title={`Configure Step ${s.num}: ${s.title}`}
                       >
@@ -363,7 +363,7 @@ export const AIStudioView: React.FC = () => {
                     </div>
 
                     {idx < stepsConfig.length - 1 && (
-                      <div className="w-3 h-0.5 bg-studio-800 shrink-0" />
+                      <div className="w-3 h-0.5 bg-[rgba(91,145,255,0.2)] shrink-0" />
                     )}
                   </React.Fragment>
                 );
@@ -492,7 +492,7 @@ export const AIStudioView: React.FC = () => {
 
         {/* 3. Bottom Action Bar (Back, Save Draft, Continue) */}
         {activeProject && (
-          <div className="h-16 px-6 border-t border-studio-800 bg-studio-950 flex items-center justify-between shrink-0 select-none">
+          <div className="h-16 px-6 border-t border-[rgba(91,145,255,0.18)] bg-[#07112A]/90 backdrop-blur-md flex items-center justify-between shrink-0 select-none">
             <div className="flex items-center gap-2">
               <Button
                 variant="secondary"
@@ -506,7 +506,7 @@ export const AIStudioView: React.FC = () => {
               <Button
                 variant="outline"
                 size="sm"
-                icon={<Save size={14} />}
+                icon={<Save size={14} className="text-cyan-400" />}
                 onClick={() => {
                   handleUpdateActiveProject({});
                   addToast({ type: 'success', title: 'Project Draft Saved' });
@@ -517,8 +517,8 @@ export const AIStudioView: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-3">
-              <span className="text-xs text-studio-500 font-mono">
-                Step {currentStep} of 7: {stepsConfig[currentStep - 1]?.title}
+              <span className="text-xs text-studio-400 font-mono">
+                Step {currentStep} of 7: <span className="text-cyan-400 font-medium">{stepsConfig[currentStep - 1]?.title}</span>
               </span>
 
               {currentStep < 7 ? (
@@ -532,7 +532,7 @@ export const AIStudioView: React.FC = () => {
                 </Button>
               ) : (
                 <Button
-                  variant="success"
+                  variant="primary"
                   size="sm"
                   icon={<CheckCircle2 size={14} />}
                   onClick={() => {

@@ -33,12 +33,12 @@ export const Input: React.FC<InputProps> = ({
         )}
         <input
           id={inputId}
-          className={`w-full bg-studio-900 border rounded-lg px-3.5 py-2 text-sm text-studio-100 placeholder-studio-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all ${
+          className={`w-full bg-[#081633]/90 border rounded-xl px-3.5 py-2 text-sm text-studio-100 placeholder-studio-400/60 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all ${
             icon ? 'pl-10' : ''
           } ${
             error
               ? 'border-rose-500/80 focus:ring-rose-500'
-              : 'border-studio-700/80 hover:border-studio-600'
+              : 'border-[rgba(91,145,255,0.22)] hover:border-brand-500/40'
           } ${className}`}
           {...props}
         />

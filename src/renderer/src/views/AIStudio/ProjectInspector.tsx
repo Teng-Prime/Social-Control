@@ -40,7 +40,7 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
 
   if (!project) {
     return (
-      <aside className="w-80 border-l border-studio-800 bg-studio-900/60 p-4 text-xs text-studio-500 flex items-center justify-center text-center">
+      <aside className="w-80 border-l border-[rgba(91,145,255,0.18)] bg-[#07112A]/80 backdrop-blur-md p-4 text-xs text-studio-500 flex items-center justify-center text-center">
         Select or create a story project to view inspector details
       </aside>
     );
@@ -99,15 +99,15 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
   ];
 
   return (
-    <aside className="w-80 border-l border-studio-800 bg-studio-900/80 flex flex-col shrink-0 overflow-y-auto p-4 space-y-4 select-none">
+    <aside className="w-80 border-l border-[rgba(91,145,255,0.18)] bg-[#07112A]/90 backdrop-blur-md flex flex-col shrink-0 overflow-y-auto p-4 space-y-4 select-none">
       {/* Active Project Meta */}
-      <div className="pb-3 border-b border-studio-800">
-        <span className="text-[10px] font-bold text-brand-400 tracking-wider uppercase">
+      <div className="pb-3 border-b border-[rgba(91,145,255,0.14)]">
+        <span className="text-[10px] font-bold text-cyan-400 tracking-wider uppercase">
           Project Inspector
         </span>
         <h3 className="text-sm font-bold text-studio-100 truncate mt-0.5">{project.title}</h3>
         <div className="flex flex-wrap gap-1.5 mt-2">
-          <Badge variant="primary" size="sm">
+          <Badge variant="cyan" size="sm">
             {project.genre.toUpperCase()}
           </Badge>
           <Badge variant="neutral" size="sm">
@@ -131,13 +131,13 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
             : 'Storyboard Visual Preview'
         }
         action={
-          <div className="flex items-center gap-1 bg-studio-950 p-0.5 rounded-lg border border-studio-800">
+          <div className="flex items-center gap-1 bg-[#081633] p-0.5 rounded-lg border border-[rgba(91,145,255,0.18)]">
             <button
               onClick={() => setPreviewMode('video')}
               className={`p-1 rounded text-[10px] font-medium transition-colors ${
                 previewMode === 'video'
-                  ? 'bg-brand-500 text-white'
-                  : 'text-studio-400 hover:text-studio-200'
+                  ? 'bg-brand-500 text-white shadow-[0_0_8px_#087BFF]'
+                  : 'text-studio-400 hover:text-studio-100'
               }`}
               title="Preview Sample Video"
             >
@@ -147,8 +147,8 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
               onClick={() => setPreviewMode('thumbnail')}
               className={`p-1 rounded text-[10px] font-medium transition-colors ${
                 previewMode === 'thumbnail'
-                  ? 'bg-brand-500 text-white'
-                  : 'text-studio-400 hover:text-studio-200'
+                  ? 'bg-brand-500 text-white shadow-[0_0_8px_#087BFF]'
+                  : 'text-studio-400 hover:text-studio-100'
               }`}
               title="Preview Thumbnail Keyframe"
             >

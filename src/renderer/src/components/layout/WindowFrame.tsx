@@ -51,16 +51,16 @@ export const WindowFrame: React.FC = () => {
 
   return (
     <div
-      className="h-9 w-full bg-[#080C14] border-b border-studio-800/80 flex items-center justify-between px-3 select-none shrink-0 z-50 text-xs"
+      className="h-9 w-full bg-[#050B1F] border-b border-[rgba(91,145,255,0.18)] flex items-center justify-between px-3 select-none shrink-0 z-50 text-xs backdrop-blur-md"
       style={{ WebkitAppRegion: 'drag' } as React.CSSProperties}
     >
-      {/* Left: New Generated Logo & App Title */}
+      {/* Left: Generated Logo & App Title */}
       <div className="flex items-center gap-2">
         <AppLogo size={20} />
         <span className="font-bold text-xs text-studio-100 tracking-wide">
           Social Earnings Studio
         </span>
-        <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-brand-500/15 text-brand-300 border border-brand-500/25">
+        <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-semibold bg-brand-500/15 text-brand-400 border border-brand-500/25">
           DESKTOP
         </span>
       </div>
@@ -68,7 +68,7 @@ export const WindowFrame: React.FC = () => {
       {/* Center: Current Module Breadcrumb / Subtle Branding */}
       <div className="hidden md:flex items-center gap-2 text-[11px] text-studio-400">
         <span className="text-studio-500">Workspace /</span>
-        <span className="text-studio-200 font-medium">{formatSectionTitle(currentSection)}</span>
+        <span className="text-cyan-400 font-medium">{formatSectionTitle(currentSection)}</span>
       </div>
 
       {/* Right: Custom Native-like Window Controls (No-Drag Region) */}
@@ -79,7 +79,7 @@ export const WindowFrame: React.FC = () => {
         {/* 1. Minimize Button */}
         <button
           onClick={handleMinimize}
-          className="h-9 w-11 flex items-center justify-center text-studio-400 hover:text-studio-100 hover:bg-studio-800/80 transition-colors"
+          className="h-9 w-11 flex items-center justify-center text-studio-400 hover:text-studio-100 hover:bg-[#102A50]/70 transition-colors"
           title="Minimize"
           aria-label="Minimize"
         >
@@ -89,7 +89,7 @@ export const WindowFrame: React.FC = () => {
         {/* 2. Maximize / Restore Button */}
         <button
           onClick={handleMaximize}
-          className="h-9 w-11 flex items-center justify-center text-studio-400 hover:text-studio-100 hover:bg-studio-800/80 transition-colors"
+          className="h-9 w-11 flex items-center justify-center text-studio-400 hover:text-studio-100 hover:bg-[#102A50]/70 transition-colors"
           title={isMaximized ? 'Restore Down' : 'Maximize'}
           aria-label={isMaximized ? 'Restore Down' : 'Maximize'}
         >

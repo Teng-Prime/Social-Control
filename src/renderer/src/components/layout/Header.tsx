@@ -51,19 +51,22 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className="h-16 bg-studio-900 border-b border-studio-800 px-6 flex items-center justify-between shrink-0 select-none">
+    <header className="h-16 bg-[#050B1F]/90 backdrop-blur-md border-b border-[rgba(91,145,255,0.18)] px-6 flex items-center justify-between shrink-0 select-none z-10">
       <div>
-        <h2 className="text-base font-semibold text-studio-100">{sectionTitles[currentSection] || 'Studio'}</h2>
-        <p className="text-[11px] text-studio-400">Desktop AI Video Production & Social Automation</p>
+        <h2 className="text-sm font-semibold text-studio-100 tracking-tight flex items-center gap-2">
+          {sectionTitles[currentSection] || 'Studio'}
+        </h2>
+        <p className="text-[11px] text-studio-400 mt-0.5">Desktop AI Video Production & Social Automation</p>
       </div>
 
       <div className="flex items-center gap-4">
         {/* System Diagnostics Badges */}
-        <div className="flex items-center gap-2 bg-studio-850 px-3 py-1.5 rounded-xl border border-studio-800 text-[11px]">
+        <div className="flex items-center gap-2.5 bg-[#081633]/80 px-3.5 py-1.5 rounded-xl border border-[rgba(91,145,255,0.2)] text-[11px] shadow-subtle backdrop-blur-md">
           {/* SQLite DB */}
           <div className="flex items-center gap-1.5" title="SQLite Database Active">
-            <Database size={13} className="text-brand-400" />
-            <span className="text-studio-300">SQLite</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#00C8FF]" />
+            <Database size={13} className="text-cyan-400" />
+            <span className="text-studio-200 font-medium">SQLite</span>
           </div>
 
           <span className="text-studio-700">|</span>
@@ -73,8 +76,17 @@ export const Header: React.FC = () => {
             className="flex items-center gap-1.5"
             title={health?.ffmpegAvailable ? `FFmpeg Ready: ${health.ffmpegVersion}` : 'FFmpeg Not Detected'}
           >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                health?.ffmpegAvailable
+                  ? 'bg-emerald-400 shadow-[0_0_8px_#16D9A0]'
+                  : 'bg-amber-400 shadow-[0_0_8px_#FFBE55]'
+              }`}
+            />
             <Film size={13} className={health?.ffmpegAvailable ? 'text-emerald-400' : 'text-amber-400'} />
-            <span className={health?.ffmpegAvailable ? 'text-studio-300' : 'text-amber-400'}>FFmpeg</span>
+            <span className={health?.ffmpegAvailable ? 'text-studio-200' : 'text-amber-400 font-medium'}>
+              FFmpeg
+            </span>
           </div>
 
           <span className="text-studio-700">|</span>
@@ -84,16 +96,23 @@ export const Header: React.FC = () => {
             className="flex items-center gap-1.5"
             title={health?.adbAvailable ? `ADB Ready: ${health.adbVersion}` : 'ADB Not Detected'}
           >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                health?.adbAvailable
+                  ? 'bg-emerald-400 shadow-[0_0_8px_#16D9A0]'
+                  : 'bg-amber-400 shadow-[0_0_8px_#FFBE55]'
+              }`}
+            />
             <Smartphone size={13} className={health?.adbAvailable ? 'text-emerald-400' : 'text-amber-400'} />
-            <span className={health?.adbAvailable ? 'text-studio-300' : 'text-amber-400'}>ADB</span>
+            <span className={health?.adbAvailable ? 'text-studio-200' : 'text-amber-400 font-medium'}>ADB</span>
           </div>
 
           <span className="text-studio-700">|</span>
 
           {/* Free Disk Space */}
           <div className="flex items-center gap-1.5" title="Available storage on primary drive">
-            <HardDrive size={13} className="text-cyan-400" />
-            <span className="text-studio-300 font-mono text-[10px]">
+            <HardDrive size={13} className="text-brand-400" />
+            <span className="text-studio-200 font-mono text-[10px]">
               {health?.storageAvailableMb ? `${Math.round(health.storageAvailableMb / 1024)}GB Free` : 'Storage OK'}
             </span>
           </div>
@@ -104,7 +123,7 @@ export const Header: React.FC = () => {
           <Button
             variant="secondary"
             size="sm"
-            icon={<Upload size={14} />}
+            icon={<Upload size={14} className="text-cyan-400" />}
             onClick={handleQuickImport}
           >
             Import Video

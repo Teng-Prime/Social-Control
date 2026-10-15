@@ -96,10 +96,10 @@ export const AnalyticsView: React.FC = () => {
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-7 select-none overflow-y-auto h-full text-xs">
       {/* Top Header & Filter Controls */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-studio-800">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-[rgba(91,145,255,0.18)]">
         <div>
-          <h2 className="text-xl font-bold text-studio-100 flex items-center gap-2">
-            <BarChart3 className="text-brand-400" size={22} />
+          <h2 className="text-xl font-bold text-studio-100 flex items-center gap-2 tracking-tight">
+            <BarChart3 className="text-cyan-400 drop-shadow-[0_0_10px_#00C8FF]" size={22} />
             Performance & Content Analytics
           </h2>
           <p className="text-xs text-studio-400 mt-1">
@@ -109,15 +109,15 @@ export const AnalyticsView: React.FC = () => {
 
         <div className="flex flex-wrap items-center gap-2.5">
           {/* Timeframe Switcher */}
-          <div className="flex bg-studio-900 p-1 rounded-xl border border-studio-800 text-xs">
+          <div className="flex bg-[#081633]/90 p-1 rounded-xl border border-[rgba(91,145,255,0.2)] text-xs shadow-subtle">
             {timeframesList.map((tf) => (
               <button
                 key={tf.id}
                 onClick={() => setTimeframe(tf.id)}
                 className={`px-2.5 py-1 rounded-lg font-medium transition-all ${
                   timeframe === tf.id
-                    ? 'bg-studio-750 text-studio-100 font-semibold shadow-sm'
-                    : 'text-studio-400 hover:text-studio-200'
+                    ? 'bg-[#102A50] text-cyan-400 font-semibold shadow-subtle border border-[rgba(91,145,255,0.25)]'
+                    : 'text-studio-400 hover:text-studio-100 hover:bg-[#102A50]/60'
                 }`}
               >
                 {tf.label}
@@ -126,15 +126,15 @@ export const AnalyticsView: React.FC = () => {
           </div>
 
           {/* Platform Switcher */}
-          <div className="flex bg-studio-900 p-1 rounded-xl border border-studio-800 text-xs">
+          <div className="flex bg-[#081633]/90 p-1 rounded-xl border border-[rgba(91,145,255,0.2)] text-xs shadow-subtle">
             {platformsList.map((p) => (
               <button
                 key={p.id}
                 onClick={() => setPlatform(p.id)}
                 className={`px-3 py-1 rounded-lg font-medium capitalize transition-all ${
                   platform === p.id
-                    ? 'bg-brand-500 text-white font-semibold shadow-sm'
-                    : 'text-studio-400 hover:text-studio-200'
+                    ? 'bg-gradient-to-r from-brand-500 to-cyan-500 text-white font-semibold shadow-[0_0_12px_rgba(8,123,255,0.4)]'
+                    : 'text-studio-400 hover:text-studio-100 hover:bg-[#102A50]/60'
                 }`}
               >
                 {p.label}

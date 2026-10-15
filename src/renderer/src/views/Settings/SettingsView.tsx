@@ -124,15 +124,19 @@ export const SettingsView: React.FC = () => {
 
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-8 overflow-y-auto h-full">
-      <div className="flex items-center justify-between pb-4 border-b border-studio-800">
-        <div>
-          <h2 className="text-xl font-bold text-studio-100 flex items-center gap-2">
-            <Settings className="text-brand-400" size={22} />
-            Studio Settings & Preferences
-          </h2>
-          <p className="text-xs text-studio-400 mt-1">
-            Configure system paths, AI providers, phone transfer targets, and database storage.
-          </p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-studio-700/50">
+        <div className="flex items-center gap-3.5">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-brand-500/20 text-white shrink-0">
+            <Settings size={20} />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+              Studio Settings & Preferences
+            </h2>
+            <p className="text-xs text-studio-300 mt-0.5">
+              Configure system paths, AI providers, phone transfer targets, and database storage.
+            </p>
+          </div>
         </div>
 
         <Button
@@ -140,6 +144,7 @@ export const SettingsView: React.FC = () => {
           size="md"
           loading={isSaving}
           onClick={handleSave}
+          className="shadow-lg shadow-brand-500/25 shrink-0"
         >
           Save All Changes
         </Button>
@@ -147,10 +152,10 @@ export const SettingsView: React.FC = () => {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Storage & Directories */}
-        <Card title="Storage & Directories" subtitle="Where videos, projects, and assets reside">
+        <Card title="Storage & Directories" subtitle="Where videos, projects, and assets reside" className="glass-card rounded-2xl border-studio-700/60 shadow-xl">
           <div className="space-y-4 text-xs">
             <div>
-              <label className="block text-xs font-medium text-studio-300 mb-1.5">
+              <label className="block text-xs font-semibold text-white mb-1.5">
                 Primary Studio Root Folder
               </label>
               <div className="flex gap-2">
@@ -168,7 +173,7 @@ export const SettingsView: React.FC = () => {
                   Browse
                 </Button>
               </div>
-              <p className="text-[11px] text-studio-500 mt-1">
+              <p className="text-[11px] text-studio-400 mt-1.5 leading-relaxed">
                 Subdirectories for Characters, Projects, Videos, Exports, and Logs will be automatically managed here.
               </p>
             </div>
@@ -183,11 +188,11 @@ export const SettingsView: React.FC = () => {
         </Card>
 
         {/* Video & Device Toolchains */}
-        <Card title="Toolchain Dependencies" subtitle="FFmpeg video engine and Android Debug Bridge (ADB)">
+        <Card title="Toolchain Dependencies" subtitle="FFmpeg video engine and Android Debug Bridge (ADB)" className="glass-card rounded-2xl border-studio-700/60 shadow-xl">
           <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-studio-300">FFmpeg Executable Path</label>
+                <label className="text-xs font-semibold text-white">FFmpeg Executable Path</label>
                 {health?.ffmpegAvailable ? (
                   <Badge variant="success" size="sm" dot>Detected</Badge>
                 ) : (
@@ -205,13 +210,13 @@ export const SettingsView: React.FC = () => {
                 </Button>
               </div>
               {testFfmpegResult && (
-                <p className="text-[11px] font-mono mt-1 text-studio-400">{testFfmpegResult}</p>
+                <p className="text-[11px] font-mono mt-1.5 text-cyan-400 bg-studio-900/60 px-2 py-1 rounded-lg border border-studio-700/40">{testFfmpegResult}</p>
               )}
             </div>
 
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-studio-300">ADB Executable Path</label>
+                <label className="text-xs font-semibold text-white">ADB Executable Path</label>
                 {health?.adbAvailable ? (
                   <Badge variant="success" size="sm" dot>Detected</Badge>
                 ) : (
@@ -229,14 +234,14 @@ export const SettingsView: React.FC = () => {
                 </Button>
               </div>
               {testAdbResult && (
-                <p className="text-[11px] font-mono mt-1 text-studio-400">{testAdbResult}</p>
+                <p className="text-[11px] font-mono mt-1.5 text-cyan-400 bg-studio-900/60 px-2 py-1 rounded-lg border border-studio-700/40">{testAdbResult}</p>
               )}
             </div>
           </div>
         </Card>
 
         {/* AI & Flow Integration */}
-        <Card title="Flow AI & LLM Providers" subtitle="Google Flow integration and scene prompt models">
+        <Card title="Flow AI & LLM Providers" subtitle="Google Flow integration and scene prompt models" className="glass-card rounded-2xl border-studio-700/60 shadow-xl">
           <div className="space-y-4">
             <Select
               label="Flow AI Integration Mode"
@@ -271,9 +276,9 @@ export const SettingsView: React.FC = () => {
         <GoogleConnectCard />
 
         {/* Video Rendering Defaults */}
-        <Card title="Video Generation Defaults" subtitle="Default aspect ratio, resolution, and concurrency">
+        <Card title="Video Generation Defaults" subtitle="Default aspect ratio, resolution, and concurrency" className="glass-card rounded-2xl border-studio-700/60 shadow-xl md:col-span-2">
           <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Select
                 label="Default Aspect Ratio"
                 value={formData.defaultAspectRatio || '9:16'}
@@ -297,7 +302,7 @@ export const SettingsView: React.FC = () => {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
                 label="Queue Concurrency Limit"
                 type="number"
@@ -325,14 +330,14 @@ export const SettingsView: React.FC = () => {
       </div>
 
       {/* Database Backup & Disaster Recovery */}
-      <Card title="Database Maintenance & Recovery" subtitle="SQLite data storage, backups, and migration state">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-studio-900 border border-studio-800">
-          <div>
-            <h4 className="text-sm font-semibold text-studio-200 flex items-center gap-2">
-              <Database className="text-brand-400" size={16} />
+      <Card title="Database Maintenance & Recovery" subtitle="SQLite data storage, backups, and migration state" className="glass-card rounded-2xl border-studio-700/60 shadow-xl">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-5 rounded-2xl bg-studio-850/80 backdrop-blur-md border border-studio-700/60 shadow-inner">
+          <div className="space-y-1">
+            <h4 className="text-sm font-bold text-white flex items-center gap-2">
+              <Database className="text-cyan-400" size={16} />
               SQLite Database (WAL Mode Active)
             </h4>
-            <p className="text-xs text-studio-400 mt-0.5">
+            <p className="text-xs text-studio-300">
               Contains characters, projects, video library metadata, publish history, and device records.
             </p>
           </div>

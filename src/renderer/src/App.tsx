@@ -34,8 +34,9 @@ export const App: React.FC = () => {
       case 'dashboard':
         return <DashboardView />;
       case 'ai-studio':
-      case 'characters':
         return <AIStudioView />;
+      case 'characters':
+        return <CharactersView />;
       case 'story-projects':
         return <StoryProjectsView />;
       case 'video-library':
@@ -62,13 +63,18 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen w-screen bg-studio-900 text-studio-200 overflow-hidden font-sans">
+    <div className="flex flex-col h-screen w-screen bg-[#050B1F] text-studio-100 overflow-hidden font-sans relative">
+      {/* Background ambient lighting for deep glassmorphism depth */}
+      <div className="absolute top-0 left-1/4 w-[600px] h-[300px] bg-brand-500/10 blur-[140px] pointer-events-none rounded-full" />
+      <div className="absolute bottom-0 right-1/4 w-[500px] h-[300px] bg-purple-500/10 blur-[150px] pointer-events-none rounded-full" />
+      <div className="absolute top-1/2 right-10 w-[400px] h-[250px] bg-cyan-500/8 blur-[130px] pointer-events-none rounded-full" />
+
       <WindowFrame />
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative z-0">
         <Sidebar />
         <div className="flex-1 flex flex-col h-full overflow-hidden">
           <Header />
-          <main className="flex-1 overflow-hidden relative bg-studio-900/90">
+          <main className="flex-1 overflow-hidden relative bg-[#050B1F]/60 backdrop-blur-sm">
             {renderActiveView()}
           </main>
         </div>

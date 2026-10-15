@@ -63,11 +63,11 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
 
   if (!isOpen) {
     return (
-      <div className="border-r border-studio-800 bg-studio-900/60 p-2 flex flex-col items-center shrink-0">
+      <div className="border-r border-[rgba(91,145,255,0.18)] bg-[#07112A]/80 backdrop-blur-md p-2 flex flex-col items-center shrink-0">
         <button
           onClick={onToggle}
           title="Open Projects Panel"
-          className="p-2 rounded-xl bg-studio-850 hover:bg-studio-800 text-studio-400 hover:text-brand-400 transition-all border border-studio-750"
+          className="p-2 rounded-xl bg-[#0B1D3B] hover:bg-[#102A50] text-studio-400 hover:text-cyan-400 transition-all border border-[rgba(91,145,255,0.22)] shadow-subtle"
         >
           <FolderOpen size={18} />
         </button>
@@ -76,11 +76,11 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
   }
 
   return (
-    <aside className="w-72 border-r border-studio-800 bg-studio-900/80 flex flex-col shrink-0 select-none">
+    <aside className="w-72 border-r border-[rgba(91,145,255,0.18)] bg-[#07112A]/90 backdrop-blur-md flex flex-col shrink-0 select-none">
       {/* Header */}
-      <div className="p-4 border-b border-studio-800 flex items-center justify-between">
+      <div className="p-4 border-b border-[rgba(91,145,255,0.14)] flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Film size={18} className="text-brand-400" />
+          <Film size={18} className="text-cyan-400" />
           <h3 className="text-xs font-bold text-studio-100 uppercase tracking-wider">
             Story Projects ({projects.length})
           </h3>
@@ -99,7 +99,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
           </Button>
           <button
             onClick={onToggle}
-            className="p-1.5 rounded-lg hover:bg-studio-800 text-studio-400 hover:text-studio-200"
+            className="p-1.5 rounded-lg hover:bg-[#102A50]/60 text-studio-400 hover:text-studio-100 transition-colors"
             title="Collapse Panel"
           >
             <ChevronRight size={16} className="rotate-180" />
@@ -108,7 +108,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
       </div>
 
       {/* Search Input */}
-      <div className="p-3 border-b border-studio-800/80">
+      <div className="p-3 border-b border-[rgba(91,145,255,0.14)]">
         <div className="relative">
           <Search size={14} className="absolute left-3 top-2.5 text-studio-500" />
           <input
@@ -116,7 +116,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
             placeholder="Search projects..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-studio-950/80 border border-studio-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-studio-200 placeholder-studio-500 focus:outline-none focus:border-brand-500"
+            className="w-full bg-[#081633]/90 border border-[rgba(91,145,255,0.2)] rounded-xl pl-9 pr-3 py-1.5 text-xs text-studio-100 placeholder-studio-400/60 focus:outline-none focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30 transition-all"
           />
         </div>
       </div>
@@ -148,15 +148,15 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
                 onClick={() => onSelectProject(proj)}
                 className={`group p-2.5 rounded-xl border transition-all cursor-pointer relative ${
                   isActive
-                    ? 'bg-brand-500/15 border-brand-500/40 shadow-subtle'
-                    : 'bg-studio-850/60 border-studio-800 hover:border-studio-700 hover:bg-studio-800/50'
+                    ? 'bg-gradient-to-r from-brand-500/25 to-[#102A50]/60 border-brand-500/50 shadow-[0_0_15px_rgba(8,123,255,0.2)]'
+                    : 'glass-card hover:border-brand-500/30 hover:bg-[#0B1D3B]/90'
                 }`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <h4
                       className={`text-xs font-semibold truncate ${
-                        isActive ? 'text-brand-300' : 'text-studio-200'
+                        isActive ? 'text-cyan-400' : 'text-studio-100'
                       }`}
                     >
                       {proj.title}

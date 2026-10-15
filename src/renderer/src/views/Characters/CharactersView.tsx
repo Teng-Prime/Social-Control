@@ -281,11 +281,11 @@ export const CharactersView: React.FC = () => {
   return (
     <div className="flex h-full select-none overflow-hidden">
       {/* Left List Column */}
-      <div className="w-80 border-r border-studio-800 bg-studio-900/40 flex flex-col shrink-0">
-        <div className="p-4 border-b border-studio-800 flex items-center justify-between">
+      <div className="w-80 border-r border-[rgba(91,145,255,0.18)] bg-[#07112A]/90 backdrop-blur-md flex flex-col shrink-0">
+        <div className="p-4 border-b border-[rgba(91,145,255,0.14)] flex items-center justify-between">
           <div>
             <h3 className="text-sm font-semibold text-studio-100 flex items-center gap-2">
-              <Users size={16} className="text-brand-400" />
+              <Users size={16} className="text-cyan-400" />
               Characters ({characters.length})
             </h3>
             <p className="text-[11px] text-studio-400">Generate or upload image to use</p>
@@ -294,7 +294,7 @@ export const CharactersView: React.FC = () => {
             <Button variant="primary" size="sm" icon={<Sparkles size={13} />} onClick={() => handleOpenCreate('ai')} title="Generate to Image">
               Generate
             </Button>
-            <Button variant="secondary" size="sm" icon={<Upload size={13} />} onClick={handleDirectUploadCharacter} title="Upload Image">
+            <Button variant="secondary" size="sm" icon={<Upload size={13} className="text-cyan-400" />} onClick={handleDirectUploadCharacter} title="Upload Image">
               Upload
             </Button>
           </div>
@@ -315,15 +315,15 @@ export const CharactersView: React.FC = () => {
                 <div
                   key={char.id}
                   onClick={() => setSelectedCharacter(char)}
-                  className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center gap-3 ${
+                  className={`p-3 rounded-2xl border transition-all duration-200 cursor-pointer flex items-center gap-3 ${
                     isSelected
-                      ? 'bg-brand-500/15 border-brand-500/40 shadow-subtle'
+                      ? 'bg-gradient-to-r from-brand-500/25 to-[#102A50]/60 border-brand-500/50 shadow-[0_0_20px_rgba(8,123,255,0.25)]'
                       : !hasImage
-                      ? 'bg-studio-900/60 border-amber-500/30'
-                      : 'bg-studio-850 border-studio-800 hover:border-studio-700'
+                      ? 'bg-[#0B1D3B]/40 border-amber-500/30 hover:border-amber-500/50'
+                      : 'glass-card hover:border-brand-500/40 hover:bg-[#0B1D3B]/90'
                   }`}
                 >
-                  <div className="w-12 h-12 rounded-lg bg-studio-950 overflow-hidden shrink-0 border border-studio-750 flex items-center justify-center relative">
+                  <div className="w-12 h-12 rounded-xl bg-[#081633] overflow-hidden shrink-0 border border-[rgba(91,145,255,0.2)] flex items-center justify-center relative shadow-subtle">
                     {primaryRef ? (
                       <img
                         src={`file://${primaryRef.imagePath.replace(/\\/g, '/')}`}
@@ -331,7 +331,7 @@ export const CharactersView: React.FC = () => {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <Users size={20} className="text-studio-600" />
+                      <Users size={20} className="text-studio-500" />
                     )}
                     {char.isLocked && (
                       <div className="absolute bottom-0.5 right-0.5 bg-amber-500 text-black p-0.5 rounded shadow text-[8px]">
@@ -354,7 +354,7 @@ export const CharactersView: React.FC = () => {
                       )}
                     </div>
                     <p className="text-[11px] text-studio-400 truncate mt-0.5">{char.description || char.appearance}</p>
-                    <span className="text-[10px] text-studio-500 font-mono">
+                    <span className="text-[10px] text-cyan-400/80 font-mono">
                       {hasImage ? `${char.references.length} photo(s)` : '⚠️ Unusable without image'}
                     </span>
                   </div>
@@ -487,21 +487,21 @@ export const CharactersView: React.FC = () => {
             {/* Permanent Appearance & Consistency Specs */}
             <Card title="Character Consistency Profile" subtitle="Strict continuity parameters injected into every story scene">
               <div className="grid grid-cols-2 gap-4 text-xs">
-                <div className="p-3 bg-studio-900 rounded-lg border border-studio-800">
+                <div className="p-3.5 bg-[#081633]/80 rounded-xl border border-[rgba(91,145,255,0.18)]">
                   <span className="text-studio-400 block mb-1">Face & Appearance Details</span>
-                  <p className="text-studio-200">{selectedCharacter.appearance}</p>
+                  <p className="text-studio-100">{selectedCharacter.appearance}</p>
                 </div>
-                <div className="p-3 bg-studio-900 rounded-lg border border-studio-800">
+                <div className="p-3.5 bg-[#081633]/80 rounded-xl border border-[rgba(91,145,255,0.18)]">
                   <span className="text-studio-400 block mb-1">Default Clothing & Wardrobe</span>
-                  <p className="text-studio-200">{selectedCharacter.clothing}</p>
+                  <p className="text-studio-100">{selectedCharacter.clothing}</p>
                 </div>
-                <div className="p-3 bg-studio-900 rounded-lg border border-studio-800">
+                <div className="p-3.5 bg-[#081633]/80 rounded-xl border border-[rgba(91,145,255,0.18)]">
                   <span className="text-studio-400 block mb-1">Personality & Tone</span>
-                  <p className="text-studio-200">{selectedCharacter.personality}</p>
+                  <p className="text-studio-100">{selectedCharacter.personality}</p>
                 </div>
-                <div className="p-3 bg-studio-900 rounded-lg border border-studio-800">
+                <div className="p-3.5 bg-[#081633]/80 rounded-xl border border-[rgba(91,145,255,0.18)]">
                   <span className="text-studio-400 block mb-1">Visual Rendering Style</span>
-                  <p className="text-studio-200">{selectedCharacter.visualStyle}</p>
+                  <p className="text-studio-100">{selectedCharacter.visualStyle}</p>
                 </div>
               </div>
             </Card>
@@ -523,35 +523,35 @@ export const CharactersView: React.FC = () => {
                       {isGeneratingPhoto === selectedCharacter.id ? 'Generating...' : 'Generate AI Image'}
                     </Button>
                     {photoMenuOpen && (
-                      <div className="absolute right-0 mt-1 w-52 bg-studio-900 border border-studio-750 rounded-xl shadow-xl z-30 p-1.5 space-y-1">
+                      <div className="absolute right-0 mt-1 w-52 glass-elevated rounded-xl shadow-elevated z-30 p-1.5 space-y-1">
                         <button
                           onClick={() => handleGeneratePhoto(selectedCharacter.id, 'front')}
-                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-studio-800 text-studio-200"
+                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-[#102A50] text-studio-200 hover:text-white"
                         >
                           Front Portrait
                         </button>
                         <button
                           onClick={() => handleGeneratePhoto(selectedCharacter.id, 'three_quarter')}
-                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-studio-800 text-studio-200"
+                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-[#102A50] text-studio-200 hover:text-white"
                         >
                           Three-Quarter (3/4)
                         </button>
                         <button
                           onClick={() => handleGeneratePhoto(selectedCharacter.id, 'profile')}
-                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-studio-800 text-studio-200"
+                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-[#102A50] text-studio-200 hover:text-white"
                         >
                           Side Profile
                         </button>
                         <button
                           onClick={() => handleGeneratePhoto(selectedCharacter.id, 'full_body')}
-                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-studio-800 text-studio-200"
+                          className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs hover:bg-[#102A50] text-studio-200 hover:text-white"
                         >
                           Full Body Shot
                         </button>
-                        <div className="border-t border-studio-800 pt-1">
+                        <div className="border-t border-[rgba(91,145,255,0.18)] pt-1">
                           <button
                             onClick={() => handleGenerateMultiAngleSuite(selectedCharacter.id)}
-                            className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-brand-300 font-semibold hover:bg-brand-500/10"
+                            className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs text-cyan-400 font-semibold hover:bg-brand-500/15"
                           >
                             Generate Multi-Angle Suite
                           </button>
@@ -706,7 +706,7 @@ export const CharactersView: React.FC = () => {
             </label>
             <textarea
               rows={2}
-              className="w-full bg-studio-900 border border-studio-700/80 rounded-lg p-2.5 text-sm text-studio-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full bg-[#081633]/90 border border-[rgba(91,145,255,0.22)] rounded-xl p-3 text-sm text-studio-100 placeholder-studio-400/60 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all"
               value={form.appearance}
               onChange={(e) => setForm({ ...form, appearance: e.target.value })}
               placeholder="Detailed physical characteristics..."
@@ -719,7 +719,7 @@ export const CharactersView: React.FC = () => {
             </label>
             <textarea
               rows={2}
-              className="w-full bg-studio-900 border border-studio-700/80 rounded-lg p-2.5 text-sm text-studio-100 focus:outline-none focus:ring-2 focus:ring-brand-500"
+              className="w-full bg-[#081633]/90 border border-[rgba(91,145,255,0.22)] rounded-xl p-3 text-sm text-studio-100 placeholder-studio-400/60 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all"
               value={form.clothing}
               onChange={(e) => setForm({ ...form, clothing: e.target.value })}
               placeholder="Specific jackets, colors, jewelry, or signature outfits..."
@@ -734,28 +734,28 @@ export const CharactersView: React.FC = () => {
           />
 
           {/* Reference Image Source Selector */}
-          <div className="p-3 bg-studio-950 rounded-xl border border-studio-800 space-y-2">
+          <div className="p-3.5 bg-[#081633]/90 rounded-2xl border border-[rgba(91,145,255,0.22)] space-y-2.5">
             <div className="flex items-center justify-between">
-              <label className="block text-xs font-semibold text-studio-200">
+              <label className="block text-xs font-semibold text-studio-100">
                 Reference Image Setup <span className="text-rose-400">*</span>
               </label>
               <span className="text-[10px] text-amber-400 font-medium">Required to use character</span>
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"
                 onClick={() => setCreationSource('ai')}
-                className={`p-2.5 rounded-lg border text-left transition-all ${
+                className={`p-3 rounded-xl border text-left transition-all ${
                   creationSource === 'ai'
-                    ? 'bg-brand-500/15 border-brand-500 text-studio-100'
-                    : 'bg-studio-900 border-studio-800 text-studio-400 hover:border-studio-700'
+                    ? 'bg-brand-500/20 border-brand-500 text-studio-100 shadow-[0_0_15px_rgba(8,123,255,0.2)]'
+                    : 'bg-[#0B1D3B]/60 border-[rgba(91,145,255,0.18)] text-studio-400 hover:border-brand-500/30 hover:bg-[#0B1D3B]'
                 }`}
               >
-                <div className="flex items-center gap-2 font-medium text-xs text-studio-200">
-                  <Sparkles size={14} className="text-brand-400" />
+                <div className="flex items-center gap-2 font-medium text-xs text-studio-100">
+                  <Sparkles size={14} className="text-cyan-400" />
                   Generate with AI
                 </div>
-                <p className="text-[10px] text-studio-400 mt-1">
+                <p className="text-[10px] text-studio-400 mt-1 leading-relaxed">
                   Generates an AI keyframe portrait from the appearance description automatically upon save.
                 </p>
               </button>
@@ -765,17 +765,17 @@ export const CharactersView: React.FC = () => {
                   setCreationSource('upload');
                   handlePickPhotoForModal();
                 }}
-                className={`p-2.5 rounded-lg border text-left transition-all ${
+                className={`p-3 rounded-xl border text-left transition-all ${
                   creationSource === 'upload'
-                    ? 'bg-brand-500/15 border-brand-500 text-studio-100'
-                    : 'bg-studio-900 border-studio-800 text-studio-400 hover:border-studio-700'
+                    ? 'bg-brand-500/20 border-brand-500 text-studio-100 shadow-[0_0_15px_rgba(8,123,255,0.2)]'
+                    : 'bg-[#0B1D3B]/60 border-[rgba(91,145,255,0.18)] text-studio-400 hover:border-brand-500/30 hover:bg-[#0B1D3B]'
                 }`}
               >
-                <div className="flex items-center gap-2 font-medium text-xs text-studio-200">
-                  <Upload size={14} className="text-brand-400" />
+                <div className="flex items-center gap-2 font-medium text-xs text-studio-100">
+                  <Upload size={14} className="text-cyan-400" />
                   Upload Image File
                 </div>
-                <p className="text-[10px] text-studio-400 mt-1">
+                <p className="text-[10px] text-studio-400 mt-1 leading-relaxed">
                   Select a local photo file from disk to attach as the character's primary face keyframe.
                 </p>
               </button>

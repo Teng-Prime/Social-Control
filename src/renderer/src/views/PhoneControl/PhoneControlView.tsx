@@ -280,10 +280,10 @@ export const PhoneControlView: React.FC = () => {
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 select-none overflow-y-auto h-full">
       {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-studio-800">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-[rgba(91,145,255,0.18)]">
         <div>
-          <h2 className="text-xl font-bold text-studio-100 flex items-center gap-2">
-            <Smartphone className="text-brand-400" size={22} />
+          <h2 className="text-xl font-bold text-studio-100 flex items-center gap-2 tracking-tight">
+            <Smartphone className="text-cyan-400 drop-shadow-[0_0_10px_#00C8FF]" size={22} />
             Android Phone Control & Provisioning Center
           </h2>
           <p className="text-xs text-studio-400 mt-1">
@@ -295,7 +295,7 @@ export const PhoneControlView: React.FC = () => {
           <Button
             variant="outline"
             size="sm"
-            icon={<Settings size={14} />}
+            icon={<Settings size={14} className="text-cyan-400" />}
             onClick={() => setIsTroubleshootOpen(true)}
           >
             Troubleshoot & Connect
@@ -317,7 +317,7 @@ export const PhoneControlView: React.FC = () => {
           <Button
             variant="secondary"
             size="sm"
-            icon={<HelpCircle size={14} />}
+            icon={<HelpCircle size={14} className="text-cyan-400" />}
             onClick={() => {
               setWizardStep(1);
               setIsWizardOpen(true);
@@ -340,7 +340,7 @@ export const PhoneControlView: React.FC = () => {
 
       {/* Device Not Detected Warning & Quick Actions Banner */}
       {devices.length === 0 && (
-        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-[0_4px_24px_rgba(255,190,85,0.12)]">
           <div className="flex items-start gap-3">
             <AlertTriangle className="text-amber-400 shrink-0 mt-0.5" size={18} />
             <div>

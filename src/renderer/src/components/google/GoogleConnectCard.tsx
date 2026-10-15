@@ -305,21 +305,25 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
   return (
     <>
       <Card
-        className={`relative overflow-hidden border-studio-700/80 bg-gradient-to-b from-studio-900 to-studio-950 ${
+        className={`relative overflow-hidden glass-card rounded-2xl border-studio-700/60 shadow-xl ${
           compact ? 'p-4' : 'p-6'
         }`}
       >
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-studio-800">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-white shadow-md flex items-center justify-center p-2.5">
-              <GoogleLogoSvg size={28} />
+        {/* Subtle Ambient Radial Lighting */}
+        <div className="absolute -top-16 -right-16 w-56 h-56 bg-brand-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-16 -left-16 w-56 h-56 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-studio-700/50">
+          <div className="flex items-center gap-3.5">
+            <div className="w-12 h-12 rounded-2xl bg-white shadow-lg shadow-black/20 flex items-center justify-center p-2.5 border border-white/40 shrink-0">
+              <GoogleLogoSvg size={26} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="font-bold text-base text-studio-100">Google Account</h3>
+                <h3 className="font-bold text-base text-white tracking-tight">Google Account</h3>
                 {renderStatusBadge(authState.status)}
               </div>
-              <p className="text-xs text-studio-400 mt-0.5">
+              <p className="text-xs text-studio-300 mt-0.5">
                 Official OAuth 2.0 PKCE Authorization & OS Protected Credential Vault
               </p>
             </div>
@@ -340,7 +344,7 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
 
         {/* Client ID not configured banner */}
         {!authState.clientIdConfigured && (
-          <div className="mt-4 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="relative z-10 mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-md shadow-amber-500/5">
             <div className="flex items-start gap-2.5">
               <Key size={16} className="text-amber-400 shrink-0 mt-0.5" />
               <div>
@@ -364,7 +368,7 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
 
         {/* Error notification banner if connection failed */}
         {hasError && authState.error && (
-          <div className="mt-4 p-3.5 rounded-xl bg-rose-500/10 border border-rose-500/30 flex items-start justify-between gap-3 text-xs">
+          <div className="relative z-10 mt-4 p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 backdrop-blur-md flex items-start justify-between gap-3 text-xs shadow-md shadow-rose-500/5">
             <div className="flex items-start gap-2.5">
               <AlertCircle size={16} className="text-rose-400 shrink-0 mt-0.5" />
               <div>
@@ -385,7 +389,7 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
 
         {/* Expired session banner */}
         {isExpired && (
-          <div className="mt-4 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-start justify-between gap-3 text-xs">
+          <div className="relative z-10 mt-4 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 backdrop-blur-md flex items-start justify-between gap-3 text-xs shadow-md shadow-amber-500/5">
             <div className="flex items-start gap-2.5">
               <AlertCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
               <div>
@@ -408,27 +412,27 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
 
         {/* Connected Account Display */}
         {isConnected && authState.profile ? (
-          <div className="mt-5 space-y-4">
-            <div className="p-4 rounded-xl bg-studio-850/80 border border-studio-750 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5">
+          <div className="relative z-10 mt-5 space-y-4">
+            <div className="p-5 rounded-2xl bg-studio-850/80 backdrop-blur-md border border-studio-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-lg shadow-studio-950/30">
+              <div className="flex items-center gap-4">
                 {authState.profile.picture ? (
                   <img
                     src={authState.profile.picture}
                     alt={authState.profile.name}
-                    className="w-12 h-12 rounded-full border-2 border-emerald-500/40 object-cover shadow-sm"
+                    className="w-14 h-14 rounded-2xl border-2 border-cyan-400/50 object-cover shadow-lg shadow-cyan-500/20"
                     onError={(e) => {
                       (e.target as HTMLElement).style.display = 'none';
                     }}
                   />
                 ) : (
-                  <div className="w-12 h-12 rounded-full bg-studio-750 border border-studio-650 flex items-center justify-center font-bold text-base text-studio-200">
+                  <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-brand-600 to-cyan-500 border border-cyan-400/40 flex items-center justify-center font-bold text-lg text-white shadow-lg shadow-brand-500/20">
                     {authState.profile.name?.[0]?.toUpperCase() || 'G'}
                   </div>
                 )}
 
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-sm text-studio-100">
+                    <span className="font-bold text-sm text-white">
                       {authState.profile.name}
                     </span>
                     <Badge variant="success" size="sm">
@@ -438,8 +442,8 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
                   <p className="text-xs text-studio-300 font-mono mt-0.5">
                     {authState.profile.email}
                   </p>
-                  <div className="flex items-center gap-2 mt-1 text-[11px] text-studio-500">
-                    <Shield size={12} className="text-emerald-400" />
+                  <div className="flex items-center gap-2 mt-1.5 text-[11px] text-studio-400">
+                    <Shield size={13} className="text-emerald-400" />
                     <span>Protected by Windows DPAPI / macOS Keychain</span>
                   </div>
                 </div>
@@ -484,21 +488,21 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
 
             {/* Account Details & Permissions */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-[11px] text-studio-400">
-              <div className="p-3 rounded-lg bg-studio-900 border border-studio-800">
-                <span className="text-studio-500 block mb-0.5">Channel / User ID</span>
-                <span className="font-mono text-studio-200 truncate block">
+              <div className="p-3.5 rounded-xl bg-studio-900/80 border border-studio-700/50 backdrop-blur-sm">
+                <span className="text-studio-400 block mb-1 font-medium">Channel / User ID</span>
+                <span className="font-mono text-studio-100 truncate block text-xs">
                   {authState.account?.channelId || authState.profile.id}
                 </span>
               </div>
-              <div className="p-3 rounded-lg bg-studio-900 border border-studio-800">
-                <span className="text-studio-500 block mb-0.5">Approved Permissions</span>
-                <span className="text-studio-200">
+              <div className="p-3.5 rounded-xl bg-studio-900/80 border border-studio-700/50 backdrop-blur-sm">
+                <span className="text-studio-400 block mb-1 font-medium">Approved Permissions</span>
+                <span className="text-studio-200 text-xs">
                   OpenID Connect (openid, email, profile)
                 </span>
               </div>
-              <div className="p-3 rounded-lg bg-studio-900 border border-studio-800">
-                <span className="text-studio-500 block mb-0.5">Token Expiry</span>
-                <span className="text-studio-200">
+              <div className="p-3.5 rounded-xl bg-studio-900/80 border border-studio-700/50 backdrop-blur-sm">
+                <span className="text-studio-400 block mb-1 font-medium">Token Expiry</span>
+                <span className="text-studio-200 text-xs font-mono">
                   {authState.account?.tokenExpiry
                     ? new Date(authState.account.tokenExpiry).toLocaleTimeString()
                     : 'Auto-refresh active'}
@@ -508,13 +512,13 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
           </div>
         ) : (
           /* Disconnected State / Connect CTA */
-          <div className="mt-5 space-y-4">
-            <div className="p-5 rounded-xl bg-studio-850/60 border border-studio-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="space-y-1">
-                <span className="font-semibold text-sm text-studio-200">
+          <div className="relative z-10 mt-5 space-y-4">
+            <div className="p-6 rounded-2xl bg-gradient-to-r from-studio-850/90 via-studio-850/60 to-studio-900/80 border border-studio-700/60 backdrop-blur-md flex flex-col sm:flex-row sm:items-center justify-between gap-5 shadow-xl shadow-studio-950/20">
+              <div className="space-y-1.5">
+                <span className="font-bold text-sm text-white">
                   Sign in with Google Account
                 </span>
-                <p className="text-xs text-studio-400 leading-relaxed max-w-xl">
+                <p className="text-xs text-studio-300 leading-relaxed max-w-xl">
                   Connect your Google account via official OAuth 2.0 with PKCE (S256). Strictly requests OpenID Connect identity scopes (openid, email, profile).
                 </p>
               </div>
@@ -523,7 +527,7 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
               <button
                 onClick={handleConnect}
                 disabled={isLoading || authState.status === 'connecting'}
-                className="inline-flex items-center justify-center gap-3 px-5 py-2.5 rounded-xl bg-white hover:bg-slate-100 active:bg-slate-200 text-slate-800 font-semibold text-xs transition-all shadow-md hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed shrink-0 border border-slate-200"
+                className="inline-flex items-center justify-center gap-3 px-6 py-3 rounded-xl bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-800 font-bold text-xs transition-all shadow-lg hover:shadow-cyan-500/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shrink-0 border border-white/40 cursor-pointer"
               >
                 {isLoading || authState.status === 'connecting' ? (
                   <RefreshCw size={16} className="animate-spin text-slate-600" />
@@ -535,7 +539,7 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
             </div>
 
             {/* Security Guarantee Notice */}
-            <div className="flex items-center gap-2 text-[11px] text-studio-500">
+            <div className="flex items-center gap-2 text-[11px] text-studio-400">
               <Shield size={13} className="text-emerald-400 shrink-0" />
               <span>
                 Zero Password Storage: Uses Authorization Code Flow with PKCE (S256). Passwords are never entered or stored in this application.
@@ -553,18 +557,18 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
         size="md"
       >
         <div className="space-y-5 text-xs text-studio-300">
-          <div className="p-3.5 rounded-xl bg-brand-500/10 border border-brand-500/30 flex items-start gap-3">
+          <div className="p-4 rounded-2xl bg-brand-500/10 border border-brand-500/30 backdrop-blur-md flex items-start gap-3">
             <Info className="text-brand-400 shrink-0 mt-0.5" size={16} />
             <div className="space-y-1">
-              <span className="font-semibold text-studio-200">Google Cloud Console Setup (Desktop App)</span>
-              <p className="text-studio-400 leading-relaxed text-[11px]">
+              <span className="font-semibold text-white">Google Cloud Console Setup (Desktop App)</span>
+              <p className="text-studio-300 leading-relaxed text-[11px]">
                 Google error <strong>"Error 401: invalid_client / The OAuth client was not found"</strong> occurs when using an uncreated client ID. Follow the steps below to create your official Desktop client.
               </p>
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="font-semibold text-studio-200 block">
+            <label className="font-semibold text-white block">
               OAuth 2.0 Client ID (Desktop Application)
             </label>
             <Input
@@ -575,8 +579,8 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
             />
           </div>
 
-          <div className="p-3.5 rounded-xl bg-studio-900 border border-studio-800 space-y-2 text-[11px]">
-            <span className="font-semibold text-studio-200 block">How to get your Client ID in 1 minute:</span>
+          <div className="p-4 rounded-2xl bg-studio-900/90 border border-studio-700/60 backdrop-blur-sm space-y-2.5 text-[11px]">
+            <span className="font-semibold text-white block">How to get your Client ID in 1 minute:</span>
             <ol className="list-decimal list-inside space-y-1.5 text-studio-300">
               <li>Open <strong>Google Cloud Console &gt; Credentials</strong> (button below).</li>
               <li>Click <strong>Create Credentials &gt; OAuth client ID</strong>.</li>
@@ -586,7 +590,7 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
             </ol>
           </div>
 
-          <div className="flex items-center justify-between pt-3 border-t border-studio-800">
+          <div className="flex items-center justify-between pt-4 border-t border-studio-700/50">
             <Button
               variant="outline"
               size="sm"

@@ -559,12 +559,12 @@ export const PublishCenterView: React.FC = () => {
   const selectedAsset = assets.find((a) => a.id === selectedAssetId);
 
   return (
-    <div className="flex h-full select-none overflow-hidden">
+    <div className="flex h-full select-none overflow-hidden bg-transparent">
       {/* Left Publishing Config Panel */}
-      <div className="w-[450px] border-r border-studio-800 bg-studio-900/50 flex flex-col shrink-0 overflow-y-auto p-6 space-y-5 text-xs">
+      <div className="w-[450px] border-r border-[rgba(91,145,255,0.18)] bg-[#07112A]/90 backdrop-blur-md flex flex-col shrink-0 overflow-y-auto p-6 space-y-5 text-xs">
         <div>
-          <h3 className="text-base font-bold text-studio-100 flex items-center gap-2">
-            <Send size={18} className="text-brand-400" />
+          <h3 className="text-base font-bold text-studio-100 flex items-center gap-2 tracking-tight">
+            <Send size={18} className="text-cyan-400 drop-shadow-[0_0_8px_#00C8FF]" />
             Publishing Workspace
           </h3>
           <p className="text-[11px] text-studio-400 mt-0.5">
@@ -574,9 +574,9 @@ export const PublishCenterView: React.FC = () => {
 
         {/* Step 1: Video Selection */}
         <div>
-          <label className="block text-xs font-semibold text-studio-300 mb-1.5">1. Select Video Asset</label>
+          <label className="block text-xs font-semibold text-studio-200 mb-1.5">1. Select Video Asset</label>
           <select
-            className="w-full bg-studio-850 border border-studio-750 rounded-lg p-2.5 text-studio-100 text-xs"
+            className="w-full bg-[#081633]/90 border border-[rgba(91,145,255,0.22)] rounded-xl p-2.5 text-studio-100 text-xs focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all cursor-pointer"
             value={selectedAssetId}
             onChange={(e) => {
               setSelectedAssetId(e.target.value);
@@ -585,7 +585,7 @@ export const PublishCenterView: React.FC = () => {
             }}
           >
             {assets.map((a) => (
-              <option key={a.id} value={a.id}>
+              <option key={a.id} value={a.id} className="bg-[#081633] text-studio-100">
                 {a.title} ({a.aspectRatio}, {a.duration}s) - {a.folder}
               </option>
             ))}
@@ -593,12 +593,12 @@ export const PublishCenterView: React.FC = () => {
         </div>
 
         {/* Step 2: Multi-Platform Selection (1, 2, or 3) & Authorized Phone */}
-        <div className="space-y-3 pt-2 border-t border-studio-800">
+        <div className="space-y-3 pt-2 border-t border-[rgba(91,145,255,0.14)]">
           <div className="flex items-center justify-between">
-            <label className="block text-xs font-semibold text-studio-300">
+            <label className="block text-xs font-semibold text-studio-200">
               2. Platforms & Phone Destination
             </label>
-            <span className="text-[10px] text-cyan-400 font-medium flex items-center gap-1 bg-cyan-950/40 px-2 py-0.5 rounded border border-cyan-800/40">
+            <span className="text-[10px] text-cyan-400 font-medium flex items-center gap-1 bg-cyan-950/40 px-2.5 py-0.5 rounded-full border border-cyan-800/40 shadow-[0_0_8px_rgba(0,200,255,0.2)]">
               <Smartphone size={11} />
               Android Direct Push
             </span>

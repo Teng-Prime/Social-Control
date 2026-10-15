@@ -666,20 +666,20 @@ export const VideoLibraryView: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-full overflow-hidden select-none bg-studio-900/40">
+    <div className="flex flex-col h-full overflow-hidden select-none bg-transparent">
       {/* Top Action Toolbar */}
-      <div className="px-8 py-4 border-b border-studio-800 flex flex-wrap items-center justify-between gap-4 bg-studio-900/80 shrink-0">
+      <div className="px-8 py-4 border-b border-[rgba(91,145,255,0.18)] flex flex-wrap items-center justify-between gap-4 bg-[#07112A]/90 backdrop-blur-md shrink-0">
         <div className="flex items-center gap-3">
           {/* Folders filter tabs */}
-          <div className="flex bg-studio-850 p-1 rounded-xl border border-studio-800 text-xs">
+          <div className="flex bg-[#081633]/90 p-1 rounded-xl border border-[rgba(91,145,255,0.2)] text-xs shadow-subtle">
             {['all', 'Drafts', 'ReadyToPublish', 'Published'].map((f) => (
               <button
                 key={f}
                 onClick={() => setActiveFolder(f)}
                 className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
                   activeFolder === f
-                    ? 'bg-brand-500 text-white shadow-subtle'
-                    : 'text-studio-400 hover:text-studio-200'
+                    ? 'bg-gradient-to-r from-brand-500 to-cyan-500 text-white shadow-[0_0_12px_rgba(8,123,255,0.4)]'
+                    : 'text-studio-400 hover:text-studio-100 hover:bg-[#102A50]/60'
                 }`}
               >
                 {f === 'all' ? 'All Videos' : f}
@@ -703,17 +703,21 @@ export const VideoLibraryView: React.FC = () => {
         {/* CRUD Buttons & View Toggles */}
         <div className="flex items-center gap-2.5">
           {/* Grid/Table Toggle */}
-          <div className="flex bg-studio-850 p-1 rounded-lg border border-studio-800">
+          <div className="flex bg-[#081633]/90 p-1 rounded-xl border border-[rgba(91,145,255,0.2)] shadow-subtle">
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded ${viewMode === 'grid' ? 'bg-studio-750 text-studio-100' : 'text-studio-400'}`}
+              className={`p-1.5 rounded-lg transition-colors ${
+                viewMode === 'grid' ? 'bg-[#102A50] text-cyan-400 shadow-subtle' : 'text-studio-400 hover:text-studio-200'
+              }`}
               title="Grid View"
             >
               <Grid size={16} />
             </button>
             <button
               onClick={() => setViewMode('table')}
-              className={`p-1.5 rounded ${viewMode === 'table' ? 'bg-studio-750 text-studio-100' : 'text-studio-400'}`}
+              className={`p-1.5 rounded-lg transition-colors ${
+                viewMode === 'table' ? 'bg-[#102A50] text-cyan-400 shadow-subtle' : 'text-studio-400 hover:text-studio-200'
+              }`}
               title="Table View"
             >
               <List size={16} />
@@ -724,17 +728,17 @@ export const VideoLibraryView: React.FC = () => {
           <Button
             variant="secondary"
             size="sm"
-            icon={<Plus size={14} className="text-brand-400" />}
+            icon={<Plus size={14} className="text-cyan-400" />}
             onClick={handleOpenCreateModal}
           >
             New Video
           </Button>
 
-          {/* CRUD Button 2: Textbox Multi-CRUD (Create, Read, Update, Delete in Multi) */}
+          {/* CRUD Button 2: Textbox Multi-CRUD */}
           <Button
             variant="primary"
             size="sm"
-            icon={<Sparkles size={14} className="text-amber-300 animate-pulse" />}
+            icon={<Sparkles size={14} className="text-cyan-300 animate-pulse" />}
             onClick={() => {
               if (selectedIds.size > 0) {
                 loadVideosIntoUpdateTextbox('selected');
@@ -742,7 +746,6 @@ export const VideoLibraryView: React.FC = () => {
               }
               setIsMultiCrudModalOpen(true);
             }}
-            className="bg-gradient-to-r from-brand-600 via-brand-500 to-indigo-600 hover:from-brand-500 hover:to-indigo-500 shadow-glow-brand"
           >
             Textbox Multi-CRUD
           </Button>
@@ -751,7 +754,7 @@ export const VideoLibraryView: React.FC = () => {
           <Button
             variant="secondary"
             size="sm"
-            icon={<Upload size={14} />}
+            icon={<Upload size={14} className="text-cyan-400" />}
             onClick={handleImport}
           >
             Import File
@@ -761,15 +764,15 @@ export const VideoLibraryView: React.FC = () => {
 
       {/* Floating / Sticky Multi-Selection Action Bar */}
       {selectedIds.size > 0 && (
-        <div className="px-8 py-2.5 bg-brand-950/70 border-b border-brand-500/30 flex items-center justify-between text-xs animate-fade-in shrink-0">
+        <div className="px-8 py-3 bg-[#081633]/95 border-b border-brand-500/40 backdrop-blur-xl shadow-glass flex items-center justify-between text-xs animate-fade-in shrink-0">
           <div className="flex items-center gap-3">
-            <span className="px-2.5 py-1 rounded-full bg-brand-500 text-white font-semibold flex items-center gap-1.5 shadow-sm">
+            <span className="px-3 py-1 rounded-full bg-gradient-to-r from-brand-500 to-cyan-500 text-white font-semibold flex items-center gap-1.5 shadow-[0_0_12px_rgba(8,123,255,0.4)]">
               <Check size={13} />
               {selectedIds.size} Selected
             </span>
             <button
               onClick={toggleSelectAll}
-              className="text-brand-300 hover:text-white underline underline-offset-2"
+              className="text-cyan-400 hover:text-white underline underline-offset-2 font-medium"
             >
               {selectedIds.size === assets.length ? 'Deselect All' : `Select All (${assets.length})`}
             </button>
@@ -781,7 +784,7 @@ export const VideoLibraryView: React.FC = () => {
               <button
                 key={f}
                 onClick={() => handleBatchMoveFolder(f)}
-                className="px-2.5 py-1 rounded-md bg-studio-850 hover:bg-studio-800 border border-studio-700 text-studio-200 text-[11px] font-medium transition-colors"
+                className="px-2.5 py-1 rounded-lg bg-[#0B1D3B] hover:bg-[#102A50] border border-[rgba(91,145,255,0.22)] text-studio-200 hover:text-white text-[11px] font-medium transition-colors"
               >
                 {f}
               </button>
@@ -796,7 +799,7 @@ export const VideoLibraryView: React.FC = () => {
                 setMultiCrudTab('update');
                 setIsMultiCrudModalOpen(true);
               }}
-              className="px-2.5 py-1 rounded-md bg-brand-500/20 hover:bg-brand-500/30 border border-brand-500/40 text-brand-300 text-[11px] font-medium flex items-center gap-1.5 transition-colors"
+              className="px-2.5 py-1 rounded-lg bg-brand-500/20 hover:bg-brand-500/30 border border-brand-500/40 text-cyan-300 text-[11px] font-medium flex items-center gap-1.5 transition-colors shadow-subtle"
             >
               <Pencil size={12} />
               Batch Edit Textbox
@@ -810,7 +813,7 @@ export const VideoLibraryView: React.FC = () => {
                   assets.filter((a) => selectedIds.has(a.id)).map((a) => a.title)
                 )
               }
-              className="px-2.5 py-1 rounded-md bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 text-[11px] font-medium flex items-center gap-1.5 transition-colors"
+              className="px-2.5 py-1 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-300 text-[11px] font-medium flex items-center gap-1.5 transition-colors shadow-subtle"
             >
               <Trash2 size={12} />
               Delete Selected
@@ -818,7 +821,7 @@ export const VideoLibraryView: React.FC = () => {
 
             <button
               onClick={clearSelection}
-              className="p-1 rounded text-studio-400 hover:text-studio-200 ml-1"
+              className="p-1 rounded-lg text-studio-400 hover:text-white hover:bg-[#102A50]/60 ml-1 transition-colors"
               title="Clear selection"
             >
               <X size={15} />
@@ -845,10 +848,10 @@ export const VideoLibraryView: React.FC = () => {
                 <div
                   key={asset.id}
                   onClick={() => setSelectedAsset(asset)}
-                  className={`group bg-studio-850 border rounded-xl overflow-hidden transition-all cursor-pointer shadow-subtle flex flex-col relative ${
+                  className={`group glass-card rounded-2xl overflow-hidden transition-all duration-200 cursor-pointer shadow-subtle flex flex-col relative ${
                     isSelected
-                      ? 'border-brand-500 ring-2 ring-brand-500/30'
-                      : 'border-studio-800 hover:border-brand-500/50'
+                      ? 'border-brand-500 ring-2 ring-brand-500/40 shadow-[0_0_24px_rgba(8,123,255,0.35)]'
+                      : 'hover:border-brand-500/50 hover:shadow-[0_8px_30px_rgba(8,123,255,0.2)] hover:scale-[1.01]'
                   }`}
                 >
                   {/* Thumbnail / Preview Header */}

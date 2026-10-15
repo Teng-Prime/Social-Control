@@ -41,22 +41,22 @@ export const Modal: React.FC<ModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#050B1F]/80 backdrop-blur-md animate-fade-in">
       <div
-        className={`bg-studio-850 border border-studio-700/80 rounded-2xl w-full ${maxWidths[maxWidth]} shadow-elevated flex flex-col max-h-[90vh] overflow-hidden`}
+        className={`glass-elevated rounded-2xl w-full ${maxWidths[maxWidth]} shadow-elevated flex flex-col max-h-[90vh] overflow-hidden`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-studio-750">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[rgba(91,145,255,0.18)]">
           <div>
-            <h3 className="text-lg font-semibold text-studio-100">{title}</h3>
+            <h3 className="text-base font-semibold text-studio-100">{title}</h3>
             {subtitle && <p className="text-xs text-studio-400 mt-0.5">{subtitle}</p>}
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-studio-400 hover:text-studio-200 hover:bg-studio-800 transition-colors"
+            className="p-1.5 rounded-xl text-studio-400 hover:text-studio-100 hover:bg-studio-750/70 transition-colors"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
@@ -65,7 +65,7 @@ export const Modal: React.FC<ModalProps> = ({
 
         {/* Footer */}
         {footer && (
-          <div className="px-6 py-4 border-t border-studio-750 bg-studio-900/40 flex items-center justify-end gap-3">
+          <div className="px-6 py-4 border-t border-[rgba(91,145,255,0.18)] bg-[#081633]/70 backdrop-blur-md flex items-center justify-end gap-3">
             {footer}
           </div>
         )}

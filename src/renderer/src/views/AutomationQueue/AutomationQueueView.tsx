@@ -74,10 +74,10 @@ export const AutomationQueueView: React.FC = () => {
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 select-none overflow-y-auto h-full">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-studio-800">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[rgba(91,145,255,0.18)]">
         <div>
-          <h2 className="text-xl font-bold text-studio-100 flex items-center gap-2">
-            <ListTodo className="text-brand-400" size={22} />
+          <h2 className="text-xl font-bold text-studio-100 flex items-center gap-2 tracking-tight">
+            <ListTodo className="text-cyan-400 drop-shadow-[0_0_10px_#00C8FF]" size={22} />
             Background Automation Queue
           </h2>
           <p className="text-xs text-studio-400 mt-1">
@@ -89,7 +89,7 @@ export const AutomationQueueView: React.FC = () => {
           <Button
             variant={isPaused ? 'primary' : 'secondary'}
             size="sm"
-            icon={isPaused ? <Play size={14} /> : <Pause size={14} />}
+            icon={isPaused ? <Play size={14} /> : <Pause size={14} className="text-cyan-400" />}
             onClick={handleTogglePause}
           >
             {isPaused ? 'Resume Queue' : 'Pause Queue'}
@@ -107,13 +107,15 @@ export const AutomationQueueView: React.FC = () => {
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex bg-studio-850 p-1 rounded-xl border border-studio-800 text-xs w-fit">
+      <div className="flex bg-[#081633]/90 p-1 rounded-xl border border-[rgba(91,145,255,0.2)] text-xs w-fit shadow-subtle">
         {['all', 'running', 'pending', 'completed', 'failed'].map((st) => (
           <button
             key={st}
             onClick={() => setFilterStatus(st)}
             className={`px-3 py-1.5 rounded-lg font-medium capitalize transition-all ${
-              filterStatus === st ? 'bg-brand-500 text-white' : 'text-studio-400 hover:text-studio-200'
+              filterStatus === st
+                ? 'bg-gradient-to-r from-brand-500 to-cyan-500 text-white font-semibold shadow-[0_0_12px_rgba(8,123,255,0.4)]'
+                : 'text-studio-400 hover:text-studio-100 hover:bg-[#102A50]/60'
             }`}
           >
             {st}
@@ -132,7 +134,7 @@ export const AutomationQueueView: React.FC = () => {
             {tasks.map((task) => (
               <div
                 key={task.id}
-                className="p-4 rounded-xl bg-studio-900 border border-studio-800 space-y-3"
+                className="p-4 rounded-xl bg-[#081633]/80 border border-[rgba(91,145,255,0.18)] space-y-3 shadow-subtle"
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">

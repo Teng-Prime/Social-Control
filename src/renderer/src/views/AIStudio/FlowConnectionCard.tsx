@@ -317,13 +317,17 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
 
   return (
     <div
-      className={`bg-studio-850 border border-studio-750/90 rounded-2xl p-5 shadow-subtle flex flex-col space-y-4 ${className}`}
+      className={`glass-card rounded-2xl p-6 border-studio-700/60 shadow-xl flex flex-col space-y-4 relative overflow-hidden ${className}`}
     >
+      {/* Ambient Lighting */}
+      <div className="absolute -top-16 -right-16 w-48 h-48 bg-brand-500/10 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-16 -left-16 w-48 h-48 bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+
       {/* Provider Header with Logo & Status */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-studio-750/60">
-        <div className="flex items-center gap-3">
+      <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-studio-700/50">
+        <div className="flex items-center gap-3.5">
           {/* Official Google Flow Logo Style */}
-          <div className="w-11 h-11 rounded-xl bg-studio-900 border border-studio-750 flex items-center justify-center p-2 shadow-inner shrink-0 relative overflow-hidden group">
+          <div className="w-11 h-11 rounded-xl bg-white shadow-md shadow-black/20 flex items-center justify-center p-2 shrink-0 border border-white/40 relative overflow-hidden group">
             <svg viewBox="0 0 48 48" className="w-full h-full drop-shadow-sm" fill="none">
               <path
                 d="M44.5 20H24v8.5h11.8C34.7 33.9 30.1 37 24 37c-7.2 0-13-5.8-13-13s5.8-13 13-13c3.1 0 5.9 1.1 8.1 2.9l6.4-6.4C34.6 4.1 29.6 2 24 2 11.8 2 2 11.8 2 24s9.8 22 22 22c11 0 21-8 21-22 0-1.3-.2-2.7-.5-4z"
@@ -342,18 +346,17 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
                 fill="#FBBC05"
               />
             </svg>
-            <div className="absolute inset-0 bg-gradient-to-tr from-brand-500/20 to-transparent pointer-events-none" />
           </div>
 
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-bold text-base text-studio-100 tracking-tight">Google Flow AI</h3>
-              <span className="text-[10px] uppercase font-mono px-1.5 py-0.5 rounded bg-studio-800 text-brand-300 border border-studio-700">
+              <h3 className="font-bold text-base text-white tracking-tight">Google Flow AI</h3>
+              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-full bg-brand-500/15 text-cyan-300 border border-brand-500/30">
                 Official AI Video Tool
               </span>
             </div>
-            <p className="text-xs text-studio-400">
-              Generative scene creation on <span className="font-mono text-studio-300">https://flow.google/</span>
+            <p className="text-xs text-studio-300 mt-0.5">
+              Generative scene creation on <span className="font-mono text-cyan-400">https://flow.google/</span>
             </p>
           </div>
         </div>
@@ -365,10 +368,10 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
       </div>
 
       {/* Account / Diagnostics Information */}
-      <div className="text-xs space-y-2.5">
+      <div className="relative z-10 text-xs space-y-2.5">
         {/* Connected email display - Shown when genuinely verified */}
         {isConnected && connectionInfo.connectedEmail ? (
-          <div className="flex items-center justify-between p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/40 shadow-inner">
+          <div className="flex items-center justify-between p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-500/40 shadow-inner backdrop-blur-sm">
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-lg bg-emerald-900/60 border border-emerald-500/50 flex items-center justify-center shrink-0">
                 <GoogleGIcon className="w-4 h-4" />
@@ -391,7 +394,7 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
 
         {/* Pending sign-in banner if opened unverified */}
         {connectionInfo.status === 'opened_unverified' && (
-          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-2.5 text-xs">
+          <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 space-y-2.5 text-xs backdrop-blur-md shadow-md shadow-amber-500/5">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-2.5">
                 <AlertTriangle size={16} className="text-amber-400 shrink-0 mt-0.5" />
@@ -411,7 +414,7 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
                   size="sm"
                   icon={<UserCheck size={13} />}
                   onClick={() => setIsEmailModalOpen(true)}
-                  className="bg-amber-500 hover:bg-amber-400 text-black border-amber-400"
+                  className="bg-amber-500 hover:bg-amber-400 text-black border-amber-400 shadow-md shadow-amber-500/20"
                 >
                   Confirm Account
                 </Button>
@@ -448,15 +451,15 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
         )}
 
         {/* Notes & Security Guidance */}
-        <div className="p-3 rounded-xl bg-studio-900/90 border border-studio-800 space-y-1.5">
-          <div className="flex items-center gap-1.5 text-studio-300 font-semibold">
-            <Lock size={13} className="text-brand-400" />
+        <div className="p-3.5 rounded-xl bg-studio-900/80 border border-studio-700/50 backdrop-blur-sm space-y-1.5">
+          <div className="flex items-center gap-1.5 text-white font-semibold">
+            <Lock size={13} className="text-cyan-400" />
             <span>Zero-Password Google OAuth & Browser Verification Policy</span>
           </div>
-          <p className="text-[11px] text-studio-400 leading-relaxed">
+          <p className="text-[11px] text-studio-300 leading-relaxed">
             {connectionInfo.notes}
           </p>
-          <div className="flex items-center gap-1.5 text-[10px] text-studio-500 pt-1">
+          <div className="flex items-center gap-1.5 text-[10px] text-studio-400 pt-1">
             <ShieldCheck size={12} className="text-emerald-400 shrink-0" />
             <span>You verify securely directly on Google. Password & 2FA codes are never collected or stored.</span>
           </div>
@@ -476,7 +479,7 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
       </div>
 
       {/* Action Buttons Toolbar */}
-      <div className="flex flex-wrap items-center justify-between gap-2.5 pt-2 border-t border-studio-750/60">
+      <div className="relative z-10 flex flex-wrap items-center justify-between gap-2.5 pt-3 border-t border-studio-700/50">
         <div className="flex flex-wrap items-center gap-2">
           {/* PRIMARY: Continue with Google Button */}
           {!isConnected ? (
@@ -484,7 +487,7 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
               <button
                 onClick={handleContinueWithGoogle}
                 disabled={isConnecting}
-                className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-xl font-semibold text-xs transition-all shadow-subtle bg-white hover:bg-slate-100 text-slate-900 border border-slate-200 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-xs transition-all shadow-md hover:shadow-cyan-500/20 bg-white hover:bg-slate-50 text-slate-900 border border-white/40 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed cursor-pointer"
               >
                 <GoogleGIcon className="w-4 h-4 shrink-0" />
                 <span>{isConnecting ? 'Signing in with Google...' : 'Continue with Google'}</span>
@@ -493,9 +496,9 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
               {/* BROWSER: Verify on Browser & Confirm Button */}
               <button
                 onClick={handleVerifyOnBrowser}
-                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl font-medium text-xs transition-all bg-studio-800 hover:bg-studio-750 text-studio-200 border border-studio-700 active:scale-95 cursor-pointer"
+                className="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl font-medium text-xs transition-all bg-studio-800/80 hover:bg-studio-750 text-studio-200 border border-studio-700/60 active:scale-95 cursor-pointer backdrop-blur-sm"
               >
-                <Globe size={13} className="text-brand-400" />
+                <Globe size={13} className="text-cyan-400" />
                 <span>Verify on Browser & Confirm</span>
               </button>
 
@@ -575,34 +578,18 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
           onClose={() => setIsEmailModalOpen(false)}
           title="Confirm Google Account"
           subtitle="Confirm your verified Google account to connect with Google Flow AI"
-          maxWidth="md"
-          footer={
-            <div className="flex justify-end gap-2 w-full">
-              <Button variant="secondary" size="sm" onClick={() => setIsEmailModalOpen(false)}>
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<CheckCircle2 size={14} />}
-                loading={isSavingEmail}
-                onClick={() => handleConfirmAccountEmail()}
-              >
-                Confirm & Link Google Account
-              </Button>
-            </div>
-          }
+          size="md"
         >
           <div className="space-y-4 text-xs">
-            <div className="p-3 bg-brand-500/10 border border-brand-500/20 rounded-xl flex items-start gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-studio-900 border border-brand-500/30 flex items-center justify-center shrink-0">
+            <div className="p-4 bg-brand-500/10 border border-brand-500/30 rounded-2xl backdrop-blur-md flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-studio-900 border border-brand-500/30 flex items-center justify-center shrink-0">
                 <GoogleGIcon className="w-4 h-4" />
               </div>
               <div className="space-y-1">
-                <span className="font-bold text-studio-100 block">Google Account Confirmation</span>
-                <p className="text-[11px] text-studio-400 leading-relaxed">
+                <span className="font-bold text-white block">Google Account Confirmation</span>
+                <p className="text-[11px] text-studio-300 leading-relaxed">
                   Enter the Google Account email you use on{' '}
-                  <span className="font-mono text-brand-300">https://flow.google/</span>.
+                  <span className="font-mono text-cyan-300">https://flow.google/</span>.
                   Your account will be confirmed and linked with Social Earnings Studio.
                 </p>
               </div>
@@ -610,11 +597,11 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
 
             {/* Quick select phone account if found */}
             {suggestedPhoneAccount && (
-              <div className="p-2.5 rounded-lg bg-studio-900 border border-studio-800 flex items-center justify-between">
+              <div className="p-3 rounded-xl bg-studio-900/80 border border-studio-700/60 backdrop-blur-sm flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Smartphone size={14} className="text-amber-400 shrink-0" />
                   <div>
-                    <span className="text-[10px] text-studio-400 block">Phone Google Account</span>
+                    <span className="text-[10px] text-studio-400 block font-medium">Phone Google Account</span>
                     <span className="font-mono text-white text-xs font-semibold">{suggestedPhoneAccount}</span>
                   </div>
                 </div>
@@ -629,7 +616,7 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
             )}
 
             <div>
-              <label className="block text-xs font-medium text-studio-200 mb-1.5">
+              <label className="block text-xs font-semibold text-white mb-1.5">
                 Google Account Email
               </label>
               <Input
@@ -639,12 +626,12 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
                 onChange={(e) => setManualEmail(e.target.value)}
                 autoFocus
               />
-              <span className="text-[10px] text-studio-500 block mt-1">
+              <span className="text-[10px] text-studio-400 block mt-1.5">
                 No password required. Connects securely via verified Google identity.
               </span>
             </div>
 
-            <div className="pt-2 border-t border-studio-800 flex items-center justify-between text-[11px] text-studio-400">
+            <div className="pt-3 border-t border-studio-700/50 flex items-center justify-between text-[11px] text-studio-400">
               <span>Prefer to verify on browser?</span>
               <button
                 type="button"
@@ -652,10 +639,25 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
                   setIsEmailModalOpen(false);
                   handleVerifyOnBrowser();
                 }}
-                className="text-brand-400 hover:text-brand-300 font-semibold underline cursor-pointer"
+                className="text-cyan-400 hover:text-cyan-300 font-semibold underline cursor-pointer"
               >
                 Launch Browser Verification Portal
               </button>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-3 border-t border-studio-700/50">
+              <Button variant="ghost" size="sm" onClick={() => setIsEmailModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                icon={<CheckCircle2 size={14} />}
+                loading={isSavingEmail}
+                onClick={() => handleConfirmAccountEmail()}
+              >
+                Confirm & Link Google Account
+              </Button>
             </div>
           </div>
         </Modal>

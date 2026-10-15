@@ -22,25 +22,24 @@ export const AppLogo: React.FC<AppLogoProps> = ({
         className="shrink-0 transition-transform duration-300 hover:scale-105 drop-shadow-[0_4px_16px_rgba(99,102,241,0.45)]"
       >
         <defs>
-          {/* Main Primary Gradient: Violet -> Indigo -> Cyan */}
+          {/* Main Primary Gradient: Purple -> Electric Blue -> Cyan */}
           <linearGradient id="logoGradPrimary" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#A855F7" />
-            <stop offset="50%" stopColor="#6366F1" />
-            <stop offset="100%" stopColor="#06B6D4" />
+            <stop offset="0%" stopColor="#7865FF" />
+            <stop offset="50%" stopColor="#087BFF" />
+            <stop offset="100%" stopColor="#00C8FF" />
           </linearGradient>
 
-          {/* Accent Warm Gradient: Neon Rose -> Sunset Orange */}
+          {/* Accent Flow Gradient: Cyan -> Blue */}
           <linearGradient id="logoGradAccent" x1="0%" y1="100%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#F43F5E" />
-            <stop offset="60%" stopColor="#FB7185" />
-            <stop offset="100%" stopColor="#F59E0B" />
+            <stop offset="0%" stopColor="#00C8FF" />
+            <stop offset="100%" stopColor="#087BFF" />
           </linearGradient>
 
           {/* Core Play Prism Gradient */}
           <linearGradient id="logoGradPrism" x1="20%" y1="0%" x2="80%" y2="100%">
-            <stop offset="0%" stopColor="#38BDF8" />
-            <stop offset="50%" stopColor="#818CF8" />
-            <stop offset="100%" stopColor="#C084FC" />
+            <stop offset="0%" stopColor="#00C8FF" />
+            <stop offset="50%" stopColor="#087BFF" />
+            <stop offset="100%" stopColor="#7865FF" />
           </linearGradient>
 
           {/* Glow Filter */}
