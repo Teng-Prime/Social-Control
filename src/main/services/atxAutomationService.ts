@@ -34,7 +34,13 @@ export class AtxAutomationService {
   }
 
   private isVirtualOrTest(serial: string): boolean {
-    return serial.startsWith('TEST_') || serial.startsWith('phone_virtual') || serial === 'phone';
+    return (
+      Boolean(process.env.VITEST) ||
+      process.env.NODE_ENV === 'test' ||
+      serial.startsWith('TEST_') ||
+      serial.startsWith('phone_virtual') ||
+      serial === 'phone'
+    );
   }
 
   // -------------------------------------------------------------

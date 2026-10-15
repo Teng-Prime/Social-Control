@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useAppStore } from '../../stores/useAppStore';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
@@ -96,8 +96,11 @@ export const PhoneControlView: React.FC = () => {
   const [installingPlayStorePackage, setInstallingPlayStorePackage] = useState<string | null>(null);
   const [isBatchPlayStoreInstalling, setIsBatchPlayStoreInstalling] = useState(false);
 
+  // Active fetch tracking ref to prevent in-flight race conditions when switching devices
+  const activeFetchDeviceIdRef = useRef<string>('');
+
   const fetchSocialApps = async (deviceId?: string) => {
-    const target = deviceId || selectedDevice?.id;
+    const target = deviceId || selectedDevice?.serial || selectedDevice?.id;
     if (!window.api?.getPhoneAppStatus) return;
     setIsLoadingSocialApps(true);
     try {
@@ -112,14 +115,21 @@ export const PhoneControlView: React.FC = () => {
 
   const fetchAccountCredentials = async (deviceId?: string) => {
     if (!window.api?.getPhoneAccountCredentials) return;
-    const targetDevId = deviceId || selectedDevice?.id || (devices.length > 0 ? devices[0].id : 'virtual_device');
+    const targetDevId = deviceId || selectedDevice?.serial || selectedDevice?.id || (devices.length > 0 ? (devices[0].serial || devices[0].id) : 'virtual_device');
+    activeFetchDeviceIdRef.current = targetDevId;
     setIsLoadingAccounts(true);
     try {
       // 1. Fetch credentials scoped specifically to this target device
       const creds = await window.api.getPhoneAccountCredentials(targetDevId);
+
+      // Race condition guard: If user switched devices while fetch was in flight, abort form update
+      if (activeFetchDeviceIdRef.current !== targetDevId) {
+        return;
+      }
+
       setAccountCredentials(creds);
 
-      // Reset form inputs completely so another device's values never leak
+      // Cleanly reset form inputs for this device
       const cleanInputs: Record<PhoneAccountPlatform, { identifier: string; password: string; twoFactorSecret: string }> = {
         google: { identifier: '', password: '', twoFactorSecret: '' },
         facebook: { identifier: '', password: '', twoFactorSecret: '' },
@@ -155,8 +165,34 @@ export const PhoneControlView: React.FC = () => {
 
   const handleSaveCredential = async (platform: PhoneAccountPlatform) => {
     if (!window.api?.savePhoneAccountCredential) return;
-    const input = formInputs[platform];
-    if (!input.identifier.trim()) {
+
+    // 1. Identify device associated with the current form at click time
+    const targetDev = selectedDevice;
+    if (!targetDev && devices.length === 0) {
+      addToast({
+        type: 'error',
+        title: 'Save Failed',
+        message: 'No device selected. Cannot save account credentials without a target device.',
+      });
+      return;
+    }
+
+    const targetDevKey = targetDev?.serial || targetDev?.id || (devices.length > 0 ? (devices[0].serial || devices[0].id) : 'virtual_device');
+    const targetModel = targetDev?.model || targetDevKey;
+
+    // 2. Validate device still exists in connected devices if devices exist
+    if (devices.length > 0 && targetDev && !devices.some((d) => d.serial === targetDev.serial || d.id === targetDev.id)) {
+      addToast({
+        type: 'error',
+        title: 'Device Disconnected',
+        message: `Device "${targetModel}" is no longer available. Save aborted to prevent credential corruption.`,
+      });
+      return;
+    }
+
+    // 3. Capture exact inputs at click time
+    const inputToSave = { ...formInputs[platform] };
+    if (!inputToSave.identifier.trim()) {
       addToast({
         type: 'warn',
         title: 'Identifier Required',
@@ -165,22 +201,36 @@ export const PhoneControlView: React.FC = () => {
       return;
     }
 
-    const targetDevId = selectedDevice?.id || (devices.length > 0 ? devices[0].id : 'virtual_device');
     setSavingPlatform(platform);
     try {
-      await window.api.savePhoneAccountCredential({
-        deviceId: targetDevId,
+      const saved = await window.api.savePhoneAccountCredential({
+        deviceId: targetDevKey,
         platform,
-        identifier: input.identifier.trim(),
-        password: input.password.trim(),
-        twoFactorSecret: input.twoFactorSecret.trim(),
+        identifier: inputToSave.identifier.trim(),
+        password: inputToSave.password.trim(),
+        twoFactorSecret: inputToSave.twoFactorSecret.trim(),
       });
+
       addToast({
         type: 'success',
         title: `${platform.toUpperCase()} Saved`,
-        message: `Credentials saved for ${input.identifier} on ${selectedDevice?.model || targetDevId}.`,
+        message: `Credentials saved for ${inputToSave.identifier} on ${targetModel}.`,
       });
-      await fetchAccountCredentials(targetDevId);
+
+      // Update global accounts map for this device so dashboard badges update immediately
+      setAllAccountsMap((prev) => ({
+        ...prev,
+        [targetDevKey]: {
+          ...(prev[targetDevKey] || {}),
+          [platform]: saved,
+        },
+      }));
+
+      // 4. Race condition prevention: only refresh the form if active device is STILL targetDevKey!
+      const currentSelectedKey = selectedDevice?.serial || selectedDevice?.id;
+      if (currentSelectedKey === targetDevKey) {
+        await fetchAccountCredentials(targetDevKey);
+      }
     } catch (err: any) {
       addToast({ type: 'error', title: 'Save Failed', message: err.message });
     } finally {
@@ -189,13 +239,13 @@ export const PhoneControlView: React.FC = () => {
   };
 
   const handleAutoLoginYouTube = async () => {
-    const targetDevId = selectedDevice?.id || 'virtual_device';
+    const targetDevKey = selectedDevice?.serial || selectedDevice?.id || 'virtual_device';
     if (!window.api?.autoLoginYouTubeGoogle) return;
 
     setRunningAutoLogin('youtube');
     try {
       const googleEmail = formInputs.youtube.identifier || formInputs.google.identifier;
-      const res = await window.api.autoLoginYouTubeGoogle(targetDevId, googleEmail);
+      const res = await window.api.autoLoginYouTubeGoogle(targetDevKey, googleEmail);
       if (res.success) {
         addToast({
           type: 'success',
@@ -217,13 +267,13 @@ export const PhoneControlView: React.FC = () => {
   };
 
   const handleAutoLoginTikTok = async () => {
-    const targetDevId = selectedDevice?.id || 'virtual_device';
+    const targetDevKey = selectedDevice?.serial || selectedDevice?.id || 'virtual_device';
     if (!window.api?.autoLoginTikTokGoogle) return;
 
     setRunningAutoLogin('tiktok');
     try {
       const googleEmail = formInputs.tiktok.identifier || formInputs.google.identifier;
-      const res = await window.api.autoLoginTikTokGoogle(targetDevId, googleEmail);
+      const res = await window.api.autoLoginTikTokGoogle(targetDevKey, googleEmail);
       if (res.success) {
         addToast({
           type: 'success',
@@ -444,16 +494,34 @@ export const PhoneControlView: React.FC = () => {
 
   const handleDeviceSelect = (dev: Device) => {
     setSelectedDevice(dev);
-    loadDiagnostic(dev.id);
-    fetchSocialApps(dev.id);
-    fetchAccountCredentials(dev.id);
+    // Instantly blank out form inputs so previous device credentials don't linger
+    setFormInputs({
+      google: { identifier: '', password: '', twoFactorSecret: '' },
+      facebook: { identifier: '', password: '', twoFactorSecret: '' },
+      tiktok: { identifier: '', password: '', twoFactorSecret: '' },
+      youtube: { identifier: '', password: '', twoFactorSecret: '' },
+    });
+    const devKey = dev.serial || dev.id;
+    activeFetchDeviceIdRef.current = devKey;
+    loadDiagnostic(devKey);
+    fetchSocialApps(devKey);
+    fetchAccountCredentials(devKey);
   };
 
   const handleOpenConfigModal = (dev: Device) => {
     setSelectedDevice(dev);
-    loadDiagnostic(dev.id);
-    fetchSocialApps(dev.id);
-    fetchAccountCredentials(dev.id);
+    // Instantly blank out form inputs so previous device credentials don't linger
+    setFormInputs({
+      google: { identifier: '', password: '', twoFactorSecret: '' },
+      facebook: { identifier: '', password: '', twoFactorSecret: '' },
+      tiktok: { identifier: '', password: '', twoFactorSecret: '' },
+      youtube: { identifier: '', password: '', twoFactorSecret: '' },
+    });
+    const devKey = dev.serial || dev.id;
+    activeFetchDeviceIdRef.current = devKey;
+    loadDiagnostic(devKey);
+    fetchSocialApps(devKey);
+    fetchAccountCredentials(devKey);
     setIsConfigModalOpen(true);
   };
 
@@ -791,7 +859,7 @@ export const PhoneControlView: React.FC = () => {
                             </div>
                             {/* Assigned Accounts Badge for this phone */}
                             {(() => {
-                              const devAccs = allAccountsMap[device.id] || {};
+                              const devAccs = allAccountsMap[device.serial] || allAccountsMap[device.id] || {};
                               const gAcc = devAccs.google?.identifier;
                               const configuredCount = Object.keys(devAccs).filter((k) => devAccs[k]?.identifier).length;
                               return (
@@ -929,9 +997,9 @@ export const PhoneControlView: React.FC = () => {
                 </span>
                 <span className="text-[11px] text-studio-400 flex items-center gap-1.5 flex-wrap">
                   <span>Assigned Google Account:</span>
-                  {allAccountsMap[selectedDevice?.id || '']?.google?.identifier || formInputs.google.identifier ? (
+                  {allAccountsMap[selectedDevice?.serial || '']?.google?.identifier || allAccountsMap[selectedDevice?.id || '']?.google?.identifier || formInputs.google.identifier ? (
                     <span className="text-red-300 font-mono font-medium">
-                      {allAccountsMap[selectedDevice?.id || '']?.google?.identifier || formInputs.google.identifier}
+                      {allAccountsMap[selectedDevice?.serial || '']?.google?.identifier || allAccountsMap[selectedDevice?.id || '']?.google?.identifier || formInputs.google.identifier}
                     </span>
                   ) : (
                     <span className="text-amber-400/90 italic">None (click Configure Accounts to set up)</span>

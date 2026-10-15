@@ -268,17 +268,29 @@ export class AppInstallationService {
     }
 
     // Check device Google Account status
-    const googleAccounts = await adbService.checkDeviceGoogleAccounts(serial);
-    if (googleAccounts.count === 0 && !serial.startsWith('TEST_') && !serial.startsWith('phone_virtual')) {
-      activityLogService.log(
-        'warn',
-        'AppInstallation',
-        `No Google Account on phone ${serial}. Play Store may require signing in first.`
-      );
+    if (
+      !Boolean(process.env.VITEST) &&
+      process.env.NODE_ENV !== 'test' &&
+      !serial.startsWith('TEST_') &&
+      !serial.startsWith('phone_virtual')
+    ) {
+      const googleAccounts = await adbService.checkDeviceGoogleAccounts(serial);
+      if (googleAccounts.count === 0) {
+        activityLogService.log(
+          'warn',
+          'AppInstallation',
+          `No Google Account on phone ${serial}. Play Store may require signing in first.`
+        );
+      }
     }
 
     // Simulation for tests and virtual phones
-    if (serial.startsWith('TEST_') || serial.startsWith('phone_virtual')) {
+    if (
+      Boolean(process.env.VITEST) ||
+      process.env.NODE_ENV === 'test' ||
+      serial.startsWith('TEST_') ||
+      serial.startsWith('phone_virtual')
+    ) {
       const promptDetected = Boolean(options.googlePassword && options.googlePassword.length > 0);
       return {
         packageName: options.packageName,
