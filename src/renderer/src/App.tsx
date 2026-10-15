@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useAppStore } from './stores/useAppStore';
 import { Sidebar } from './components/layout/Sidebar';
 import { Header } from './components/layout/Header';
+import { WindowFrame } from './components/layout/WindowFrame';
 import { ToastContainer } from './components/common/Toast';
 
 // Views
@@ -61,13 +62,16 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen bg-studio-900 text-studio-200 overflow-hidden font-sans">
-      <Sidebar />
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
-        <Header />
-        <main className="flex-1 overflow-hidden relative bg-studio-900/90">
-          {renderActiveView()}
-        </main>
+    <div className="flex flex-col h-screen w-screen bg-studio-900 text-studio-200 overflow-hidden font-sans">
+      <WindowFrame />
+      <div className="flex-1 flex overflow-hidden">
+        <Sidebar />
+        <div className="flex-1 flex flex-col h-full overflow-hidden">
+          <Header />
+          <main className="flex-1 overflow-hidden relative bg-studio-900/90">
+            {renderActiveView()}
+          </main>
+        </div>
       </div>
       <ToastContainer />
     </div>

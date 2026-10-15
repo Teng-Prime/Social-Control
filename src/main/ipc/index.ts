@@ -1,4 +1,4 @@
-import { ipcMain, dialog, shell, clipboard, nativeImage } from 'electron';
+import { ipcMain, dialog, shell, clipboard, nativeImage, BrowserWindow } from 'electron';
 import fs from 'fs';
 import path from 'path';
 import { appDb } from '../database/db';
@@ -123,6 +123,36 @@ export function registerIpcHandlers(): void {
   ipcMain.handle('openExternalUrl', async (_, url: string) => {
     await shell.openExternal(url);
     return true;
+  });
+
+  // Window Frame Controls (Frameless window custom titlebar)
+  ipcMain.handle('window:minimize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.minimize();
+    return true;
+  });
+
+  ipcMain.handle('window:maximize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    if (!win) return false;
+    if (win.isMaximized()) {
+      win.unmaximize();
+      return false;
+    } else {
+      win.maximize();
+      return true;
+    }
+  });
+
+  ipcMain.handle('window:close', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    win?.close();
+    return true;
+  });
+
+  ipcMain.handle('window:isMaximized', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender);
+    return Boolean(win?.isMaximized());
   });
 
   // 5. Storage Folders

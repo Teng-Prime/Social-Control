@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
 import path from 'path';
 import { setupSecurityPolicies } from './security';
 import { appDb } from './database/db';
@@ -11,6 +11,9 @@ let mainWindow: BrowserWindow | null = null;
 async function createWindow(): Promise<void> {
   // Initialize Database & Storage
   appDb.init();
+
+  // Remove native OS application menu (File, Edit, View, Window, Help)
+  Menu.setApplicationMenu(null);
 
   // Register all typed IPC channels
   registerIpcHandlers();
@@ -25,12 +28,26 @@ async function createWindow(): Promise<void> {
     minHeight: 750,
     backgroundColor: '#0B0F17',
     show: false,
+    frame: false, // Frameless window - custom sleek titlebar frame rendered in React
+    titleBarStyle: 'hidden',
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
     },
+  });
+
+  mainWindow.setMenuBarVisibility(false);
+
+  // Broadcast window state changes for maximize / restore UI icon toggle
+  mainWindow.on('maximize', () => {
+    mainWindow?.webContents.send('window:stateChange', true);
+  });
+
+  mainWindow.on('unmaximize', () => {
+    mainWindow?.webContents.send('window:stateChange', false);
   });
 
   // Apply security policies (CSP, external link navigation, permission filtering)

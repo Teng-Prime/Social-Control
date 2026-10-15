@@ -667,6 +667,15 @@ export interface IElectronAPI {
   revealInFileExplorer: (filePath: string) => Promise<boolean>;
   openExternalUrl: (url: string) => Promise<boolean>;
 
+  // Window Controls (Custom Titlebar Frame)
+  windowControls: {
+    minimize: () => Promise<boolean>;
+    maximize: () => Promise<boolean>;
+    close: () => Promise<boolean>;
+    isMaximized: () => Promise<boolean>;
+    onStateChange: (callback: (isMaximized: boolean) => void) => () => void;
+  };
+
   // Storage
   getStorageFolders: () => Promise<Record<string, string>>;
 

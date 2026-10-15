@@ -12,6 +12,19 @@ const api: IElectronAPI = {
   revealInFileExplorer: (filePath) => ipcRenderer.invoke('revealInFileExplorer', filePath),
   openExternalUrl: (url) => ipcRenderer.invoke('openExternalUrl', url),
 
+  // Window Controls (Custom Titlebar Frame)
+  windowControls: {
+    minimize: () => ipcRenderer.invoke('window:minimize'),
+    maximize: () => ipcRenderer.invoke('window:maximize'),
+    close: () => ipcRenderer.invoke('window:close'),
+    isMaximized: () => ipcRenderer.invoke('window:isMaximized'),
+    onStateChange: (callback: (isMax: boolean) => void) => {
+      const handler = (_: any, isMax: boolean) => callback(isMax);
+      ipcRenderer.on('window:stateChange', handler);
+      return () => ipcRenderer.removeListener('window:stateChange', handler);
+    },
+  },
+
   // Storage
   getStorageFolders: () => ipcRenderer.invoke('getStorageFolders'),
 

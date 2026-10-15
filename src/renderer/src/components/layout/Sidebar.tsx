@@ -14,6 +14,7 @@ import {
   Settings,
 } from 'lucide-react';
 import { NavigationSection, useAppStore } from '../../stores/useAppStore';
+import { AppLogo } from '../common/AppLogo';
 
 interface NavItem {
   id: NavigationSection;
@@ -46,18 +47,10 @@ export const Sidebar: React.FC = () => {
   ];
 
   return (
-    <aside className="w-64 bg-studio-900 border-r border-studio-800 flex flex-col h-screen select-none shrink-0">
+    <aside className="w-64 bg-studio-900 border-r border-studio-800 flex flex-col h-full select-none shrink-0">
       {/* Brand Header */}
-      <div className="h-16 px-5 flex items-center gap-3 border-b border-studio-800/80">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-brand-600 via-brand-500 to-cyan-400 flex items-center justify-center shadow-glow-brand">
-          <Sparkles className="text-white" size={18} />
-        </div>
-        <div>
-          <h1 className="font-bold text-sm tracking-wide text-studio-100 flex items-center gap-1.5">
-            Social Earnings
-          </h1>
-          <p className="text-[10px] text-brand-400 font-medium tracking-wider uppercase">Studio Desktop</p>
-        </div>
+      <div className="h-16 px-5 flex items-center border-b border-studio-800/80">
+        <AppLogo size={34} showText />
       </div>
 
       {/* Navigation List */}
