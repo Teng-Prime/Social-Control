@@ -12,6 +12,15 @@ import { socialPublisher } from '../services/social/socialPublisher';
 import { analyticsService } from '../services/analyticsService';
 import { queueService } from '../services/queueService';
 import { googleAuthService } from '../services/googleAuthService';
+import { videoStudioService } from '../services/videoStudioService';
+import { videoLibraryService } from '../services/videoLibraryService';
+import { androidDeviceService } from '../services/androidDeviceService';
+import { appInstallationService } from '../services/appInstallationService';
+import { videoTransferService } from '../services/videoTransferService';
+import { accountService } from '../services/accountService';
+import { emailVerificationService } from '../services/emailVerificationService';
+import { publishingQueueService } from '../services/publishingQueueService';
+import { automationOrchestrator } from '../services/automationOrchestrator';
 import { mediaAssetRepo } from '../database/repositories/mediaAssetRepository';
 import { characterRepo } from '../database/repositories/characterRepository';
 import { projectRepo } from '../database/repositories/projectRepository';
@@ -21,7 +30,16 @@ import { deviceRepo } from '../database/repositories/deviceRepository';
 import { taskQueueRepo } from '../database/repositories/taskQueueRepository';
 import { activityLogRepo } from '../database/repositories/activityLogRepository';
 import { logger } from '../logger';
-import { CaptionGenerationRequest, DashboardStats, SystemHealth, MediaAsset } from '../../shared/types';
+import {
+  CaptionGenerationRequest,
+  DashboardStats,
+  SystemHealth,
+  MediaAsset,
+  BatchTransferRequest,
+  OtpVerificationRequest,
+  PublishConfirmationRequest,
+  VideoWorkflowStage,
+} from '../../shared/types';
 
 export function validateIpcSender(event: Electron.IpcMainInvokeEvent): boolean {
   if (!event || !event.senderFrame) return true; // CLI or test mock context
@@ -912,5 +930,68 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('restoreDatabase', async (_, backupFilePath: string) => {
     return appDb.restore(backupFilePath);
+  });
+
+  // 16. Mobile Publishing Suite (PC Studio -> Phone -> Social Media)
+  ipcMain.handle('getMobileDashboardStats', async () => {
+    return publishingQueueService.getDashboardMobileStats();
+  });
+
+  ipcMain.handle('batchTransferVideos', async (_, request: BatchTransferRequest) => {
+    return videoTransferService.batchTransfer(request);
+  });
+
+  ipcMain.handle('getTransferRecords', async (_, deviceId?: string) => {
+    return videoTransferService.getTransferRecords(deviceId);
+  });
+
+  ipcMain.handle('retryTransferRecord', async (_, recordId: string) => {
+    return videoTransferService.retryTransfer(recordId);
+  });
+
+  ipcMain.handle('getPhoneAppStatus', async (_, deviceId?: string) => {
+    return appInstallationService.getAppStatus(deviceId);
+  });
+
+  ipcMain.handle('openPlayStoreApp', async (_, deviceId: string, packageName: string) => {
+    return appInstallationService.openPlayStoreListing(deviceId, packageName);
+  });
+
+  ipcMain.handle('verifyAppInstalled', async (_, deviceId: string, packageName: string) => {
+    return appInstallationService.verifyInstalled(deviceId, packageName);
+  });
+
+  ipcMain.handle('saveSocialAccountEmail', async (_, accountId: string, email: string) => {
+    const acc = accountService.getAccountById(accountId);
+    emailVerificationService.associateEmail({
+      accountId,
+      email,
+      platform: acc?.platform || 'youtube',
+    });
+    return true;
+  });
+
+  ipcMain.handle('submitAccountOtp', async (_, request: OtpVerificationRequest) => {
+    return emailVerificationService.verifyOtp(request);
+  });
+
+  ipcMain.handle('updateSocialAccountPage', async (_, accountId: string, pageId: string, pageName: string) => {
+    return accountService.updateSelectedPage(accountId, pageId, pageName);
+  });
+
+  ipcMain.handle('confirmPublishCompleted', async (_, request: PublishConfirmationRequest) => {
+    return publishingQueueService.confirmPublished(request);
+  });
+
+  ipcMain.handle('advanceJobToPhone', async (_, jobId: string, deviceId?: string) => {
+    return publishingQueueService.advanceJobToPhone(jobId, deviceId);
+  });
+
+  ipcMain.handle('launchScrcpy', async (_, deviceId?: string) => {
+    return androidDeviceService.launchScrcpy(deviceId);
+  });
+
+  ipcMain.handle('updateMediaAssetWorkflow', async (_, id: string, workflowStatus: VideoWorkflowStage) => {
+    return videoStudioService.updateWorkflowStatus(id, workflowStatus);
   });
 }

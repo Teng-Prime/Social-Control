@@ -8,7 +8,8 @@ export class SocialAccountRepository {
     const rows = db.prepare(`
       SELECT id, platform, account_name as accountName, avatar_url as avatarUrl,
              channel_id as channelId, is_connected as isConnected, permissions,
-             token_expiry as tokenExpiry, created_at as createdAt, updated_at as updatedAt
+             token_expiry as tokenExpiry, email, selected_page_id as selectedPageId,
+             selected_page_name as selectedPageName, created_at as createdAt, updated_at as updatedAt
       FROM social_accounts
       ORDER BY platform ASC, account_name ASC
     `).all() as any[];
@@ -17,6 +18,7 @@ export class SocialAccountRepository {
       ...r,
       isConnected: Boolean(r.isConnected),
       permissions: typeof r.permissions === 'string' ? JSON.parse(r.permissions || '[]') : [],
+      status: r.isConnected ? 'connected' : 'disconnected',
     }));
   }
 
@@ -25,7 +27,8 @@ export class SocialAccountRepository {
     const r = db.prepare(`
       SELECT id, platform, account_name as accountName, avatar_url as avatarUrl,
              channel_id as channelId, is_connected as isConnected, permissions,
-             token_expiry as tokenExpiry, created_at as createdAt, updated_at as updatedAt
+             token_expiry as tokenExpiry, email, selected_page_id as selectedPageId,
+             selected_page_name as selectedPageName, created_at as createdAt, updated_at as updatedAt
       FROM social_accounts
       WHERE id = ?
     `).get(id) as any;
@@ -35,6 +38,7 @@ export class SocialAccountRepository {
       ...r,
       isConnected: Boolean(r.isConnected),
       permissions: typeof r.permissions === 'string' ? JSON.parse(r.permissions || '[]') : [],
+      status: r.isConnected ? 'connected' : 'disconnected',
     };
   }
 
@@ -43,7 +47,8 @@ export class SocialAccountRepository {
     const rows = db.prepare(`
       SELECT id, platform, account_name as accountName, avatar_url as avatarUrl,
              channel_id as channelId, is_connected as isConnected, permissions,
-             token_expiry as tokenExpiry, created_at as createdAt, updated_at as updatedAt
+             token_expiry as tokenExpiry, email, selected_page_id as selectedPageId,
+             selected_page_name as selectedPageName, created_at as createdAt, updated_at as updatedAt
       FROM social_accounts
       WHERE platform = ?
     `).all(platform) as any[];
@@ -52,6 +57,7 @@ export class SocialAccountRepository {
       ...r,
       isConnected: Boolean(r.isConnected),
       permissions: typeof r.permissions === 'string' ? JSON.parse(r.permissions || '[]') : [],
+      status: r.isConnected ? 'connected' : 'disconnected',
     }));
   }
 
@@ -63,10 +69,12 @@ export class SocialAccountRepository {
     const stmt = db.prepare(`
       INSERT INTO social_accounts (
         id, platform, account_name, avatar_url, channel_id, is_connected,
-        permissions, token_expiry, created_at, updated_at
+        permissions, token_expiry, email, selected_page_id, selected_page_name,
+        created_at, updated_at
       ) VALUES (
         ?, ?, ?, ?, ?, ?,
-        ?, ?, datetime('now'), datetime('now')
+        ?, ?, ?, ?, ?,
+        datetime('now'), datetime('now')
       )
       ON CONFLICT(id) DO UPDATE SET
         account_name = excluded.account_name,
@@ -75,6 +83,9 @@ export class SocialAccountRepository {
         is_connected = excluded.is_connected,
         permissions = excluded.permissions,
         token_expiry = excluded.token_expiry,
+        email = COALESCE(excluded.email, social_accounts.email),
+        selected_page_id = COALESCE(excluded.selected_page_id, social_accounts.selected_page_id),
+        selected_page_name = COALESCE(excluded.selected_page_name, social_accounts.selected_page_name),
         updated_at = datetime('now')
     `);
 
@@ -86,7 +97,10 @@ export class SocialAccountRepository {
       account.channelId || null,
       account.isConnected ? 1 : 0,
       JSON.stringify(account.permissions || []),
-      account.tokenExpiry || null
+      account.tokenExpiry || null,
+      account.email || null,
+      account.selectedPageId || null,
+      account.selectedPageName || null
     );
 
     if (tokenBundle) {

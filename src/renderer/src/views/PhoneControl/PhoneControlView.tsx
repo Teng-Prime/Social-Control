@@ -34,6 +34,7 @@ import {
   PhoneSetupDiagnostic,
   LocalAppPackageInfo,
   AppInstallResult,
+  PhoneAppInfo,
 } from '../../../shared/types';
 
 export const PhoneControlView: React.FC = () => {
@@ -59,6 +60,74 @@ export const PhoneControlView: React.FC = () => {
   const [isRestartingAdb, setIsRestartingAdb] = useState(false);
   const [wizardStep, setWizardStep] = useState(1);
 
+  // Mobile Publishing Suite: Social Media Apps & Screen Mirroring
+  const [phoneSocialApps, setPhoneSocialApps] = useState<PhoneAppInfo[]>([]);
+  const [isLoadingSocialApps, setIsLoadingSocialApps] = useState(false);
+  const [isMirroring, setIsMirroring] = useState(false);
+
+  const fetchSocialApps = async (deviceId?: string) => {
+    const target = deviceId || selectedDevice?.id;
+    if (!window.api?.getPhoneAppStatus) return;
+    setIsLoadingSocialApps(true);
+    try {
+      const apps = await window.api.getPhoneAppStatus(target);
+      setPhoneSocialApps(apps);
+    } catch (err: any) {
+      console.warn('Failed to load phone social apps:', err);
+    } finally {
+      setIsLoadingSocialApps(false);
+    }
+  };
+
+  const handleOpenPlayStore = async (packageName: string) => {
+    const targetDevId = selectedDevice?.id || 'virtual_device';
+    if (!window.api?.openPlayStoreApp) return;
+    try {
+      const res = await window.api.openPlayStoreApp(targetDevId, packageName);
+      if (res.success) {
+        addToast({ type: 'info', title: 'Play Store Opened', message: res.message });
+      } else {
+        addToast({ type: 'warn', title: 'Play Store Notice', message: res.message });
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Play Store Failed', message: err.message });
+    }
+  };
+
+  const handleVerifyApp = async (packageName: string) => {
+    const targetDevId = selectedDevice?.id || 'virtual_device';
+    if (!window.api?.verifyAppInstalled) return;
+    try {
+      const res = await window.api.verifyAppInstalled(targetDevId, packageName);
+      if (res.isInstalled) {
+        addToast({ type: 'success', title: 'App Verified', message: `${packageName} is installed.` });
+      } else {
+        addToast({ type: 'warn', title: 'Not Installed', message: `${packageName} was not detected.` });
+      }
+      await fetchSocialApps(targetDevId);
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Verification Error', message: err.message });
+    }
+  };
+
+  const handleLaunchScrcpy = async () => {
+    const targetDevId = selectedDevice?.id || 'virtual_device';
+    if (!window.api?.launchScrcpy) return;
+    setIsMirroring(true);
+    try {
+      const res = await window.api.launchScrcpy(targetDevId);
+      if (res.success) {
+        addToast({ type: 'success', title: 'Screen Mirror Launched', message: res.message });
+      } else {
+        addToast({ type: 'warn', title: 'Screen Mirror Notice', message: res.message });
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Mirror Error', message: err.message });
+    } finally {
+      setIsMirroring(false);
+    }
+  };
+
   const fetchDevices = async () => {
     setIsScanning(true);
     try {
@@ -76,11 +145,14 @@ export const PhoneControlView: React.FC = () => {
 
         if (activeDev) {
           await loadDiagnostic(activeDev.id);
+          await fetchSocialApps(activeDev.id);
         } else if (dList.length > 0) {
           await loadDiagnostic(dList[0].id);
+          await fetchSocialApps(dList[0].id);
         } else {
           // Virtual device diagnostic
           await loadDiagnostic('virtual_device');
+          await fetchSocialApps('virtual_device');
         }
       }
     } catch (err: any) {
@@ -149,6 +221,7 @@ export const PhoneControlView: React.FC = () => {
   const handleDeviceSelect = (dev: Device) => {
     setSelectedDevice(dev);
     loadDiagnostic(dev.id);
+    fetchSocialApps(dev.id);
   };
 
   const handleOpenConfigModal = (dev: Device) => {
@@ -541,6 +614,119 @@ export const PhoneControlView: React.FC = () => {
               )}
             </tbody>
           </table>
+        </div>
+      </Card>
+
+      {/* Social Media Publishing Apps & Screen Mirroring Card */}
+      <Card
+        title="Social Media Publishing Apps Setup"
+        subtitle="Manage and verify installation of YouTube, TikTok, Facebook Pages, and Meta Business Suite"
+        action={
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<RefreshCw size={13} className={isLoadingSocialApps ? 'animate-spin' : ''} />}
+              onClick={() => fetchSocialApps()}
+            >
+              Check Apps
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={isMirroring}
+              icon={<Smartphone size={13} className="text-cyan-400" />}
+              onClick={handleLaunchScrcpy}
+            >
+              Screen Mirror (scrcpy)
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            {phoneSocialApps.map((app) => (
+              <div
+                key={app.packageName}
+                className="p-3.5 rounded-xl bg-[#081633]/80 border border-[rgba(91,145,255,0.18)] hover:border-brand-500/40 transition-all flex flex-col justify-between space-y-3 shadow-subtle"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-bold text-studio-100">{app.appName}</span>
+                    <Badge variant={app.isInstalled ? 'success' : 'warning'} size="sm" dot>
+                      {app.isInstalled ? 'Installed' : 'Missing'}
+                    </Badge>
+                  </div>
+                  <span className="text-[10px] font-mono text-studio-400 block truncate">
+                    {app.packageName}
+                  </span>
+                  {app.installedVersion && (
+                    <span className="text-[10px] font-mono text-cyan-400/80 block mt-0.5">
+                      v{app.installedVersion}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-1.5 pt-2 border-t border-[rgba(91,145,255,0.14)]">
+                  {app.isInstalled ? (
+                    <div className="flex gap-1.5">
+                      <Button
+                        variant="primary"
+                        size="sm"
+                        className="flex-1 text-[11px] h-7"
+                        onClick={() => handleLaunchApp(selectedDevice?.id || 'virtual_device', app.packageName)}
+                      >
+                        Open App
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-[11px] h-7 px-2"
+                        onClick={() => handleVerifyApp(app.packageName)}
+                      >
+                        Verify
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-1.5">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1 text-[11px] h-7"
+                        icon={<Download size={11} />}
+                        onClick={() => handleOpenPlayStore(app.packageName)}
+                      >
+                        Play Store
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-[11px] h-7 px-2"
+                        onClick={() => handleVerifyApp(app.packageName)}
+                      >
+                        Verify
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="p-3 bg-brand-950/20 rounded-xl border border-brand-500/20 text-studio-300 text-[11px] flex items-center justify-between">
+            <span>
+              💡 <strong>Mobile Setup Guideline:</strong> Open each app on your phone to complete your account login. When posting, Social Earnings Studio will stage videos into the phone Gallery and launch the upload screen directly.
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<UserCheck size={12} className="text-cyan-400" />}
+              onClick={() => handleOpenSettings('accounts')}
+              className="text-[11px] shrink-0 ml-3 h-7 px-2.5"
+            >
+              Phone Accounts
+            </Button>
+          </div>
         </div>
       </Card>
 

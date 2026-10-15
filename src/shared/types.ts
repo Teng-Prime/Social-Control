@@ -2,9 +2,22 @@ export type SocialPlatform = 'youtube' | 'tiktok' | 'facebook' | 'google';
 
 export type PublishStatus = 'draft' | 'scheduled' | 'publishing' | 'published' | 'failed';
 
+export type VideoWorkflowStage =
+  | 'draft'
+  | 'ready'
+  | 'transferring'
+  | 'on_phone'
+  | 'awaiting_review'
+  | 'publishing'
+  | 'published'
+  | 'failed';
+
+export type VideoTransferStatus = 'not_transferred' | 'transferring' | 'transferred' | 'failed';
+
 export type TaskStatus = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled';
 
 export type DeviceStatus = 'disconnected' | 'detecting' | 'connected' | 'unauthorized' | 'offline' | 'error';
+
 
 export interface CharacterReference {
   id: string;
@@ -158,6 +171,13 @@ export interface MediaAsset {
   folder: 'Drafts' | 'ReadyToPublish' | 'Published';
   isFavorite: boolean;
   projectId?: string;
+  workflowStatus?: VideoWorkflowStage;
+  transferStatus?: VideoTransferStatus;
+  phonePath?: string;
+  targetPlatform?: SocialPlatform;
+  targetAccountId?: string;
+  captionText?: string;
+  hashtagsText?: string[];
   createdAt: string;
   updatedAt: string;
 }
@@ -171,6 +191,10 @@ export interface SocialAccount {
   isConnected: boolean;
   permissions: string[];
   tokenExpiry?: string;
+  email?: string;
+  selectedPageId?: string;
+  selectedPageName?: string;
+  status?: 'connected' | 'disconnected' | 'expired';
   createdAt: string;
   updatedAt: string;
 }
@@ -188,10 +212,16 @@ export interface PublishJob {
   privacy: 'public' | 'unlisted' | 'private';
   scheduledFor?: string;
   status: PublishStatus;
+  workflowStage?: VideoWorkflowStage;
   progress: number;
   remotePostId?: string;
   remotePostUrl?: string;
   errorMessage?: string;
+  phoneDestinationPath?: string;
+  confirmedPublishedAt?: string;
+  selectedPageId?: string;
+  selectedPageName?: string;
+  associatedEmail?: string;
   aiDisclosure: boolean;
   createdAt: string;
   updatedAt: string;
@@ -378,9 +408,98 @@ export interface TransferJob {
   transferredBytes: number;
   status: 'pending' | 'transferring' | 'completed' | 'failed' | 'cancelled';
   error?: string;
+  checksum?: string;
+  verified?: boolean;
+  mediaScanTriggered?: boolean;
   createdAt: string;
   completedAt?: string;
 }
+
+export interface TransferRecord {
+  id: string;
+  deviceId: string;
+  mediaAssetId?: string;
+  fileName: string;
+  sourcePath: string;
+  destinationPath: string;
+  fileSize: number;
+  transferredBytes: number;
+  speedBps: number;
+  checksum?: string;
+  isVerified: boolean;
+  mediaScanTriggered: boolean;
+  status: 'pending' | 'transferring' | 'completed' | 'failed' | 'cancelled';
+  errorMessage?: string;
+  createdAt: string;
+  completedAt?: string;
+}
+
+export interface BatchTransferRequest {
+  mediaAssetIds: string[];
+  deviceId: string;
+  destinationFolder?: string;
+}
+
+export interface BatchTransferResult {
+  total: number;
+  successful: number;
+  failed: number;
+  records: TransferRecord[];
+}
+
+export interface PhoneAppInfo {
+  packageName: string;
+  appName: string;
+  category: string;
+  playStoreUrl: string;
+  isInstalled: boolean;
+  installedVersion?: string;
+  status: 'installed' | 'not_installed' | 'update_available' | 'unknown';
+}
+
+export interface AccountEmailInfo {
+  id: string;
+  accountId: string;
+  email: string;
+  platform: SocialPlatform;
+  isVerified: boolean;
+  lastOtpRequestedAt?: string;
+  notes?: string;
+}
+
+export interface OtpVerificationRequest {
+  accountId: string;
+  email: string;
+  otpCode: string;
+  platform: SocialPlatform;
+}
+
+export interface OtpVerificationResult {
+  success: boolean;
+  message: string;
+  verifiedAt?: string;
+}
+
+export interface PublishConfirmationRequest {
+  jobId: string;
+  remotePostUrl?: string;
+  remotePostId?: string;
+  notes?: string;
+}
+
+export interface DashboardMobileStats {
+  totalGeneratedVideos: number;
+  videosReadyToPublish: number;
+  videosTransferredToPhone: number;
+  successfullyPublishedVideos: number;
+  failedPublishingTasks: number;
+  pendingPublishingTasks: number;
+  connectedDevicesCount: number;
+  installedAppsCount: number;
+  connectedAccountsCount: number;
+  recentPublishingActivity: any[];
+}
+
 
 export interface PlatformPostCheckItem {
   name: string;
@@ -807,6 +926,22 @@ export interface IElectronAPI {
   // Database Backup/Restore
   backupDatabase: () => Promise<string>;
   restoreDatabase: (backupFilePath: string) => Promise<boolean>;
+
+  // Mobile Publishing Suite (PC Studio -> Phone -> Social Media)
+  getMobileDashboardStats: () => Promise<DashboardMobileStats>;
+  batchTransferVideos: (request: BatchTransferRequest) => Promise<BatchTransferResult>;
+  getTransferRecords: (deviceId?: string) => Promise<TransferRecord[]>;
+  retryTransferRecord: (id: string) => Promise<TransferRecord>;
+  getPhoneAppStatus: (deviceId?: string) => Promise<PhoneAppInfo[]>;
+  openPlayStoreApp: (deviceId: string, packageName: string) => Promise<{ success: boolean; message: string }>;
+  verifyAppInstalled: (deviceId: string, packageName: string) => Promise<{ isInstalled: boolean; version?: string }>;
+  saveSocialAccountEmail: (accountId: string, email: string) => Promise<boolean>;
+  submitAccountOtp: (request: OtpVerificationRequest) => Promise<OtpVerificationResult>;
+  updateSocialAccountPage: (accountId: string, pageId: string, pageName: string) => Promise<boolean>;
+  confirmPublishCompleted: (request: PublishConfirmationRequest) => Promise<PublishJob>;
+  advanceJobToPhone: (jobId: string, deviceId?: string) => Promise<{ success: boolean; message: string; stage: VideoWorkflowStage }>;
+  launchScrcpy: (deviceId?: string) => Promise<{ success: boolean; message: string }>;
+  updateMediaAssetWorkflow: (id: string, workflowStatus: VideoWorkflowStage) => Promise<MediaAsset>;
 }
 
 declare global {

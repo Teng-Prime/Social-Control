@@ -140,6 +140,14 @@ export const PublishCenterView: React.FC = () => {
   const [manualTapY, setManualTapY] = useState<number>(1800);
   const [manualText, setManualText] = useState('');
 
+  // Mobile Publishing Suite: Manual Confirmation & Advance State
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [confirmTargetJob, setConfirmTargetJob] = useState<PublishJob | null>(null);
+  const [confirmPostUrl, setConfirmPostUrl] = useState('');
+  const [confirmPostId, setConfirmPostId] = useState('');
+  const [isSubmittingConfirm, setIsSubmittingConfirm] = useState(false);
+  const [isAdvancingJob, setIsAdvancingJob] = useState<string | null>(null);
+
   const loadAtxStatus = async (deviceId: string) => {
     if (!window.api || !deviceId) return;
     setIsLoadingAtx(true);
@@ -338,6 +346,81 @@ export const PublishCenterView: React.FC = () => {
       }
 
       runMultiPostCheck(selectedPlatforms, checkQuery, curAssetId, curDevId);
+    }
+  };
+
+  const handleAdvanceToPhone = async (job: PublishJob) => {
+    if (!window.api?.advanceJobToPhone) return;
+    setIsAdvancingJob(job.id);
+    try {
+      addToast({
+        type: 'info',
+        title: `Advancing to Phone...`,
+        message: `Transferring video and opening ${job.platform.toUpperCase()} on phone.`,
+      });
+
+      const res = await window.api.advanceJobToPhone(job.id, selectedDeviceId || undefined);
+      if (res.success) {
+        addToast({
+          type: 'success',
+          title: 'Ready on Phone for Review',
+          message: res.message,
+        });
+      } else {
+        addToast({
+          type: 'warn',
+          title: 'Advance Notice',
+          message: res.message,
+        });
+      }
+      await loadData();
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Advance Failed', message: err.message });
+    } finally {
+      setIsAdvancingJob(null);
+    }
+  };
+
+  const handleOpenConfirmModal = (job: PublishJob) => {
+    setConfirmTargetJob(job);
+    setConfirmPostUrl(job.remotePostUrl || '');
+    setConfirmPostId(job.remotePostId || '');
+    setIsConfirmModalOpen(true);
+  };
+
+  const handleSubmitConfirmPublished = async () => {
+    if (!confirmTargetJob || !window.api?.confirmPublishCompleted) return;
+    setIsSubmittingConfirm(true);
+    try {
+      await window.api.confirmPublishCompleted({
+        jobId: confirmTargetJob.id,
+        remotePostUrl: confirmPostUrl.trim() || undefined,
+        remotePostId: confirmPostId.trim() || undefined,
+      });
+
+      addToast({
+        type: 'success',
+        title: 'Publication Confirmed!',
+        message: `Marked "${confirmTargetJob.title}" as published on ${confirmTargetJob.platform.toUpperCase()}`,
+      });
+
+      setIsConfirmModalOpen(false);
+      await loadData();
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Confirmation Failed', message: err.message });
+    } finally {
+      setIsSubmittingConfirm(false);
+    }
+  };
+
+  const handleRetryPublishJob = async (jobId: string) => {
+    if (!window.api?.retryPublishJob) return;
+    try {
+      await window.api.retryPublishJob(jobId);
+      addToast({ type: 'info', title: 'Job Retried', message: 'Publishing job re-queued.' });
+      await loadData();
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Retry Failed', message: err.message });
     }
   };
 
@@ -1288,57 +1371,118 @@ export const PublishCenterView: React.FC = () => {
               )}
             </Card>
 
-            <Card title="Recent Publish History" subtitle="Tracked uploads, post IDs, and status">
+            <Card title="Publishing Lifecycle Queue" subtitle="Track progress from PC Studio to Phone and Social Confirmation">
               {publishJobs.length === 0 ? (
                 <div className="text-center py-8 text-xs text-studio-500">
-                  No publish jobs executed yet.
+                  No publish jobs executed yet. Select a video on the left and click "Publish".
                 </div>
               ) : (
-                <div className="space-y-2.5">
-                  {publishJobs.map((job) => (
-                    <div
-                      key={job.id}
-                      className="p-3.5 rounded-xl bg-studio-900 border border-studio-800 flex items-center justify-between text-xs"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-studio-100">{job.title}</span>
-                          <Badge
-                            variant={
-                              job.status === 'published'
-                                ? 'success'
-                                : job.status === 'failed'
-                                ? 'danger'
-                                : 'warning'
-                            }
-                            size="sm"
-                          >
-                            {job.status}
-                          </Badge>
-                          <span className="text-[10px] uppercase font-mono text-studio-400">{job.platform}</span>
-                        </div>
-                        {job.remotePostUrl && (
-                          <a
-                            href="#"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              window.api?.openExternalUrl(job.remotePostUrl!);
-                            }}
-                            className="text-[11px] text-brand-400 hover:underline flex items-center gap-1 mt-1"
-                          >
-                            {job.remotePostUrl} <ExternalLink size={11} />
-                          </a>
-                        )}
-                        {job.errorMessage && (
-                          <p className="text-[11px] text-rose-400 mt-0.5">{job.errorMessage}</p>
-                        )}
-                      </div>
+                <div className="space-y-3">
+                  {publishJobs.map((job) => {
+                    const stage = job.workflowStage || (job.status === 'published' ? 'published' : job.status === 'failed' ? 'failed' : 'ready');
+                    const isAdvancing = isAdvancingJob === job.id;
 
-                      <span className="text-[10px] text-studio-500 font-mono">
-                        {new Date(job.createdAt).toLocaleDateString()}
-                      </span>
-                    </div>
-                  ))}
+                    return (
+                      <div
+                        key={job.id}
+                        className="p-3.5 rounded-xl bg-studio-900 border border-studio-800 flex flex-col md:flex-row md:items-center justify-between gap-3 text-xs"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-semibold text-studio-100 truncate">{job.title}</span>
+                            <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-studio-800 text-studio-300">
+                              {job.platform}
+                            </span>
+                            <Badge
+                              variant={
+                                stage === 'published'
+                                  ? 'success'
+                                  : stage === 'failed'
+                                  ? 'danger'
+                                  : stage === 'awaiting_review'
+                                  ? 'warning'
+                                  : stage === 'on_phone'
+                                  ? 'cyan'
+                                  : 'brand'
+                              }
+                              size="sm"
+                            >
+                              {stage === 'awaiting_review' ? 'Awaiting Review on Phone' : stage}
+                            </Badge>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-3 text-[11px] text-studio-400 mt-1">
+                            {job.phoneDestinationPath && (
+                              <span className="text-cyan-400 font-mono">
+                                📱 {job.phoneDestinationPath}
+                              </span>
+                            )}
+                            {job.remotePostUrl && (
+                              <a
+                                href="#"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  window.api?.openExternalUrl(job.remotePostUrl!);
+                                }}
+                                className="text-brand-400 hover:underline flex items-center gap-1 font-mono"
+                              >
+                                {job.remotePostUrl} <ExternalLink size={11} />
+                              </a>
+                            )}
+                            {job.errorMessage && (
+                              <span className="text-rose-400">{job.errorMessage}</span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                          {/* Advance to Phone action */}
+                          {(stage === 'ready' || stage === 'on_phone' || stage === 'awaiting_review') && (
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              loading={isAdvancing}
+                              icon={<Smartphone size={12} className="text-cyan-400" />}
+                              onClick={() => handleAdvanceToPhone(job)}
+                              className="text-xs h-7 px-2.5"
+                            >
+                              {stage === 'ready' ? 'Open on Phone' : 'Re-open App'}
+                            </Button>
+                          )}
+
+                          {/* Manual Completion Confirmation action */}
+                          {(stage === 'awaiting_review' || stage === 'on_phone' || job.status === 'publishing') && (
+                            <Button
+                              variant="primary"
+                              size="sm"
+                              icon={<CheckCircle2 size={12} className="text-emerald-300" />}
+                              onClick={() => handleOpenConfirmModal(job)}
+                              className="text-xs h-7 px-2.5"
+                            >
+                              Confirm Published
+                            </Button>
+                          )}
+
+                          {/* Retry action */}
+                          {(job.status === 'failed' || stage === 'failed') && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              icon={<RefreshCw size={12} />}
+                              onClick={() => handleRetryPublishJob(job.id)}
+                              className="text-xs h-7 px-2.5"
+                            >
+                              Retry
+                            </Button>
+                          )}
+
+                          <span className="text-[10px] text-studio-500 font-mono ml-1">
+                            {new Date(job.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </Card>
@@ -1542,6 +1686,65 @@ export const PublishCenterView: React.FC = () => {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Manual Completion Confirmation Modal */}
+      <Modal
+        isOpen={isConfirmModalOpen}
+        onClose={() => !isSubmittingConfirm && setIsConfirmModalOpen(false)}
+        title="Confirm Mobile Publication"
+        subtitle="Verify your post was successfully published on your mobile device"
+        maxWidth="md"
+        footer={
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={isSubmittingConfirm}
+              onClick={() => setIsConfirmModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              loading={isSubmittingConfirm}
+              icon={<CheckCircle2 size={14} className="text-emerald-300" />}
+              onClick={handleSubmitConfirmPublished}
+            >
+              Confirm Published
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 text-xs">
+          <div className="p-3 bg-brand-950/30 rounded-xl border border-brand-500/30 space-y-1">
+            <span className="font-semibold text-white block">
+              {confirmTargetJob?.title} ({confirmTargetJob?.platform.toUpperCase()})
+            </span>
+            <p className="text-[11px] text-studio-300">
+              Did you finish reviewing and posting on your phone? Confirming updates your project stats, records the audit trail, and marks the video as Published.
+            </p>
+          </div>
+
+          <Input
+            label="Live Post URL (Optional)"
+            placeholder="e.g. https://www.tiktok.com/@creator/video/123456789"
+            value={confirmPostUrl}
+            onChange={(e) => setConfirmPostUrl(e.target.value)}
+          />
+
+          <Input
+            label="Remote Post ID (Optional)"
+            placeholder="e.g. tt_123456789"
+            value={confirmPostId}
+            onChange={(e) => setConfirmPostId(e.target.value)}
+          />
+
+          <div className="p-2.5 rounded-lg bg-[#081633] border border-[rgba(91,145,255,0.18)] text-[11px] text-studio-400">
+            ℹ️ Social Earnings Studio never assumes a video was published until you explicitly confirm it.
           </div>
         </div>
       </Modal>

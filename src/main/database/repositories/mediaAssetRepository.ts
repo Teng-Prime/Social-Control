@@ -2,12 +2,14 @@ import { appDb } from '../db';
 import { MediaAsset } from '../../../shared/types';
 
 export class MediaAssetRepository {
-  public getAll(filter?: { folder?: string; query?: string; favorite?: boolean }): MediaAsset[] {
+  public getAll(filter?: { folder?: string; query?: string; favorite?: boolean; workflowStatus?: string }): MediaAsset[] {
     const db = appDb.getRawDb();
     let query = `
       SELECT id, title, file_path as filePath, file_name as fileName, file_size as fileSize,
              duration, width, height, aspect_ratio as aspectRatio, format, thumbnail_path as thumbnailPath,
              tags, folder, is_favorite as isFavorite, project_id as projectId,
+             workflow_status as workflowStatus, transfer_status as transferStatus, phone_path as phonePath,
+             target_platform as targetPlatform, caption_text as captionText, hashtags_text as hashtagsText,
              created_at as createdAt, updated_at as updatedAt
       FROM media_assets
       WHERE 1=1
@@ -22,6 +24,10 @@ export class MediaAssetRepository {
       query += ' AND is_favorite = ?';
       params.push(filter.favorite ? 1 : 0);
     }
+    if (filter?.workflowStatus && filter.workflowStatus !== 'all') {
+      query += ' AND workflow_status = ?';
+      params.push(filter.workflowStatus);
+    }
     if (filter?.query && filter.query.trim().length > 0) {
       query += ' AND (title LIKE ? OR file_name LIKE ? OR tags LIKE ?)';
       const wildcard = `%${filter.query.trim()}%`;
@@ -35,6 +41,7 @@ export class MediaAssetRepository {
       ...r,
       isFavorite: Boolean(r.isFavorite),
       tags: typeof r.tags === 'string' ? JSON.parse(r.tags || '[]') : [],
+      hashtagsText: typeof r.hashtagsText === 'string' ? JSON.parse(r.hashtagsText || '[]') : [],
     }));
   }
 
@@ -44,6 +51,8 @@ export class MediaAssetRepository {
       SELECT id, title, file_path as filePath, file_name as fileName, file_size as fileSize,
              duration, width, height, aspect_ratio as aspectRatio, format, thumbnail_path as thumbnailPath,
              tags, folder, is_favorite as isFavorite, project_id as projectId,
+             workflow_status as workflowStatus, transfer_status as transferStatus, phone_path as phonePath,
+             target_platform as targetPlatform, caption_text as captionText, hashtags_text as hashtagsText,
              created_at as createdAt, updated_at as updatedAt
       FROM media_assets
       WHERE id = ?
@@ -54,6 +63,7 @@ export class MediaAssetRepository {
       ...row,
       isFavorite: Boolean(row.isFavorite),
       tags: typeof row.tags === 'string' ? JSON.parse(row.tags || '[]') : [],
+      hashtagsText: typeof row.hashtagsText === 'string' ? JSON.parse(row.hashtagsText || '[]') : [],
     };
   }
 
@@ -63,6 +73,8 @@ export class MediaAssetRepository {
       SELECT id, title, file_path as filePath, file_name as fileName, file_size as fileSize,
              duration, width, height, aspect_ratio as aspectRatio, format, thumbnail_path as thumbnailPath,
              tags, folder, is_favorite as isFavorite, project_id as projectId,
+             workflow_status as workflowStatus, transfer_status as transferStatus, phone_path as phonePath,
+             target_platform as targetPlatform, caption_text as captionText, hashtags_text as hashtagsText,
              created_at as createdAt, updated_at as updatedAt
       FROM media_assets
       WHERE file_path = ?
@@ -73,6 +85,7 @@ export class MediaAssetRepository {
       ...row,
       isFavorite: Boolean(row.isFavorite),
       tags: typeof row.tags === 'string' ? JSON.parse(row.tags || '[]') : [],
+      hashtagsText: typeof row.hashtagsText === 'string' ? JSON.parse(row.hashtagsText || '[]') : [],
     };
   }
 
@@ -92,10 +105,12 @@ export class MediaAssetRepository {
       INSERT INTO media_assets (
         id, title, file_path, file_name, file_size, duration, width, height,
         aspect_ratio, format, thumbnail_path, tags, folder, is_favorite, project_id,
+        workflow_status, transfer_status, phone_path, target_platform, caption_text, hashtags_text,
         created_at, updated_at
       ) VALUES (
         ?, ?, ?, ?, ?, ?, ?, ?,
         ?, ?, ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?, ?,
         datetime('now'), datetime('now')
       )
     `);
@@ -115,7 +130,13 @@ export class MediaAssetRepository {
       JSON.stringify(asset.tags || []),
       asset.folder || 'Drafts',
       asset.isFavorite ? 1 : 0,
-      asset.projectId || null
+      asset.projectId || null,
+      asset.workflowStatus || 'draft',
+      asset.transferStatus || 'not_transferred',
+      asset.phonePath || null,
+      asset.targetPlatform || null,
+      asset.captionText || null,
+      JSON.stringify(asset.hashtagsText || [])
     );
 
     return this.getById(id)!;
@@ -130,7 +151,9 @@ export class MediaAssetRepository {
     const stmt = db.prepare(`
       UPDATE media_assets
       SET title = ?, folder = ?, tags = ?, is_favorite = ?, thumbnail_path = ?,
-          file_path = ?, file_name = ?, aspect_ratio = ?, duration = ?, updated_at = datetime('now')
+          file_path = ?, file_name = ?, aspect_ratio = ?, duration = ?,
+          workflow_status = ?, transfer_status = ?, phone_path = ?, target_platform = ?,
+          caption_text = ?, hashtags_text = ?, updated_at = datetime('now')
       WHERE id = ?
     `);
 
@@ -144,6 +167,12 @@ export class MediaAssetRepository {
       newObj.fileName,
       newObj.aspectRatio,
       newObj.duration,
+      newObj.workflowStatus || current.workflowStatus || 'draft',
+      newObj.transferStatus || current.transferStatus || 'not_transferred',
+      newObj.phonePath || current.phonePath || null,
+      newObj.targetPlatform || current.targetPlatform || null,
+      newObj.captionText || current.captionText || null,
+      JSON.stringify(newObj.hashtagsText || current.hashtagsText || []),
       id
     );
 

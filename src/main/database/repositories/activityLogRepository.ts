@@ -1,14 +1,28 @@
+import crypto from 'crypto';
 import { appDb } from '../db';
 import { ActivityLog } from '../../../shared/types';
 
 export class ActivityLogRepository {
-  public create(log: ActivityLog): void {
+  public create(log: Partial<ActivityLog> & { level: 'info' | 'warn' | 'error' | 'debug'; category: string; message: string }): ActivityLog {
     const db = appDb.getRawDb();
+    const id = log.id || crypto.randomUUID();
+    const createdAt = log.createdAt || new Date().toISOString();
+    const details = log.details !== undefined ? log.details : null;
+
     const stmt = db.prepare(`
       INSERT INTO activity_logs (id, level, category, message, details, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
     `);
-    stmt.run(log.id, log.level, log.category, log.message, log.details || null, log.createdAt);
+    stmt.run(id, log.level, log.category, log.message, details, createdAt);
+
+    return {
+      id,
+      level: log.level,
+      category: log.category,
+      message: log.message,
+      details: log.details,
+      createdAt,
+    };
   }
 
   public getRecent(limit = 50, level?: string): ActivityLog[] {
@@ -30,9 +44,10 @@ export class ActivityLogRepository {
     `).all(limit) as ActivityLog[];
   }
 
-  public clear(): void {
+  public clear(): boolean {
     const db = appDb.getRawDb();
     db.prepare('DELETE FROM activity_logs').run();
+    return true;
   }
 }
 

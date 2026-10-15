@@ -165,6 +165,24 @@ const api: IElectronAPI = {
   // Backup
   backupDatabase: () => ipcRenderer.invoke('backupDatabase'),
   restoreDatabase: (path) => ipcRenderer.invoke('restoreDatabase', path),
+
+  // Mobile Publishing Suite (PC Studio -> Phone -> Social Media)
+  getMobileDashboardStats: () => ipcRenderer.invoke('getMobileDashboardStats'),
+  batchTransferVideos: (request) => ipcRenderer.invoke('batchTransferVideos', request),
+  getTransferRecords: (deviceId) => ipcRenderer.invoke('getTransferRecords', deviceId),
+  retryTransferRecord: (id) => ipcRenderer.invoke('retryTransferRecord', id),
+  getPhoneAppStatus: (deviceId) => ipcRenderer.invoke('getPhoneAppStatus', deviceId),
+  openPlayStoreApp: (deviceId, packageName) => ipcRenderer.invoke('openPlayStoreApp', deviceId, packageName),
+  verifyAppInstalled: (deviceId, packageName) => ipcRenderer.invoke('verifyAppInstalled', deviceId, packageName),
+  saveSocialAccountEmail: (accountId, email) => ipcRenderer.invoke('saveSocialAccountEmail', accountId, email),
+  submitAccountOtp: (request) => ipcRenderer.invoke('submitAccountOtp', request),
+  updateSocialAccountPage: (accountId, pageId, pageName) =>
+    ipcRenderer.invoke('updateSocialAccountPage', accountId, pageId, pageName),
+  confirmPublishCompleted: (request) => ipcRenderer.invoke('confirmPublishCompleted', request),
+  advanceJobToPhone: (jobId, deviceId) => ipcRenderer.invoke('advanceJobToPhone', jobId, deviceId),
+  launchScrcpy: (deviceId) => ipcRenderer.invoke('launchScrcpy', deviceId),
+  updateMediaAssetWorkflow: (id, workflowStatus) =>
+    ipcRenderer.invoke('updateMediaAssetWorkflow', id, workflowStatus),
 };
 
 const authAPI = {

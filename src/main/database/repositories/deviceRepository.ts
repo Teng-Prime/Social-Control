@@ -37,6 +37,24 @@ export class DeviceRepository {
     };
   }
 
+  public getById(id: string): Device | null {
+    const db = appDb.getRawDb();
+    const r = db.prepare(`
+      SELECT id, serial, model, android_version as androidVersion, status,
+             battery_level as batteryLevel, available_storage_mb as availableStorageMb,
+             total_storage_mb as totalStorageMb, installed_apps as installedApps,
+             last_connected_at as lastConnectedAt
+      FROM devices
+      WHERE id = ?
+    `).get(id) as any;
+
+    if (!r) return null;
+    return {
+      ...r,
+      installedApps: typeof r.installedApps === 'string' ? JSON.parse(r.installedApps || '[]') : [],
+    };
+  }
+
   public upsertDevice(device: Omit<Device, 'id' | 'lastConnectedAt'>): Device {
     const db = appDb.getRawDb();
     const existing = this.getBySerial(device.serial);

@@ -36,8 +36,14 @@ import {
   Tag,
   Wand2,
   X,
+  ArrowRightLeft,
+  HardDrive,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  RotateCcw,
 } from 'lucide-react';
-import { MediaAsset } from '../../../shared/types';
+import { MediaAsset, Device, TransferRecord, BatchTransferResult } from '../../../shared/types';
 
 type FolderType = 'Drafts' | 'ReadyToPublish' | 'Published';
 
@@ -113,6 +119,103 @@ export const VideoLibraryView: React.FC = () => {
 
   // Multi-Read Export Format
   const [readFormat, setReadFormat] = useState<'titles' | 'pipe' | 'json'>('pipe');
+
+  // Transfer to Phone State
+  const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
+  const [transferTargetAssetIds, setTransferTargetAssetIds] = useState<string[]>([]);
+  const [connectedDevices, setConnectedDevices] = useState<Device[]>([]);
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('');
+  const [targetPhoneDir, setTargetPhoneDir] = useState<string>('/sdcard/Movies/MyVideoStudio');
+  const [isTransferring, setIsTransferring] = useState(false);
+  const [transferResult, setTransferResult] = useState<BatchTransferResult | null>(null);
+
+  // Transfer History State
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [transferRecords, setTransferRecords] = useState<TransferRecord[]>([]);
+  const [isLoadingRecords, setIsLoadingRecords] = useState(false);
+
+  const fetchConnectedDevices = async () => {
+    try {
+      if (window.api?.getConnectedDevices) {
+        const devs = await window.api.getConnectedDevices();
+        setConnectedDevices(devs);
+        if (devs.length > 0 && !selectedDeviceId) {
+          setSelectedDeviceId(devs[0].id);
+        }
+      }
+    } catch (err: any) {
+      console.warn('Failed to fetch devices for transfer', err);
+    }
+  };
+
+  const handleOpenTransferModal = async (assetIds: string[]) => {
+    setTransferTargetAssetIds(assetIds);
+    setTransferResult(null);
+    await fetchConnectedDevices();
+    setIsTransferModalOpen(true);
+  };
+
+  const handleExecuteTransfer = async () => {
+    if (transferTargetAssetIds.length === 0) {
+      addToast({ type: 'warn', title: 'No videos selected for transfer' });
+      return;
+    }
+
+    setIsTransferring(true);
+    setTransferResult(null);
+    try {
+      if (window.api?.batchTransferVideos) {
+        const res = await window.api.batchTransferVideos({
+          mediaAssetIds: transferTargetAssetIds,
+          deviceId: selectedDeviceId || undefined,
+          destinationFolder: targetPhoneDir,
+        });
+
+        setTransferResult(res);
+
+        if (res.failed === 0) {
+          addToast({
+            type: 'success',
+            title: 'Videos Transferred to Phone!',
+            message: `Successfully transferred & verified ${res.transferred} video(s) to ${targetPhoneDir}`,
+          });
+        } else if (res.transferred > 0) {
+          addToast({
+            type: 'warn',
+            title: 'Partial Transfer Completed',
+            message: `Transferred ${res.transferred}/${res.total} videos. Check errors.`,
+          });
+        } else {
+          addToast({
+            type: 'error',
+            title: 'Transfer Failed',
+            message: res.errors.join('; ') || 'Could not push videos to phone.',
+          });
+        }
+
+        fetchAssets();
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Transfer error', message: err.message });
+    } finally {
+      setIsTransferring(false);
+    }
+  };
+
+  const handleOpenTransferHistory = async () => {
+    setIsHistoryModalOpen(true);
+    setIsLoadingRecords(true);
+    try {
+      if (window.api?.getTransferRecords) {
+        const records = await window.api.getTransferRecords(selectedDeviceId || undefined);
+        setTransferRecords(records);
+      }
+    } catch (err: any) {
+      addToast({ type: 'error', title: 'Failed to load transfer history', message: err.message });
+    } finally {
+      setIsLoadingRecords(false);
+    }
+  };
 
   // Fetch Assets from SQLite
   const fetchAssets = async () => {
@@ -759,6 +862,16 @@ export const VideoLibraryView: React.FC = () => {
           >
             Import File
           </Button>
+
+          {/* Phone Transfer History Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            icon={<Clock size={14} className="text-cyan-400" />}
+            onClick={handleOpenTransferHistory}
+          >
+            Transfer History
+          </Button>
         </div>
       </div>
 
@@ -803,6 +916,15 @@ export const VideoLibraryView: React.FC = () => {
             >
               <Pencil size={12} />
               Batch Edit Textbox
+            </button>
+
+            {/* Batch Transfer to Phone */}
+            <button
+              onClick={() => handleOpenTransferModal(Array.from(selectedIds))}
+              className="px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 text-[11px] font-medium flex items-center gap-1.5 transition-colors shadow-subtle"
+            >
+              <Smartphone size={12} />
+              Transfer to Phone ({selectedIds.size})
             </button>
 
             {/* Batch Delete */}
@@ -905,6 +1027,17 @@ export const VideoLibraryView: React.FC = () => {
                       </button>
 
                       <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenTransferModal([asset.id]);
+                        }}
+                        className="p-1.5 rounded-lg bg-black/60 backdrop-blur-md text-emerald-400 hover:text-emerald-300 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Transfer to Android phone"
+                      >
+                        <Smartphone size={14} />
+                      </button>
+
+                      <button
                         onClick={(e) => handleOpenEditModal(asset, e)}
                         className="p-1.5 rounded-lg bg-black/60 backdrop-blur-md text-studio-400 hover:text-brand-300 opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Edit video record"
@@ -943,20 +1076,43 @@ export const VideoLibraryView: React.FC = () => {
                       </p>
                     </div>
 
-                    <div className="flex items-center justify-between pt-3 mt-2 border-t border-studio-800 text-[11px] text-studio-500">
+                    <div className="flex items-center justify-between pt-3 mt-2 border-t border-[rgba(91,145,255,0.18)] text-[11px] text-studio-500">
                       <span>{formatSize(asset.fileSize)}</span>
-                      <Badge
-                        variant={
-                          asset.folder === 'Published'
-                            ? 'success'
-                            : asset.folder === 'ReadyToPublish'
-                            ? 'cyan'
-                            : 'neutral'
-                        }
-                        size="sm"
-                      >
-                        {asset.folder}
-                      </Badge>
+                      <div className="flex items-center gap-1.5">
+                        {asset.workflowStatus && (
+                          <Badge
+                            variant={
+                              asset.workflowStatus === 'published'
+                                ? 'success'
+                                : asset.workflowStatus === 'failed'
+                                ? 'danger'
+                                : asset.workflowStatus === 'on_phone'
+                                ? 'cyan'
+                                : asset.workflowStatus === 'awaiting_review'
+                                ? 'warning'
+                                : 'neutral'
+                            }
+                            size="sm"
+                          >
+                            {asset.workflowStatus}
+                          </Badge>
+                        )}
+                        {asset.transferStatus === 'transferred' && (
+                          <Badge variant="success" size="sm" dot>Phone</Badge>
+                        )}
+                        <Badge
+                          variant={
+                            asset.folder === 'Published'
+                              ? 'success'
+                              : asset.folder === 'ReadyToPublish'
+                              ? 'cyan'
+                              : 'neutral'
+                          }
+                          size="sm"
+                        >
+                          {asset.folder}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1012,18 +1168,38 @@ export const VideoLibraryView: React.FC = () => {
                         <span className="truncate max-w-xs">{asset.title}</span>
                       </td>
                       <td className="py-3 px-4">
-                        <Badge
-                          variant={
-                            asset.folder === 'Published'
-                              ? 'success'
-                              : asset.folder === 'ReadyToPublish'
-                              ? 'cyan'
-                              : 'neutral'
-                          }
-                          size="sm"
-                        >
-                          {asset.folder}
-                        </Badge>
+                        <div className="flex items-center gap-1.5">
+                          {asset.workflowStatus && (
+                            <Badge
+                              variant={
+                                asset.workflowStatus === 'published'
+                                  ? 'success'
+                                  : asset.workflowStatus === 'failed'
+                                  ? 'danger'
+                                  : asset.workflowStatus === 'on_phone'
+                                  ? 'cyan'
+                                  : asset.workflowStatus === 'awaiting_review'
+                                  ? 'warning'
+                                  : 'neutral'
+                              }
+                              size="sm"
+                            >
+                              {asset.workflowStatus}
+                            </Badge>
+                          )}
+                          <Badge
+                            variant={
+                              asset.folder === 'Published'
+                                ? 'success'
+                                : asset.folder === 'ReadyToPublish'
+                                ? 'cyan'
+                                : 'neutral'
+                            }
+                            size="sm"
+                          >
+                            {asset.folder}
+                          </Badge>
+                        </div>
                       </td>
                       <td className="py-3 px-4 font-mono">{asset.aspectRatio}</td>
                       <td className="py-3 px-4 font-mono">{formatDuration(asset.duration)}</td>
@@ -1034,6 +1210,16 @@ export const VideoLibraryView: React.FC = () => {
                       <td className="py-3 px-4 text-studio-400">{new Date(asset.createdAt).toLocaleDateString()}</td>
                       <td className="py-3 px-4 text-right">
                         <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenTransferModal([asset.id]);
+                            }}
+                            className="p-1.5 hover:text-emerald-400 text-studio-400 rounded hover:bg-studio-800"
+                            title="Transfer to Android Phone"
+                          >
+                            <Smartphone size={14} />
+                          </button>
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
@@ -1851,6 +2037,199 @@ export const VideoLibraryView: React.FC = () => {
           </div>
         </Modal>
       )}
+
+      {/* ======================================================== */}
+      {/* MODAL 7: TRANSFER TO ANDROID PHONE MODAL                 */}
+      {/* ======================================================== */}
+      <Modal
+        isOpen={isTransferModalOpen}
+        onClose={() => !isTransferring && setIsTransferModalOpen(false)}
+        title="Transfer Videos to Android Phone"
+        subtitle="High-speed ADB direct transfer with SHA-256 verification and Android Media Scanner"
+        maxWidth="md"
+        footer={
+          <div className="flex gap-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={isTransferring}
+              onClick={() => setIsTransferModalOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              loading={isTransferring}
+              icon={<Smartphone size={14} />}
+              onClick={handleExecuteTransfer}
+            >
+              Transfer {transferTargetAssetIds.length} Video{transferTargetAssetIds.length > 1 ? 's' : ''}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4 text-xs">
+          {/* Device Selection */}
+          <div>
+            <label className="block text-xs font-semibold text-studio-200 mb-1.5">Target Android Device</label>
+            {connectedDevices.length > 0 ? (
+              <select
+                className="w-full bg-[#081633] border border-[rgba(91,145,255,0.22)] rounded-xl p-2.5 text-studio-100 text-xs focus:ring-2 focus:ring-brand-500"
+                value={selectedDeviceId}
+                onChange={(e) => setSelectedDeviceId(e.target.value)}
+              >
+                {connectedDevices.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.model} ({d.serial}) - {d.status}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <div className="p-3 bg-amber-950/20 border border-amber-500/30 rounded-xl text-amber-300 text-[11px] flex items-center justify-between">
+                <span>No physical phone connected over ADB.</span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchConnectedDevices}
+                  className="text-[10px] h-6 px-2"
+                >
+                  Rescan
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {/* Destination Folder */}
+          <div>
+            <label className="block text-xs font-semibold text-studio-200 mb-1.5">Destination Directory on Phone</label>
+            <Input
+              value={targetPhoneDir}
+              onChange={(e) => setTargetPhoneDir(e.target.value)}
+              placeholder="/sdcard/Movies/MyVideoStudio"
+            />
+            <div className="flex gap-1.5 mt-2">
+              {[
+                { label: 'Movies / Studio', path: '/sdcard/Movies/MyVideoStudio' },
+                { label: 'Camera Roll', path: '/sdcard/DCIM/Camera' },
+                { label: 'Downloads', path: '/sdcard/Download' },
+              ].map((loc) => (
+                <button
+                  key={loc.path}
+                  type="button"
+                  onClick={() => setTargetPhoneDir(loc.path)}
+                  className={`px-2 py-1 rounded text-[10px] border transition-colors ${
+                    targetPhoneDir === loc.path
+                      ? 'bg-brand-500/20 border-brand-500 text-cyan-300'
+                      : 'bg-[#081633] border-[rgba(91,145,255,0.18)] text-studio-400 hover:text-studio-200'
+                  }`}
+                >
+                  {loc.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Transfer Info */}
+          <div className="p-3 bg-[#081633] rounded-xl border border-[rgba(91,145,255,0.18)] space-y-1.5 text-[11px] text-studio-300">
+            <div className="flex justify-between">
+              <span>Selected Videos:</span>
+              <strong className="text-white">{transferTargetAssetIds.length}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span>Integrity Verification:</span>
+              <strong className="text-emerald-400">File size + SHA-256 Checksum</strong>
+            </div>
+            <div className="flex justify-between">
+              <span>Media Scanner:</span>
+              <strong className="text-cyan-400">Auto-broadcast to Android Gallery</strong>
+            </div>
+            <div className="flex justify-between">
+              <span>PC Source File:</span>
+              <strong className="text-studio-200">Preserved (Never deleted)</strong>
+            </div>
+          </div>
+
+          {/* Result or Error */}
+          {transferResult && (
+            <div
+              className={`p-3 rounded-xl border text-xs space-y-1.5 ${
+                transferResult.failed === 0
+                  ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200'
+                  : 'bg-amber-950/30 border-amber-500/40 text-amber-200'
+              }`}
+            >
+              <div className="font-bold flex items-center gap-1.5">
+                <CheckCircle2 size={14} className="text-emerald-400" />
+                Transfer Complete: {transferResult.transferred} / {transferResult.total} Transferred
+              </div>
+              {transferResult.records.map((rec, i) => (
+                <div key={i} className="text-[11px] font-mono text-studio-300 flex justify-between">
+                  <span>{rec.fileName}</span>
+                  <span className="text-cyan-400">{rec.transferSpeedMbps} MB/s • Verified ✓</span>
+                </div>
+              ))}
+              {transferResult.errors.length > 0 && (
+                <div className="text-rose-400 text-[10px] pt-1">
+                  {transferResult.errors.join('; ')}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      {/* ======================================================== */}
+      {/* MODAL 8: TRANSFER HISTORY MODAL                          */}
+      {/* ======================================================== */}
+      <Modal
+        isOpen={isHistoryModalOpen}
+        onClose={() => setIsHistoryModalOpen(false)}
+        title="Phone Transfer History"
+        subtitle="Audited record of videos pushed to Android devices with checksums and speeds"
+        maxWidth="lg"
+      >
+        <div className="space-y-3 text-xs max-h-[60vh] overflow-y-auto">
+          {isLoadingRecords ? (
+            <div className="py-8 text-center text-studio-400">Loading transfer records...</div>
+          ) : transferRecords.length === 0 ? (
+            <div className="py-8 text-center text-studio-500">
+              No transfer history records recorded yet.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {transferRecords.map((rec) => (
+                <div
+                  key={rec.id}
+                  className="p-3 rounded-xl bg-[#081633] border border-[rgba(91,145,255,0.18)] flex items-center justify-between text-xs font-mono"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-studio-100 truncate">{rec.fileName}</span>
+                      <Badge variant={rec.status === 'completed' ? 'success' : 'danger'} size="sm">
+                        {rec.status}
+                      </Badge>
+                      {rec.isVerified && (
+                        <Badge variant="cyan" size="sm">SHA-256 Verified</Badge>
+                      )}
+                    </div>
+                    <div className="text-[11px] text-studio-400 mt-1 truncate">
+                      📱 {rec.destinationPath}
+                    </div>
+                  </div>
+
+                  <div className="text-right shrink-0 ml-4 space-y-0.5">
+                    <div className="text-cyan-400 font-bold">{rec.transferSpeedMbps} MB/s</div>
+                    <div className="text-[10px] text-studio-500">
+                      {new Date(rec.createdAt).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </Modal>
     </div>
   );
 };
