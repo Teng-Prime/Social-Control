@@ -38,6 +38,7 @@ import {
   Lock,
   Globe,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 import {
   Device,
@@ -168,23 +169,14 @@ export const PhoneControlView: React.FC = () => {
 
     // 1. Identify device associated with the current form at click time
     const targetDev = selectedDevice;
-    if (!targetDev && devices.length === 0) {
-      addToast({
-        type: 'error',
-        title: 'Save Failed',
-        message: 'No device selected. Cannot save account credentials without a target device.',
-      });
-      return;
-    }
-
     const targetDevKey = targetDev?.serial || targetDev?.id || (devices.length > 0 ? (devices[0].serial || devices[0].id) : 'virtual_device');
-    const targetModel = targetDev?.model || targetDevKey;
+    const targetModel = targetDev?.model || (targetDevKey === 'virtual_device' ? 'Virtual Android Device' : targetDevKey);
 
     // 2. Validate device still exists in connected devices if devices exist
     if (devices.length > 0 && targetDev && !devices.some((d) => d.serial === targetDev.serial || d.id === targetDev.id)) {
       addToast({
         type: 'error',
-        title: 'Device Disconnected',
+        title: 'Save failed',
         message: `Device "${targetModel}" is no longer available. Save aborted to prevent credential corruption.`,
       });
       return;
@@ -211,11 +203,25 @@ export const PhoneControlView: React.FC = () => {
         twoFactorSecret: inputToSave.twoFactorSecret.trim(),
       });
 
+      if (!saved || !saved.id) {
+        throw new Error('Database persistence could not be verified by backend.');
+      }
+
       addToast({
         type: 'success',
-        title: `${platform.toUpperCase()} Saved`,
-        message: `Credentials saved for ${inputToSave.identifier} on ${targetModel}.`,
+        title: 'Saved successfully',
+        message: `${platform.toUpperCase()} credentials saved for ${saved.identifier} on ${targetModel}.`,
       });
+
+      // Update form inputs immediately with confirmed saved record
+      setFormInputs((prev) => ({
+        ...prev,
+        [platform]: {
+          identifier: saved.identifier || '',
+          password: saved.password || '',
+          twoFactorSecret: saved.twoFactorSecret || '',
+        },
+      }));
 
       // Update global accounts map for this device so dashboard badges update immediately
       setAllAccountsMap((prev) => ({
@@ -226,15 +232,55 @@ export const PhoneControlView: React.FC = () => {
         },
       }));
 
+      // Update active accountCredentials list
+      setAccountCredentials((prev) => {
+        const next = prev.filter((c) => c.platform !== platform);
+        return [...next, saved];
+      });
+
       // 4. Race condition prevention: only refresh the form if active device is STILL targetDevKey!
-      const currentSelectedKey = selectedDevice?.serial || selectedDevice?.id;
+      const currentSelectedKey = selectedDevice?.serial || selectedDevice?.id || (devices.length > 0 ? (devices[0].serial || devices[0].id) : 'virtual_device');
       if (currentSelectedKey === targetDevKey) {
         await fetchAccountCredentials(targetDevKey);
       }
     } catch (err: any) {
-      addToast({ type: 'error', title: 'Save Failed', message: err.message });
+      addToast({
+        type: 'error',
+        title: 'Save failed',
+        message: err?.message || 'Failed to save account credentials.',
+      });
     } finally {
       setSavingPlatform(null);
+    }
+  };
+
+  const handleDeleteCredential = async (id: string, platform: PhoneAccountPlatform) => {
+    if (!window.api?.deletePhoneAccountCredential) return;
+    try {
+      await window.api.deletePhoneAccountCredential(id);
+      addToast({
+        type: 'info',
+        title: 'Account Removed',
+        message: `${platform.toUpperCase()} credentials removed.`,
+      });
+      const targetDevKey = selectedDevice?.serial || selectedDevice?.id || (devices.length > 0 ? (devices[0].serial || devices[0].id) : 'virtual_device');
+      setFormInputs((prev) => ({
+        ...prev,
+        [platform]: { identifier: '', password: '', twoFactorSecret: '' },
+      }));
+      setAllAccountsMap((prev) => {
+        const devMap = { ...(prev[targetDevKey] || {}) };
+        delete devMap[platform];
+        return { ...prev, [targetDevKey]: devMap };
+      });
+      setAccountCredentials((prev) => prev.filter((c) => c.id !== id && c.platform !== platform));
+      await fetchAccountCredentials(targetDevKey);
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Delete Failed',
+        message: err?.message || 'Failed to delete account credential.',
+      });
     }
   };
 
@@ -415,13 +461,15 @@ export const PhoneControlView: React.FC = () => {
         }
 
         if (activeDev) {
-          await loadDiagnostic(activeDev.id);
-          await fetchSocialApps(activeDev.id);
-          await fetchAccountCredentials(activeDev.id);
+          const devKey = activeDev.serial || activeDev.id;
+          await loadDiagnostic(devKey);
+          await fetchSocialApps(devKey);
+          await fetchAccountCredentials(devKey);
         } else if (dList.length > 0) {
-          await loadDiagnostic(dList[0].id);
-          await fetchSocialApps(dList[0].id);
-          await fetchAccountCredentials(dList[0].id);
+          const devKey = dList[0].serial || dList[0].id;
+          await loadDiagnostic(devKey);
+          await fetchSocialApps(devKey);
+          await fetchAccountCredentials(devKey);
         } else {
           // Virtual device diagnostic
           await loadDiagnostic('virtual_device');
@@ -1264,7 +1312,7 @@ export const PhoneControlView: React.FC = () => {
                   variant="outline"
                   size="sm"
                   icon={<RefreshCw size={13} className={isLoadingAccounts ? 'animate-spin' : ''} />}
-                  onClick={() => fetchAccountCredentials(selectedDevice?.id)}
+                  onClick={() => fetchAccountCredentials(selectedDevice?.serial || selectedDevice?.id)}
                 >
                   Refresh Accounts
                 </Button>
@@ -1382,6 +1430,8 @@ export const PhoneControlView: React.FC = () => {
                       ] as const
                     ).map((item) => {
                       const input = formInputs[item.platform];
+                      const savedAcc = accountCredentials.find((c) => c.platform === item.platform);
+                      const isSaved = Boolean(savedAcc?.identifier);
                       const isConfigured = Boolean(input.identifier.trim());
                       const isSaving = savingPlatform === item.platform;
                       const isLoggingIn = runningAutoLogin === item.platform;
@@ -1493,8 +1543,8 @@ export const PhoneControlView: React.FC = () => {
 
                           {/* Status Badge */}
                           <td className="py-3 px-3 text-center">
-                            <Badge variant={isConfigured ? 'success' : 'neutral'} size="sm" dot>
-                              {isConfigured ? 'Configured' : 'Unset'}
+                            <Badge variant={isSaved ? 'success' : isConfigured ? 'warning' : 'neutral'} size="sm" dot>
+                              {isSaved ? 'Saved' : isConfigured ? 'Unsaved' : 'Unset'}
                             </Badge>
                           </td>
 
@@ -1507,10 +1557,22 @@ export const PhoneControlView: React.FC = () => {
                                 className="h-7 text-[11px] px-2.5"
                                 icon={<Save size={11} />}
                                 loading={isSaving}
+                                disabled={isSaving}
                                 onClick={() => handleSaveCredential(item.platform)}
                               >
-                                Save
+                                {isSaving ? 'Saving...' : 'Save'}
                               </Button>
+
+                              {savedAcc && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 w-7 p-0 text-studio-400 hover:text-rose-400 hover:bg-rose-500/10"
+                                  icon={<Trash2 size={12} />}
+                                  title={`Remove ${item.name} from this device`}
+                                  onClick={() => handleDeleteCredential(savedAcc.id, item.platform)}
+                                />
+                              )}
 
                               {item.supportsGoogleAuth && (
                                 <Button

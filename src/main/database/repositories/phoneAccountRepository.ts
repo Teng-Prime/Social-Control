@@ -45,6 +45,15 @@ export class PhoneAccountRepository {
       CREATE INDEX IF NOT EXISTS idx_phone_acc_device ON phone_account_credentials(device_id);
     `);
 
+    // Standardize empty or null device_id to 'default'
+    try {
+      db.exec(`
+        UPDATE phone_account_credentials
+        SET device_id = 'default'
+        WHERE device_id IS NULL OR device_id = '';
+      `);
+    } catch {}
+
     // Clean up any legacy duplicates by keeping the newest updated_at row
     try {
       db.exec(`
@@ -64,6 +73,17 @@ export class PhoneAccountRepository {
         CREATE UNIQUE INDEX IF NOT EXISTS idx_phone_acc_dev_platform ON phone_account_credentials(device_id, platform);
       `);
     } catch {}
+  }
+
+  private resolveSecretPassword(id: string, fallbackPassword?: string): string {
+    try {
+      const secPass =
+        secureStorageService.getSecret(`phone_acc_${id}_password`) ||
+        secureStorageService.getSecret(`${id}_password`);
+      return secPass || fallbackPassword || '';
+    } catch {
+      return fallbackPassword || '';
+    }
   }
 
   public getAll(deviceId?: string): PhoneAccountCredential[] {
@@ -93,14 +113,10 @@ export class PhoneAccountRepository {
 
     const rows = db.prepare(query).all(...params) as any[];
 
-    return rows.map((r) => {
-      // Check if secureStorage has encrypted password override
-      const secPass = secureStorageService.getSecret(`phone_acc_${r.id}_password`);
-      return {
-        ...r,
-        password: secPass || r.password || '',
-      };
-    });
+    return rows.map((r) => ({
+      ...r,
+      password: this.resolveSecretPassword(r.id, r.password),
+    }));
   }
 
   public getByPlatform(platform: PhoneAccountPlatform, deviceId?: string): PhoneAccountCredential | null {
@@ -131,26 +147,53 @@ export class PhoneAccountRepository {
     const row = db.prepare(query).get(...params) as any;
     if (!row) return null;
 
-    const secPass = secureStorageService.getSecret(`phone_acc_${row.id}_password`);
     return {
       ...row,
-      password: secPass || row.password || '',
+      password: this.resolveSecretPassword(row.id, row.password),
     };
   }
 
   public save(
-    credential: Partial<PhoneAccountCredential> & { platform: PhoneAccountPlatform; identifier: string }
+    credential: Partial<PhoneAccountCredential> & {
+      platform: PhoneAccountPlatform;
+      identifier: string;
+      clearPassword?: boolean;
+      clearTwoFactor?: boolean;
+    }
   ): PhoneAccountCredential {
     this.ensureTable();
     const db = appDb.getRawDb();
 
     const canonicalDeviceId = this.resolveDeviceKey(credential.deviceId);
-    const id = credential.id || `phone_acc_${canonicalDeviceId}_${credential.platform}`;
+    const existing = this.getByPlatform(credential.platform, canonicalDeviceId);
+    const id = credential.id || existing?.id || `phone_acc_${canonicalDeviceId}_${credential.platform}`;
     const identifier = credential.identifier.trim();
-    const password = credential.password?.trim() || '';
-    const twoFactorSecret = credential.twoFactorSecret?.trim() || null;
-    const notes = credential.notes || null;
-    const lastVerifiedAt = credential.lastVerifiedAt || null;
+
+    // Sensitive field preservation during edit:
+    // If clearPassword is explicitly true, clear password.
+    // Else if password was provided and non-empty, use the new password.
+    // Else if existing record has a password, retain it so partial updates never wipe secrets.
+    let effectivePassword = '';
+    if (credential.clearPassword) {
+      effectivePassword = '';
+    } else if (credential.password && credential.password.trim() !== '') {
+      effectivePassword = credential.password.trim();
+    } else if (existing?.password) {
+      effectivePassword = existing.password;
+    }
+
+    // 2FA secret preservation during edit:
+    let effectiveTwoFactorSecret: string | null = null;
+    if (credential.clearTwoFactor) {
+      effectiveTwoFactorSecret = null;
+    } else if (credential.twoFactorSecret && credential.twoFactorSecret.trim() !== '') {
+      effectiveTwoFactorSecret = credential.twoFactorSecret.trim();
+    } else if (existing?.twoFactorSecret) {
+      effectiveTwoFactorSecret = existing.twoFactorSecret;
+    }
+
+    const notes = credential.notes !== undefined ? credential.notes : (existing?.notes || null);
+    const lastVerifiedAt = credential.lastVerifiedAt || existing?.lastVerifiedAt || null;
 
     // Use atomic SQLite UPSERT on unique constraint (device_id, platform)
     const stmt = db.prepare(`
@@ -169,24 +212,37 @@ export class PhoneAccountRepository {
         updated_at = datetime('now')
     `);
 
-    stmt.run(id, canonicalDeviceId, credential.platform, identifier, password, twoFactorSecret, notes, lastVerifiedAt);
+    stmt.run(
+      id,
+      canonicalDeviceId,
+      credential.platform,
+      identifier,
+      effectivePassword,
+      effectiveTwoFactorSecret,
+      notes,
+      lastVerifiedAt
+    );
 
-    if (password) {
-      try {
-        secureStorageService.setSecret(`phone_acc_${id}_password`, password);
-      } catch {}
-    }
+    // Sync encrypted credentials vault
+    try {
+      if (effectivePassword) {
+        secureStorageService.setSecret(`phone_acc_${id}_password`, effectivePassword);
+      } else if (credential.clearPassword) {
+        secureStorageService.deleteSecret(`phone_acc_${id}_password`);
+        secureStorageService.deleteSecret(`${id}_password`);
+      }
+    } catch {}
 
     return {
       id,
       deviceId: canonicalDeviceId,
       platform: credential.platform,
       identifier,
-      password,
-      twoFactorSecret: twoFactorSecret || undefined,
+      password: effectivePassword,
+      twoFactorSecret: effectiveTwoFactorSecret || undefined,
       notes: notes || undefined,
       lastVerifiedAt: lastVerifiedAt || undefined,
-      createdAt: new Date().toISOString(),
+      createdAt: existing?.createdAt || new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
   }
@@ -196,6 +252,7 @@ export class PhoneAccountRepository {
     const db = appDb.getRawDb();
     try {
       secureStorageService.deleteSecret(`phone_acc_${id}_password`);
+      secureStorageService.deleteSecret(`${id}_password`);
     } catch {}
     const res = db.prepare('DELETE FROM phone_account_credentials WHERE id = ?').run(id);
     return res.changes > 0;
@@ -213,13 +270,10 @@ export class PhoneAccountRepository {
       ORDER BY platform ASC
     `).all() as any[];
 
-    return rows.map((r) => {
-      const secPass = secureStorageService.getSecret(`phone_acc_${r.id}_password`);
-      return {
-        ...r,
-        password: secPass || r.password || '',
-      };
-    });
+    return rows.map((r) => ({
+      ...r,
+      password: this.resolveSecretPassword(r.id, r.password),
+    }));
   }
 
   public assignToDevice(id: string, deviceId: string): boolean {

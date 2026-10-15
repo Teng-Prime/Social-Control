@@ -408,4 +408,85 @@ describe('Device-Specific Platform Account Isolation (Tests A through G)', () =>
     const p2YouTube = phoneAccountRepo.getByPlatform('youtube', phone2Serial);
     expect(p2YouTube?.identifier).toBe('keep.me@gmail.com');
   });
+
+  // ---------------------------------------------------------------------------
+  // Test H — Sensitive field preservation during edit (Requirement 4)
+  // ---------------------------------------------------------------------------
+  it('Test H: Sensitive field preservation — Leaving password or 2FA secret blank during edit preserves saved values', async () => {
+    // 1. Initial save with complete credentials
+    phoneAccountRepo.save({
+      deviceId: phone1Serial,
+      platform: 'google',
+      identifier: 'initial.creator@gmail.com',
+      password: 'SuperSecretPassword2026!',
+      twoFactorSecret: 'JBSWY3DPEHPK3PXP',
+    });
+
+    const initial = phoneAccountRepo.getByPlatform('google', phone1Serial);
+    expect(initial?.identifier).toBe('initial.creator@gmail.com');
+    expect(initial?.password).toBe('SuperSecretPassword2026!');
+    expect(initial?.twoFactorSecret).toBe('JBSWY3DPEHPK3PXP');
+
+    // 2. Partial edit: update identifier only, leave password and 2FA secret blank
+    const updated = phoneAccountRepo.save({
+      deviceId: phone1Serial,
+      platform: 'google',
+      identifier: 'updated.creator@gmail.com',
+      password: '', // Blank during edit
+      twoFactorSecret: '', // Blank during edit
+    });
+
+    // 3. Confirm identifier updated, but password & 2FA secret were preserved
+    expect(updated.identifier).toBe('updated.creator@gmail.com');
+    expect(updated.password).toBe('SuperSecretPassword2026!');
+    expect(updated.twoFactorSecret).toBe('JBSWY3DPEHPK3PXP');
+
+    // 4. Verify querying database also returns preserved credentials
+    const fetched = phoneAccountRepo.getByPlatform('google', phone1Serial);
+    expect(fetched?.identifier).toBe('updated.creator@gmail.com');
+    expect(fetched?.password).toBe('SuperSecretPassword2026!');
+    expect(fetched?.twoFactorSecret).toBe('JBSWY3DPEHPK3PXP');
+
+    // 5. Explicit clear: clearPassword clears the password
+    const cleared = phoneAccountRepo.save({
+      deviceId: phone1Serial,
+      platform: 'google',
+      identifier: 'updated.creator@gmail.com',
+      clearPassword: true,
+    });
+    expect(cleared.password).toBe('');
+    const fetchedCleared = phoneAccountRepo.getByPlatform('google', phone1Serial);
+    expect(fetchedCleared?.password).toBe('');
+    expect(fetchedCleared?.twoFactorSecret).toBe('JBSWY3DPEHPK3PXP'); // 2FA still preserved
+  });
+
+  // ---------------------------------------------------------------------------
+  // Test I — Staging on virtual device when no phone is connected
+  // ---------------------------------------------------------------------------
+  it('Test I: Staging on virtual device — Saves and loads accounts when no physical phone is connected', async () => {
+    const virtualDevKey = 'virtual_device';
+
+    // 1. Save credentials for virtual device
+    const saved = phoneAccountRepo.save({
+      deviceId: virtualDevKey,
+      platform: 'tiktok',
+      identifier: 'virtual.staging@tiktok.com',
+      password: 'VirtualStagingPass123',
+    });
+    expect(saved.deviceId).toBe('virtual_device');
+    expect(saved.identifier).toBe('virtual.staging@tiktok.com');
+
+    // 2. Retrieve accounts for virtual device
+    const virtualAccounts = phoneAccountRepo.getAll(virtualDevKey);
+    expect(virtualAccounts.length).toBeGreaterThanOrEqual(1);
+    const virtualTikTok = phoneAccountRepo.getByPlatform('tiktok', virtualDevKey);
+    expect(virtualTikTok?.identifier).toBe('virtual.staging@tiktok.com');
+    expect(virtualTikTok?.password).toBe('VirtualStagingPass123');
+
+    // 3. Virtual device credentials do NOT leak into phone1 or phone2
+    const p1TikTok = phoneAccountRepo.getByPlatform('tiktok', phone1Serial);
+    expect(p1TikTok?.identifier).not.toBe('virtual.staging@tiktok.com');
+    const p2TikTok = phoneAccountRepo.getByPlatform('tiktok', phone2Serial);
+    expect(p2TikTok?.identifier).not.toBe('virtual.staging@tiktok.com');
+  });
 });
