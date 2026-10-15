@@ -36,10 +36,10 @@ export class PhoneAccountRepository {
     const params: any[] = [];
 
     if (deviceId) {
-      query += ` WHERE device_id = ? OR device_id IS NULL OR device_id = '' ORDER BY platform ASC`;
+      query += ` WHERE device_id = ? ORDER BY platform ASC`;
       params.push(deviceId);
     } else {
-      query += ` ORDER BY platform ASC`;
+      query += ` ORDER BY device_id ASC, platform ASC`;
     }
 
     const rows = db.prepare(query).all(...params) as any[];
@@ -68,7 +68,7 @@ export class PhoneAccountRepository {
     const params: any[] = [platform];
 
     if (deviceId) {
-      query += ` AND (device_id = ? OR device_id IS NULL OR device_id = '')`;
+      query += ` AND device_id = ?`;
       params.push(deviceId);
     }
 
@@ -89,8 +89,8 @@ export class PhoneAccountRepository {
     this.ensureTable();
     const db = appDb.getRawDb();
 
-    const id = credential.id || `phone_acc_${credential.platform}_${Date.now()}`;
-    const deviceId = credential.deviceId || null;
+    const deviceId = credential.deviceId || 'default';
+    const id = credential.id || `phone_acc_${deviceId}_${credential.platform}`;
     const identifier = credential.identifier.trim();
     const password = credential.password?.trim() || '';
     const twoFactorSecret = credential.twoFactorSecret?.trim() || null;

@@ -214,4 +214,109 @@ describe('Phone Setup & Provisioning Process (1 Phone + 1 Google Account)', () =
     const retrievedGoogle = phoneAccountRepo.getByPlatform('google', testDeviceId);
     expect(retrievedGoogle?.identifier).toBe('creator.channel@gmail.com');
   });
+
+  it('Multi-Device Account Isolation: 1 Phone = 1 Config (Phone 1 and Phone 2 have separate accounts)', async () => {
+    const { phoneAccountRepo } = await import('../src/main/database/repositories/phoneAccountRepository');
+    const { atxAutomationService } = await import('../src/main/services/atxAutomationService');
+
+    const phone1Id = 'device_pixel_phone_1';
+    const phone2Id = 'device_samsung_phone_2';
+
+    // 1. Phone 1 saves distinct accounts
+    phoneAccountRepo.save({
+      deviceId: phone1Id,
+      platform: 'google',
+      identifier: 'phone1.creator@gmail.com',
+      password: 'PassPhone1Google',
+      twoFactorSecret: '2FAPHONE1GOOGLE',
+    });
+    phoneAccountRepo.save({
+      deviceId: phone1Id,
+      platform: 'facebook',
+      identifier: 'phone1_fb_uid_1111',
+      password: 'PassPhone1FB',
+    });
+    phoneAccountRepo.save({
+      deviceId: phone1Id,
+      platform: 'tiktok',
+      identifier: 'phone1_tiktok@gmail.com',
+      password: 'PassPhone1TikTok',
+    });
+    phoneAccountRepo.save({
+      deviceId: phone1Id,
+      platform: 'youtube',
+      identifier: 'phone1_yt_channel@gmail.com',
+      password: 'PassPhone1YouTube',
+    });
+
+    // 2. Phone 2 saves different distinct accounts
+    phoneAccountRepo.save({
+      deviceId: phone2Id,
+      platform: 'google',
+      identifier: 'phone2.creator@gmail.com',
+      password: 'PassPhone2Google',
+      twoFactorSecret: '2FAPHONE2GOOGLE',
+    });
+    phoneAccountRepo.save({
+      deviceId: phone2Id,
+      platform: 'facebook',
+      identifier: 'phone2_fb_uid_2222',
+      password: 'PassPhone2FB',
+    });
+    phoneAccountRepo.save({
+      deviceId: phone2Id,
+      platform: 'tiktok',
+      identifier: 'phone2_tiktok@gmail.com',
+      password: 'PassPhone2TikTok',
+    });
+    phoneAccountRepo.save({
+      deviceId: phone2Id,
+      platform: 'youtube',
+      identifier: 'phone2_yt_channel@gmail.com',
+      password: 'PassPhone2YouTube',
+    });
+
+    // 3. Verify Phone 1 accounts
+    const phone1Accounts = phoneAccountRepo.getAll(phone1Id);
+    expect(phone1Accounts.length).toBe(4);
+    const p1Google = phoneAccountRepo.getByPlatform('google', phone1Id);
+    const p1Fb = phoneAccountRepo.getByPlatform('facebook', phone1Id);
+    const p1Tt = phoneAccountRepo.getByPlatform('tiktok', phone1Id);
+    const p1Yt = phoneAccountRepo.getByPlatform('youtube', phone1Id);
+
+    expect(p1Google?.identifier).toBe('phone1.creator@gmail.com');
+    expect(p1Fb?.identifier).toBe('phone1_fb_uid_1111');
+    expect(p1Tt?.identifier).toBe('phone1_tiktok@gmail.com');
+    expect(p1Yt?.identifier).toBe('phone1_yt_channel@gmail.com');
+
+    // 4. Verify Phone 2 accounts
+    const phone2Accounts = phoneAccountRepo.getAll(phone2Id);
+    expect(phone2Accounts.length).toBe(4);
+    const p2Google = phoneAccountRepo.getByPlatform('google', phone2Id);
+    const p2Fb = phoneAccountRepo.getByPlatform('facebook', phone2Id);
+    const p2Tt = phoneAccountRepo.getByPlatform('tiktok', phone2Id);
+    const p2Yt = phoneAccountRepo.getByPlatform('youtube', phone2Id);
+
+    expect(p2Google?.identifier).toBe('phone2.creator@gmail.com');
+    expect(p2Fb?.identifier).toBe('phone2_fb_uid_2222');
+    expect(p2Tt?.identifier).toBe('phone2_tiktok@gmail.com');
+    expect(p2Yt?.identifier).toBe('phone2_yt_channel@gmail.com');
+
+    // 5. Verify Phone 1 accounts did not leak to Phone 2 and vice-versa
+    expect(phone1Accounts.some((a) => a.identifier.includes('phone2'))).toBe(false);
+    expect(phone2Accounts.some((a) => a.identifier.includes('phone1'))).toBe(false);
+
+    // 6. Verify ATX automation targets each phone's specific Google account
+    const yt1Login = await atxAutomationService.autoLoginYouTubeGoogle(phone1Id);
+    expect(yt1Login.accountEmail).toBe('phone1_yt_channel@gmail.com');
+
+    const yt2Login = await atxAutomationService.autoLoginYouTubeGoogle(phone2Id);
+    expect(yt2Login.accountEmail).toBe('phone2_yt_channel@gmail.com');
+
+    const tt1Login = await atxAutomationService.autoLoginTikTokGoogle(phone1Id);
+    expect(tt1Login.accountEmail).toBe('phone1_tiktok@gmail.com');
+
+    const tt2Login = await atxAutomationService.autoLoginTikTokGoogle(phone2Id);
+    expect(tt2Login.accountEmail).toBe('phone2_tiktok@gmail.com');
+  });
 });

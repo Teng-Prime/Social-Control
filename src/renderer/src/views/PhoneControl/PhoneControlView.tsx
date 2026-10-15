@@ -82,6 +82,7 @@ export const PhoneControlView: React.FC = () => {
 
   // Phone Account Configuration (Google, Facebook, TikTok, YouTube)
   const [accountCredentials, setAccountCredentials] = useState<PhoneAccountCredential[]>([]);
+  const [allAccountsMap, setAllAccountsMap] = useState<Record<string, Record<string, PhoneAccountCredential>>>({});
   const [isLoadingAccounts, setIsLoadingAccounts] = useState(false);
   const [showPassword, setShowPassword] = useState<Record<string, boolean>>({});
   const [formInputs, setFormInputs] = useState<Record<PhoneAccountPlatform, { identifier: string; password: string; twoFactorSecret: string }>>({
@@ -111,24 +112,40 @@ export const PhoneControlView: React.FC = () => {
 
   const fetchAccountCredentials = async (deviceId?: string) => {
     if (!window.api?.getPhoneAccountCredentials) return;
+    const targetDevId = deviceId || selectedDevice?.id || (devices.length > 0 ? devices[0].id : 'virtual_device');
     setIsLoadingAccounts(true);
     try {
-      const creds = await window.api.getPhoneAccountCredentials(deviceId || selectedDevice?.id);
+      // 1. Fetch credentials scoped specifically to this target device
+      const creds = await window.api.getPhoneAccountCredentials(targetDevId);
       setAccountCredentials(creds);
 
-      setFormInputs((prev) => {
-        const next = { ...prev };
-        creds.forEach((c) => {
-          if (next[c.platform]) {
-            next[c.platform] = {
-              identifier: c.identifier || '',
-              password: c.password || '',
-              twoFactorSecret: c.twoFactorSecret || '',
-            };
-          }
-        });
-        return next;
+      // Reset form inputs completely so another device's values never leak
+      const cleanInputs: Record<PhoneAccountPlatform, { identifier: string; password: string; twoFactorSecret: string }> = {
+        google: { identifier: '', password: '', twoFactorSecret: '' },
+        facebook: { identifier: '', password: '', twoFactorSecret: '' },
+        tiktok: { identifier: '', password: '', twoFactorSecret: '' },
+        youtube: { identifier: '', password: '', twoFactorSecret: '' },
+      };
+      creds.forEach((c) => {
+        if (cleanInputs[c.platform]) {
+          cleanInputs[c.platform] = {
+            identifier: c.identifier || '',
+            password: c.password || '',
+            twoFactorSecret: c.twoFactorSecret || '',
+          };
+        }
       });
+      setFormInputs(cleanInputs);
+
+      // 2. Fetch all credentials across all devices for per-device dashboard badges
+      const allCreds = await window.api.getPhoneAccountCredentials();
+      const map: Record<string, Record<string, PhoneAccountCredential>> = {};
+      allCreds.forEach((c) => {
+        const devKey = c.deviceId || 'default';
+        if (!map[devKey]) map[devKey] = {};
+        map[devKey][c.platform] = c;
+      });
+      setAllAccountsMap(map);
     } catch (err: any) {
       console.warn('Failed to load phone account credentials:', err);
     } finally {
@@ -148,10 +165,11 @@ export const PhoneControlView: React.FC = () => {
       return;
     }
 
+    const targetDevId = selectedDevice?.id || (devices.length > 0 ? devices[0].id : 'virtual_device');
     setSavingPlatform(platform);
     try {
       await window.api.savePhoneAccountCredential({
-        deviceId: selectedDevice?.id,
+        deviceId: targetDevId,
         platform,
         identifier: input.identifier.trim(),
         password: input.password.trim(),
@@ -160,9 +178,9 @@ export const PhoneControlView: React.FC = () => {
       addToast({
         type: 'success',
         title: `${platform.toUpperCase()} Saved`,
-        message: `Credentials saved for ${input.identifier}.`,
+        message: `Credentials saved for ${input.identifier} on ${selectedDevice?.model || targetDevId}.`,
       });
-      await fetchAccountCredentials();
+      await fetchAccountCredentials(targetDevId);
     } catch (err: any) {
       addToast({ type: 'error', title: 'Save Failed', message: err.message });
     } finally {
@@ -434,6 +452,8 @@ export const PhoneControlView: React.FC = () => {
   const handleOpenConfigModal = (dev: Device) => {
     setSelectedDevice(dev);
     loadDiagnostic(dev.id);
+    fetchSocialApps(dev.id);
+    fetchAccountCredentials(dev.id);
     setIsConfigModalOpen(true);
   };
 
@@ -769,6 +789,34 @@ export const PhoneControlView: React.FC = () => {
                                 </>
                               )}
                             </div>
+                            {/* Assigned Accounts Badge for this phone */}
+                            {(() => {
+                              const devAccs = allAccountsMap[device.id] || {};
+                              const gAcc = devAccs.google?.identifier;
+                              const configuredCount = Object.keys(devAccs).filter((k) => devAccs[k]?.identifier).length;
+                              return (
+                                <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                                  {gAcc ? (
+                                    <span
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono bg-red-950/40 text-red-300 border border-red-800/40"
+                                      title="Google Account configured for Play Store & auto-login"
+                                    >
+                                      <span className="font-bold text-red-400">G</span>
+                                      <span className="truncate max-w-[170px]">{gAcc}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono bg-studio-800/80 text-studio-500 border border-studio-750">
+                                      No Google Acct (Click Config)
+                                    </span>
+                                  )}
+                                  {configuredCount > 1 && (
+                                    <span className="text-[10px] text-cyan-400/90 font-mono bg-cyan-950/30 px-1.5 py-0.5 rounded border border-cyan-800/30">
+                                      +{configuredCount - 1} social accts
+                                    </span>
+                                  )}
+                                </div>
+                              );
+                            })()}
                           </div>
                         </div>
                       </td>
@@ -824,298 +872,23 @@ export const PhoneControlView: React.FC = () => {
         </div>
       </Card>
 
-      {/* Phone Account Configuration Table (Google, Facebook, TikTok, YouTube) */}
-      <Card
-        title="Phone Account Configuration & Automated Login"
-        subtitle="Configure device accounts for automated Play Store app installations and 1-click Google sign-in (TikTok & YouTube)"
-        action={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              icon={<RefreshCw size={13} className={isLoadingAccounts ? 'animate-spin' : ''} />}
-              onClick={() => fetchAccountCredentials()}
-            >
-              Refresh Accounts
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<PlayCircle size={13} className="text-red-400" />}
-              loading={runningAutoLogin === 'youtube'}
-              onClick={handleAutoLoginYouTube}
-            >
-              Auto-Login YouTube (Google)
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={<PlayCircle size={13} className="text-cyan-400" />}
-              loading={runningAutoLogin === 'tiktok'}
-              onClick={handleAutoLoginTikTok}
-            >
-              Auto-Login TikTok (Google)
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-4 text-xs">
-          {/* Informational banner about Google Account on phone */}
-          <div className="p-3.5 bg-gradient-to-r from-blue-950/40 via-studio-900 to-indigo-950/40 rounded-xl border border-[rgba(91,145,255,0.2)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-studio-300">
-            <div className="flex items-start gap-3">
-              <ShieldCheck className="text-cyan-400 shrink-0 mt-0.5" size={18} />
-              <div>
-                <span className="font-semibold text-studio-100 block">
-                  Isolated 1 Phone + 1 Google Account Policy
-                </span>
-                <span className="text-[11px] text-studio-400">
-                  Google account on phone unlocks automatic Play Store downloads (Facebook, YouTube, TikTok, ExpressVPN, Studio apps). TikTok and YouTube can then auto-login with Google.
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <Button
-                variant="outline"
-                size="sm"
-                icon={<UserCheck size={12} className="text-emerald-400" />}
-                onClick={() => handleOpenSettings('accounts')}
-              >
-                Phone Settings
-              </Button>
-            </div>
-          </div>
-
-          {/* Account Configuration Table */}
-          <div className="overflow-x-auto -mx-6 -my-2">
-            <table className="w-full text-left border-collapse text-xs">
-              <thead>
-                <tr className="border-b border-studio-750 bg-studio-900/60 text-studio-400 uppercase text-[10px] font-semibold tracking-wider">
-                  <th className="py-2.5 px-4">Platform & Service</th>
-                  <th className="py-2.5 px-4 min-w-[200px]">Account Identifier (Gmail / UID)</th>
-                  <th className="py-2.5 px-4 min-w-[180px]">Password</th>
-                  <th className="py-2.5 px-4 min-w-[150px]">2FA Secret / Code</th>
-                  <th className="py-2.5 px-3 text-center">Status</th>
-                  <th className="py-2.5 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-studio-800">
-                {(
-                  [
-                    {
-                      platform: 'google' as PhoneAccountPlatform,
-                      name: 'Google Account',
-                      desc: 'Play Store, YouTube & System Auth',
-                      idLabel: 'Gmail Address',
-                      idPlaceholder: 'creator.channel@gmail.com',
-                      passPlaceholder: 'Google password (for Play Store auth)',
-                      twoFaPlaceholder: '2FA TOTP secret key (optional)',
-                      color: 'border-red-500/30 text-red-400',
-                      badgeBg: 'bg-red-950/40 text-red-300 border-red-800/40',
-                      supportsGoogleAuth: false,
-                    },
-                    {
-                      platform: 'facebook' as PhoneAccountPlatform,
-                      name: 'Facebook Account',
-                      desc: 'Facebook & Meta Business Suite',
-                      idLabel: 'UID / Email',
-                      idPlaceholder: 'UID or login email',
-                      passPlaceholder: 'Facebook password',
-                      twoFaPlaceholder: 'Facebook 2FA secret key',
-                      color: 'border-blue-500/30 text-blue-400',
-                      badgeBg: 'bg-blue-950/40 text-blue-300 border-blue-800/40',
-                      supportsGoogleAuth: false,
-                    },
-                    {
-                      platform: 'tiktok' as PhoneAccountPlatform,
-                      name: 'TikTok Account',
-                      desc: 'TikTok & TikTok Studio',
-                      idLabel: 'Gmail / Username / Email',
-                      idPlaceholder: 'TikTok Gmail or username',
-                      passPlaceholder: 'TikTok password (or use Google Auth)',
-                      twoFaPlaceholder: 'TikTok 2FA key',
-                      color: 'border-cyan-500/30 text-cyan-400',
-                      badgeBg: 'bg-cyan-950/40 text-cyan-300 border-cyan-800/40',
-                      supportsGoogleAuth: true,
-                    },
-                    {
-                      platform: 'youtube' as PhoneAccountPlatform,
-                      name: 'YouTube Account',
-                      desc: 'YouTube & YouTube Studio',
-                      idLabel: 'Channel Gmail',
-                      idPlaceholder: 'channel.email@gmail.com',
-                      passPlaceholder: 'YouTube / Google password',
-                      twoFaPlaceholder: 'Channel 2FA key',
-                      color: 'border-rose-500/30 text-rose-400',
-                      badgeBg: 'bg-rose-950/40 text-rose-300 border-rose-800/40',
-                      supportsGoogleAuth: true,
-                    },
-                  ] as const
-                ).map((item) => {
-                  const input = formInputs[item.platform];
-                  const isConfigured = Boolean(input.identifier.trim());
-                  const isSaving = savingPlatform === item.platform;
-                  const isLoggingIn = runningAutoLogin === item.platform;
-                  const isShowingPass = Boolean(showPassword[item.platform]);
-
-                  return (
-                    <tr
-                      key={item.platform}
-                      className="hover:bg-studio-800/30 transition-colors"
-                    >
-                      {/* Platform & Service */}
-                      <td className="py-3 px-4">
-                        <div className="flex items-center gap-2.5">
-                          <div
-                            className={`w-7 h-7 rounded-lg bg-studio-850 border ${item.color} flex items-center justify-center font-bold text-xs shrink-0`}
-                          >
-                            {item.platform === 'google'
-                              ? 'G'
-                              : item.platform === 'facebook'
-                              ? 'f'
-                              : item.platform === 'tiktok'
-                              ? 'TT'
-                              : 'YT'}
-                          </div>
-                          <div>
-                            <span className="font-semibold text-studio-100 block">
-                              {item.name}
-                            </span>
-                            <span
-                              className={`text-[9px] font-mono px-1.5 py-0.2 rounded border ${item.badgeBg}`}
-                            >
-                              {item.desc}
-                            </span>
-                          </div>
-                        </div>
-                      </td>
-
-                      {/* Identifier Input */}
-                      <td className="py-3 px-4">
-                        <input
-                          type="text"
-                          value={input.identifier}
-                          onChange={(e) =>
-                            setFormInputs((prev) => ({
-                              ...prev,
-                              [item.platform]: {
-                                ...prev[item.platform],
-                                identifier: e.target.value,
-                              },
-                            }))
-                          }
-                          placeholder={item.idPlaceholder}
-                          className="w-full bg-studio-900 border border-studio-700/80 rounded-lg px-2.5 py-1 text-xs text-studio-100 placeholder-studio-500 focus:outline-none focus:border-cyan-400 font-mono transition-colors"
-                        />
-                      </td>
-
-                      {/* Password Input */}
-                      <td className="py-3 px-4">
-                        <div className="relative flex items-center">
-                          <input
-                            type={isShowingPass ? 'text' : 'password'}
-                            value={input.password}
-                            onChange={(e) =>
-                              setFormInputs((prev) => ({
-                                ...prev,
-                                [item.platform]: {
-                                  ...prev[item.platform],
-                                  password: e.target.value,
-                                },
-                              }))
-                            }
-                            placeholder={item.passPlaceholder}
-                            className="w-full bg-studio-900 border border-studio-700/80 rounded-lg pl-2.5 pr-8 py-1 text-xs text-studio-100 placeholder-studio-500 focus:outline-none focus:border-cyan-400 font-mono transition-colors"
-                          />
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setShowPassword((prev) => ({
-                                ...prev,
-                                [item.platform]: !prev[item.platform],
-                              }))
-                            }
-                            className="absolute right-2 text-studio-400 hover:text-studio-200 transition-colors"
-                            title={isShowingPass ? 'Hide password' : 'Show password'}
-                          >
-                            {isShowingPass ? <EyeOff size={13} /> : <Eye size={13} />}
-                          </button>
-                        </div>
-                      </td>
-
-                      {/* 2FA Secret Input */}
-                      <td className="py-3 px-4">
-                        <input
-                          type="text"
-                          value={input.twoFactorSecret}
-                          onChange={(e) =>
-                            setFormInputs((prev) => ({
-                              ...prev,
-                              [item.platform]: {
-                                ...prev[item.platform],
-                                twoFactorSecret: e.target.value,
-                              },
-                            }))
-                          }
-                          placeholder={item.twoFaPlaceholder}
-                          className="w-full bg-studio-900 border border-studio-700/80 rounded-lg px-2.5 py-1 text-xs text-studio-100 placeholder-studio-500 focus:outline-none focus:border-cyan-400 font-mono transition-colors"
-                        />
-                      </td>
-
-                      {/* Status Badge */}
-                      <td className="py-3 px-3 text-center">
-                        <Badge variant={isConfigured ? 'success' : 'neutral'} size="sm" dot>
-                          {isConfigured ? 'Configured' : 'Unset'}
-                        </Badge>
-                      </td>
-
-                      {/* Actions */}
-                      <td className="py-3 px-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            className="h-7 text-[11px] px-2.5"
-                            icon={<Save size={11} />}
-                            loading={isSaving}
-                            onClick={() => handleSaveCredential(item.platform)}
-                          >
-                            Save
-                          </Button>
-
-                          {item.supportsGoogleAuth && (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="h-7 text-[11px] px-2"
-                              icon={<LogIn size={11} className="text-cyan-400" />}
-                              loading={isLoggingIn}
-                              title={`Auto-run Google Login on ${item.name}`}
-                              onClick={
-                                item.platform === 'youtube'
-                                  ? handleAutoLoginYouTube
-                                  : handleAutoLoginTikTok
-                              }
-                            >
-                              Auto-Login
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </Card>
-
       {/* Social Media Publishing Apps & Play Store Remote Installation Card */}
       <Card
         title="Social Media Publishing Apps Setup (Play Store Remote Installation)"
         subtitle="Auto-install YouTube, TikTok, Facebook, ExpressVPN, YouTube Studio, TikTok Studio, and Meta Business Suite directly from Google Play Store"
         action={
           <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Settings size={13} className="text-brand-400" />}
+              onClick={() => {
+                if (selectedDevice) handleOpenConfigModal(selectedDevice);
+                else if (devices.length > 0) handleOpenConfigModal(devices[0]);
+              }}
+            >
+              Configure Accounts
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -1146,6 +919,38 @@ export const PhoneControlView: React.FC = () => {
         }
       >
         <div className="space-y-4 text-xs">
+          {/* Active Device & Google Account Context Banner */}
+          <div className="p-3.5 bg-gradient-to-r from-blue-950/40 via-studio-900 to-indigo-950/40 rounded-xl border border-[rgba(91,145,255,0.2)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-studio-300">
+            <div className="flex items-center gap-2.5">
+              <Smartphone size={16} className="text-brand-400 shrink-0" />
+              <div>
+                <span className="text-xs font-semibold text-studio-100 block">
+                  Target Phone: {selectedDevice?.model || 'Device'} ({selectedDevice?.serial || 'virtual_device'})
+                </span>
+                <span className="text-[11px] text-studio-400 flex items-center gap-1.5 flex-wrap">
+                  <span>Assigned Google Account:</span>
+                  {allAccountsMap[selectedDevice?.id || '']?.google?.identifier || formInputs.google.identifier ? (
+                    <span className="text-red-300 font-mono font-medium">
+                      {allAccountsMap[selectedDevice?.id || '']?.google?.identifier || formInputs.google.identifier}
+                    </span>
+                  ) : (
+                    <span className="text-amber-400/90 italic">None (click Configure Accounts to set up)</span>
+                  )}
+                </span>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={<Settings size={12} className="text-brand-400" />}
+              onClick={() => {
+                if (selectedDevice) handleOpenConfigModal(selectedDevice);
+                else if (devices.length > 0) handleOpenConfigModal(devices[0]);
+              }}
+            >
+              Configure This Phone's Accounts
+            </Button>
+          </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {phoneSocialApps.map((app) => {
               const isCurrentInstalling = installingPlayStorePackage === app.packageName;
@@ -1380,6 +1185,292 @@ export const PhoneControlView: React.FC = () => {
               />
             </div>
           </div>
+
+          {/* Phone Account Configuration Table (Google, Facebook, TikTok, YouTube) - Scoped to Selected Phone */}
+          <Card
+            title={`Phone Accounts & Automated Login — ${selectedDevice?.model || 'Device'}`}
+            subtitle={`Credentials isolated strictly for device: ${selectedDevice?.serial || 'virtual_device'}. Configure Google for Play Store installations and 1-click auto-login (TikTok & YouTube).`}
+            action={
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  icon={<RefreshCw size={13} className={isLoadingAccounts ? 'animate-spin' : ''} />}
+                  onClick={() => fetchAccountCredentials(selectedDevice?.id)}
+                >
+                  Refresh Accounts
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<PlayCircle size={13} className="text-red-400" />}
+                  loading={runningAutoLogin === 'youtube'}
+                  onClick={handleAutoLoginYouTube}
+                >
+                  Auto-Login YouTube (Google)
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<PlayCircle size={13} className="text-cyan-400" />}
+                  loading={runningAutoLogin === 'tiktok'}
+                  onClick={handleAutoLoginTikTok}
+                >
+                  Auto-Login TikTok (Google)
+                </Button>
+              </div>
+            }
+          >
+            <div className="space-y-4 text-xs">
+              {/* Informational banner about 1 Phone = 1 Account Set */}
+              <div className="p-3.5 bg-gradient-to-r from-blue-950/40 via-studio-900 to-indigo-950/40 rounded-xl border border-[rgba(91,145,255,0.2)] flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-studio-300">
+                <div className="flex items-start gap-3">
+                  <ShieldCheck className="text-cyan-400 shrink-0 mt-0.5" size={18} />
+                  <div>
+                    <span className="font-semibold text-studio-100 block">
+                      Isolated 1 Phone = 1 Account Set ({selectedDevice?.model || 'Device'})
+                    </span>
+                    <span className="text-[11px] text-studio-400">
+                      These credentials belong specifically to this device ({selectedDevice?.serial || 'virtual_device'}). If you have multiple phones, each phone stores its own accounts separately and will never overwrite each other.
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    icon={<UserCheck size={12} className="text-emerald-400" />}
+                    onClick={() => handleOpenSettings('accounts')}
+                  >
+                    Phone Settings
+                  </Button>
+                </div>
+              </div>
+
+              {/* Account Configuration Table */}
+              <div className="overflow-x-auto -mx-6 -my-2">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-studio-750 bg-studio-900/60 text-studio-400 uppercase text-[10px] font-semibold tracking-wider">
+                      <th className="py-2.5 px-4">Platform & Service</th>
+                      <th className="py-2.5 px-4 min-w-[200px]">Account Identifier (Gmail / UID)</th>
+                      <th className="py-2.5 px-4 min-w-[180px]">Password</th>
+                      <th className="py-2.5 px-4 min-w-[150px]">2FA Secret / Code</th>
+                      <th className="py-2.5 px-3 text-center">Status</th>
+                      <th className="py-2.5 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-studio-800">
+                    {(
+                      [
+                        {
+                          platform: 'google' as PhoneAccountPlatform,
+                          name: 'Google Account',
+                          desc: 'Play Store, YouTube & System Auth',
+                          idLabel: 'Gmail Address',
+                          idPlaceholder: 'creator.channel@gmail.com',
+                          passPlaceholder: 'Google password (for Play Store auth)',
+                          twoFaPlaceholder: '2FA TOTP secret key (optional)',
+                          color: 'border-red-500/30 text-red-400',
+                          badgeBg: 'bg-red-950/40 text-red-300 border-red-800/40',
+                          supportsGoogleAuth: false,
+                        },
+                        {
+                          platform: 'facebook' as PhoneAccountPlatform,
+                          name: 'Facebook Account',
+                          desc: 'Facebook & Meta Business Suite',
+                          idLabel: 'UID / Email',
+                          idPlaceholder: 'UID or login email',
+                          passPlaceholder: 'Facebook password',
+                          twoFaPlaceholder: 'Facebook 2FA secret key',
+                          color: 'border-blue-500/30 text-blue-400',
+                          badgeBg: 'bg-blue-950/40 text-blue-300 border-blue-800/40',
+                          supportsGoogleAuth: false,
+                        },
+                        {
+                          platform: 'tiktok' as PhoneAccountPlatform,
+                          name: 'TikTok Account',
+                          desc: 'TikTok & TikTok Studio',
+                          idLabel: 'Gmail / Username / Email',
+                          idPlaceholder: 'TikTok Gmail or username',
+                          passPlaceholder: 'TikTok password (or use Google Auth)',
+                          twoFaPlaceholder: 'TikTok 2FA key',
+                          color: 'border-cyan-500/30 text-cyan-400',
+                          badgeBg: 'bg-cyan-950/40 text-cyan-300 border-cyan-800/40',
+                          supportsGoogleAuth: true,
+                        },
+                        {
+                          platform: 'youtube' as PhoneAccountPlatform,
+                          name: 'YouTube Account',
+                          desc: 'YouTube & YouTube Studio',
+                          idLabel: 'Channel Gmail',
+                          idPlaceholder: 'channel.email@gmail.com',
+                          passPlaceholder: 'YouTube / Google password',
+                          twoFaPlaceholder: 'Channel 2FA key',
+                          color: 'border-rose-500/30 text-rose-400',
+                          badgeBg: 'bg-rose-950/40 text-rose-300 border-rose-800/40',
+                          supportsGoogleAuth: true,
+                        },
+                      ] as const
+                    ).map((item) => {
+                      const input = formInputs[item.platform];
+                      const isConfigured = Boolean(input.identifier.trim());
+                      const isSaving = savingPlatform === item.platform;
+                      const isLoggingIn = runningAutoLogin === item.platform;
+                      const isShowingPass = Boolean(showPassword[item.platform]);
+
+                      return (
+                        <tr
+                          key={item.platform}
+                          className="hover:bg-studio-800/30 transition-colors"
+                        >
+                          {/* Platform & Service */}
+                          <td className="py-3 px-4">
+                            <div className="flex items-center gap-2.5">
+                              <div
+                                className={`w-7 h-7 rounded-lg bg-studio-850 border ${item.color} flex items-center justify-center font-bold text-xs shrink-0`}
+                              >
+                                {item.platform === 'google'
+                                  ? 'G'
+                                  : item.platform === 'facebook'
+                                  ? 'f'
+                                  : item.platform === 'tiktok'
+                                  ? 'TT'
+                                  : 'YT'}
+                              </div>
+                              <div>
+                                <span className="font-semibold text-studio-100 block">
+                                  {item.name}
+                                </span>
+                                <span
+                                  className={`text-[9px] font-mono px-1.5 py-0.2 rounded border ${item.badgeBg}`}
+                                >
+                                  {item.desc}
+                                </span>
+                              </div>
+                            </div>
+                          </td>
+
+                          {/* Identifier Input */}
+                          <td className="py-3 px-4">
+                            <input
+                              type="text"
+                              value={input.identifier}
+                              onChange={(e) =>
+                                setFormInputs((prev) => ({
+                                  ...prev,
+                                  [item.platform]: {
+                                    ...prev[item.platform],
+                                    identifier: e.target.value,
+                                  },
+                                }))
+                              }
+                              placeholder={item.idPlaceholder}
+                              className="w-full bg-studio-900 border border-studio-700/80 rounded-lg px-2.5 py-1 text-xs text-studio-100 placeholder-studio-500 focus:outline-none focus:border-cyan-400 font-mono transition-colors"
+                            />
+                          </td>
+
+                          {/* Password Input */}
+                          <td className="py-3 px-4">
+                            <div className="relative flex items-center">
+                              <input
+                                type={isShowingPass ? 'text' : 'password'}
+                                value={input.password}
+                                onChange={(e) =>
+                                  setFormInputs((prev) => ({
+                                    ...prev,
+                                    [item.platform]: {
+                                      ...prev[item.platform],
+                                      password: e.target.value,
+                                    },
+                                  }))
+                                }
+                                placeholder={item.passPlaceholder}
+                                className="w-full bg-studio-900 border border-studio-700/80 rounded-lg pl-2.5 pr-8 py-1 text-xs text-studio-100 placeholder-studio-500 focus:outline-none focus:border-cyan-400 font-mono transition-colors"
+                              />
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setShowPassword((prev) => ({
+                                    ...prev,
+                                    [item.platform]: !prev[item.platform],
+                                  }))
+                                }
+                                className="absolute right-2 text-studio-400 hover:text-studio-200 transition-colors"
+                                title={isShowingPass ? 'Hide password' : 'Show password'}
+                              >
+                                {isShowingPass ? <EyeOff size={13} /> : <Eye size={13} />}
+                              </button>
+                            </div>
+                          </td>
+
+                          {/* 2FA Secret Input */}
+                          <td className="py-3 px-4">
+                            <input
+                              type="text"
+                              value={input.twoFactorSecret}
+                              onChange={(e) =>
+                                setFormInputs((prev) => ({
+                                  ...prev,
+                                  [item.platform]: {
+                                    ...prev[item.platform],
+                                    twoFactorSecret: e.target.value,
+                                  },
+                                }))
+                              }
+                              placeholder={item.twoFaPlaceholder}
+                              className="w-full bg-studio-900 border border-studio-700/80 rounded-lg px-2.5 py-1 text-xs text-studio-100 placeholder-studio-500 focus:outline-none focus:border-cyan-400 font-mono transition-colors"
+                            />
+                          </td>
+
+                          {/* Status Badge */}
+                          <td className="py-3 px-3 text-center">
+                            <Badge variant={isConfigured ? 'success' : 'neutral'} size="sm" dot>
+                              {isConfigured ? 'Configured' : 'Unset'}
+                            </Badge>
+                          </td>
+
+                          {/* Actions */}
+                          <td className="py-3 px-4 text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                className="h-7 text-[11px] px-2.5"
+                                icon={<Save size={11} />}
+                                loading={isSaving}
+                                onClick={() => handleSaveCredential(item.platform)}
+                              >
+                                Save
+                              </Button>
+
+                              {item.supportsGoogleAuth && (
+                                <Button
+                                  variant="secondary"
+                                  size="sm"
+                                  className="h-7 text-[11px] px-2"
+                                  icon={<LogIn size={11} className="text-cyan-400" />}
+                                  loading={isLoggingIn}
+                                  title={`Auto-run Google Login on ${item.name}`}
+                                  onClick={
+                                    item.platform === 'youtube'
+                                      ? handleAutoLoginYouTube
+                                      : handleAutoLoginTikTok
+                                  }
+                                >
+                                  Auto-Login
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </Card>
 
           {/* The 4 Setup Pillars Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
