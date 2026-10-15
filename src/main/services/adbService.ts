@@ -74,6 +74,18 @@ export const STUDIO_MANAGED_APPS: {
     playStoreUrl: 'https://play.google.com/store/apps/details?id=com.google.android.gms',
   },
   {
+    packageName: 'com.tiktok.creator.studio',
+    appName: 'TikTok Studio',
+    category: 'Social Publishing',
+    playStoreUrl: 'https://play.google.com/store/apps/details?id=com.tiktok.creator.studio',
+  },
+  {
+    packageName: 'com.facebook.pages.app',
+    appName: 'Facebook Business Suite',
+    category: 'Social Publishing',
+    playStoreUrl: 'https://play.google.com/store/apps/details?id=com.facebook.pages.app',
+  },
+  {
     packageName: 'com.instagram.android',
     appName: 'Instagram',
     category: 'Social Publishing',

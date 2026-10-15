@@ -457,6 +457,59 @@ export interface PhoneAppInfo {
   status: 'installed' | 'not_installed' | 'update_available' | 'unknown';
 }
 
+export type PhoneAccountPlatform = 'google' | 'facebook' | 'tiktok' | 'youtube';
+
+export interface PhoneAccountCredential {
+  id: string;
+  deviceId?: string;
+  platform: PhoneAccountPlatform;
+  identifier: string; // gmail, uid, username
+  password?: string;
+  twoFactorSecret?: string;
+  notes?: string;
+  lastVerifiedAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface PlayStoreInstallOptions {
+  deviceId: string;
+  packageName: string;
+  appName?: string;
+  googlePassword?: string;
+}
+
+export interface PlayStoreInstallResult {
+  packageName: string;
+  appName: string;
+  success: boolean;
+  message: string;
+  passwordPromptDetected?: boolean;
+  passwordEntered?: boolean;
+  currentStatus: 'installed' | 'not_installed' | 'installing' | 'failed';
+}
+
+export interface PlayStoreBatchResult {
+  total: number;
+  successful: number;
+  failed: number;
+  results: PlayStoreInstallResult[];
+}
+
+export interface GoogleAutoLoginStep {
+  step: string;
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  message: string;
+}
+
+export interface GoogleAutoLoginResult {
+  platform: 'youtube' | 'tiktok';
+  success: boolean;
+  accountEmail: string;
+  message: string;
+  steps: GoogleAutoLoginStep[];
+}
+
 export interface AccountEmailInfo {
   id: string;
   accountId: string;
@@ -955,6 +1008,15 @@ export interface IElectronAPI {
   advanceJobToPhone: (jobId: string, deviceId?: string) => Promise<{ success: boolean; message: string; stage: VideoWorkflowStage }>;
   launchScrcpy: (deviceId?: string) => Promise<{ success: boolean; message: string }>;
   updateMediaAssetWorkflow: (id: string, workflowStatus: VideoWorkflowStage) => Promise<MediaAsset>;
+
+  // Phone Account Configuration & Play Store Automation
+  getPhoneAccountCredentials: (deviceId?: string) => Promise<PhoneAccountCredential[]>;
+  savePhoneAccountCredential: (credential: Partial<PhoneAccountCredential> & { platform: PhoneAccountPlatform; identifier: string }) => Promise<PhoneAccountCredential>;
+  deletePhoneAccountCredential: (id: string) => Promise<boolean>;
+  installAppFromPlayStore: (options: PlayStoreInstallOptions) => Promise<PlayStoreInstallResult>;
+  installAllAppsFromPlayStore: (deviceId: string, googlePassword?: string) => Promise<PlayStoreBatchResult>;
+  autoLoginYouTubeGoogle: (deviceId: string, googleEmail?: string) => Promise<GoogleAutoLoginResult>;
+  autoLoginTikTokGoogle: (deviceId: string, googleEmail?: string) => Promise<GoogleAutoLoginResult>;
 }
 
 declare global {

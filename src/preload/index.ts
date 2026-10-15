@@ -188,6 +188,18 @@ const api: IElectronAPI = {
   launchScrcpy: (deviceId) => ipcRenderer.invoke('launchScrcpy', deviceId),
   updateMediaAssetWorkflow: (id, workflowStatus) =>
     ipcRenderer.invoke('updateMediaAssetWorkflow', id, workflowStatus),
+
+  // Phone Account Configuration & Play Store Remote Automation
+  getPhoneAccountCredentials: (deviceId) => ipcRenderer.invoke('getPhoneAccountCredentials', deviceId),
+  savePhoneAccountCredential: (credential) => ipcRenderer.invoke('savePhoneAccountCredential', credential),
+  deletePhoneAccountCredential: (id) => ipcRenderer.invoke('deletePhoneAccountCredential', id),
+  installAppFromPlayStore: (options) => ipcRenderer.invoke('installAppFromPlayStore', options),
+  installAllAppsFromPlayStore: (deviceId, googlePassword) =>
+    ipcRenderer.invoke('installAllAppsFromPlayStore', deviceId, googlePassword),
+  autoLoginYouTubeGoogle: (deviceId, googleEmail) =>
+    ipcRenderer.invoke('autoLoginYouTubeGoogle', deviceId, googleEmail),
+  autoLoginTikTokGoogle: (deviceId, googleEmail) =>
+    ipcRenderer.invoke('autoLoginTikTokGoogle', deviceId, googleEmail),
 };
 
 const authAPI = {

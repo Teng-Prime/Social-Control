@@ -27,6 +27,7 @@ import { projectRepo } from '../database/repositories/projectRepository';
 import { socialAccountRepo } from '../database/repositories/socialAccountRepository';
 import { publishJobRepo } from '../database/repositories/publishJobRepository';
 import { deviceRepo } from '../database/repositories/deviceRepository';
+import { phoneAccountRepo } from '../database/repositories/phoneAccountRepository';
 import { taskQueueRepo } from '../database/repositories/taskQueueRepository';
 import { activityLogRepo } from '../database/repositories/activityLogRepository';
 import { logger } from '../logger';
@@ -39,6 +40,7 @@ import {
   OtpVerificationRequest,
   PublishConfirmationRequest,
   VideoWorkflowStage,
+  PlayStoreInstallOptions,
 } from '../../shared/types';
 
 export function validateIpcSender(event: Electron.IpcMainInvokeEvent): boolean {
@@ -1011,5 +1013,34 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('updateMediaAssetWorkflow', async (_, id: string, workflowStatus: VideoWorkflowStage) => {
     return videoStudioService.updateWorkflowStatus(id, workflowStatus);
+  });
+
+  // 17. Phone Account Credentials & Play Store Remote Automation
+  ipcMain.handle('getPhoneAccountCredentials', async (_, deviceId?: string) => {
+    return phoneAccountRepo.getAll(deviceId);
+  });
+
+  ipcMain.handle('savePhoneAccountCredential', async (_, credential: any) => {
+    return phoneAccountRepo.save(credential);
+  });
+
+  ipcMain.handle('deletePhoneAccountCredential', async (_, id: string) => {
+    return phoneAccountRepo.delete(id);
+  });
+
+  ipcMain.handle('installAppFromPlayStore', async (_, options: PlayStoreInstallOptions) => {
+    return appInstallationService.installAppFromPlayStore(options);
+  });
+
+  ipcMain.handle('installAllAppsFromPlayStore', async (_, deviceId: string, googlePassword?: string) => {
+    return appInstallationService.installAllAppsFromPlayStore(deviceId, googlePassword);
+  });
+
+  ipcMain.handle('autoLoginYouTubeGoogle', async (_, deviceId: string, googleEmail?: string) => {
+    return atxAutomationService.autoLoginYouTubeGoogle(deviceId, googleEmail);
+  });
+
+  ipcMain.handle('autoLoginTikTokGoogle', async (_, deviceId: string, googleEmail?: string) => {
+    return atxAutomationService.autoLoginTikTokGoogle(deviceId, googleEmail);
   });
 }

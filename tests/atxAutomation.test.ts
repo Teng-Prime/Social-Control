@@ -192,4 +192,45 @@ describe('ATX Android Automation Engine', () => {
     expect(stepTitles).toContain('5. Enter Caption');
     expect(stepTitles).toContain('6. Share Reel');
   });
+
+  it('YouTube Google Auto-Login: should automate hands-free Google sign-in for YouTube', async () => {
+    const result = await atxAutomationService.autoLoginYouTubeGoogle(
+      testDeviceId,
+      'creator.channel@gmail.com'
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.platform).toBe('youtube');
+    expect(result.accountEmail).toBe('creator.channel@gmail.com');
+    expect(result.message).toContain('creator.channel@gmail.com');
+    expect(result.steps.length).toBeGreaterThanOrEqual(4);
+
+    const stepTitles = result.steps.map((s) => s.step);
+    expect(stepTitles).toContain('1. Device Wakeup');
+    expect(stepTitles).toContain('2. Launch YouTube');
+    expect(stepTitles).toContain('3. Locate Account Profile');
+    expect(stepTitles).toContain('4. Select Google Account');
+    expect(stepTitles).toContain('5. Verify Sign-in');
+  });
+
+  it('TikTok Google Auto-Login: should automate hands-free Google sign-in for TikTok', async () => {
+    const result = await atxAutomationService.autoLoginTikTokGoogle(
+      testDeviceId,
+      'tiktok.creator@gmail.com'
+    );
+
+    expect(result.success).toBe(true);
+    expect(result.platform).toBe('tiktok');
+    expect(result.accountEmail).toBe('tiktok.creator@gmail.com');
+    expect(result.message).toContain('tiktok.creator@gmail.com');
+    expect(result.steps.length).toBeGreaterThanOrEqual(5);
+
+    const stepTitles = result.steps.map((s) => s.step);
+    expect(stepTitles).toContain('1. Device Wakeup');
+    expect(stepTitles).toContain('2. Launch TikTok');
+    expect(stepTitles).toContain('3. Open Profile Tab');
+    expect(stepTitles).toContain('4. Tap "Continue with Google"');
+    expect(stepTitles).toContain('5. Select Google Account');
+    expect(stepTitles).toContain('6. Confirm Authorization');
+  });
 });

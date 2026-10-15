@@ -115,4 +115,103 @@ describe('Phone Setup & Provisioning Process (1 Phone + 1 Google Account)', () =
     const batchResult = await adbService.installAllApps(testDeviceId);
     expect(batchResult.installed).toBeGreaterThan(0);
   });
+
+  it('Play Store Apps Definitions: should define all 7 target publishing and utility apps', async () => {
+    const { SUPPORTED_PUBLISHING_APPS } = await import('../src/main/services/appInstallationService');
+    expect(SUPPORTED_PUBLISHING_APPS.length).toBe(7);
+
+    const pkgs = SUPPORTED_PUBLISHING_APPS.map((a) => a.packageName);
+    expect(pkgs).toContain('com.facebook.katana'); // Facebook
+    expect(pkgs).toContain('com.google.android.youtube'); // YouTube
+    expect(pkgs).toContain('com.zhiliaoapp.musically'); // TikTok
+    expect(pkgs).toContain('com.expressvpn.vpn'); // ExpressVPN
+    expect(pkgs).toContain('com.google.android.apps.youtube.creator'); // YouTube Studio
+    expect(pkgs).toContain('com.tiktok.creator.studio'); // TikTok Studio
+    expect(pkgs).toContain('com.facebook.pages.app'); // Facebook Business Suite
+  });
+
+  it('Play Store Remote Install: should support automated install with password bypass or entry', async () => {
+    const { appInstallationService } = await import('../src/main/services/appInstallationService');
+
+    // 1. Install without password (skip if not needed)
+    const resNoPass = await appInstallationService.installAppFromPlayStore({
+      deviceId: testDeviceId,
+      packageName: 'com.zhiliaoapp.musically',
+      appName: 'TikTok',
+    });
+    expect(resNoPass.success).toBe(true);
+    expect(resNoPass.currentStatus).toBe('installed');
+    expect(resNoPass.passwordPromptDetected).toBe(false);
+
+    // 2. Install with password provided (enters password if prompted)
+    const resWithPass = await appInstallationService.installAppFromPlayStore({
+      deviceId: testDeviceId,
+      packageName: 'com.google.android.youtube',
+      appName: 'YouTube',
+      googlePassword: 'TestGooglePassword123!',
+    });
+    expect(resWithPass.success).toBe(true);
+    expect(resWithPass.passwordPromptDetected).toBe(true);
+    expect(resWithPass.passwordEntered).toBe(true);
+
+    // 3. Batch install all 7 apps from Play Store
+    const batchRes = await appInstallationService.installAllAppsFromPlayStore(testDeviceId, 'TestPass123!');
+    expect(batchRes.total).toBe(7);
+    expect(batchRes.successful).toBe(7);
+    expect(batchRes.failed).toBe(0);
+  });
+
+  it('Phone Account Credentials Table: should save and retrieve Google, Facebook, TikTok, and YouTube credentials', async () => {
+    const { phoneAccountRepo } = await import('../src/main/database/repositories/phoneAccountRepository');
+
+    // 1. Google (gmail, pass, 2fa)
+    const googleCred = phoneAccountRepo.save({
+      deviceId: testDeviceId,
+      platform: 'google',
+      identifier: 'creator.channel@gmail.com',
+      password: 'GooglePassSecure2026',
+      twoFactorSecret: 'JBSWY3DPEHPK3PXP',
+    });
+    expect(googleCred.platform).toBe('google');
+    expect(googleCred.identifier).toBe('creator.channel@gmail.com');
+    expect(googleCred.password).toBe('GooglePassSecure2026');
+
+    // 2. Facebook (uid, pass, 2fa)
+    const fbCred = phoneAccountRepo.save({
+      deviceId: testDeviceId,
+      platform: 'facebook',
+      identifier: '100089234821',
+      password: 'FBPassword2026!',
+      twoFactorSecret: 'HXDMVJECJJWSRZ3U',
+    });
+    expect(fbCred.platform).toBe('facebook');
+    expect(fbCred.identifier).toBe('100089234821');
+
+    // 3. TikTok (gmail, pass, 2fa)
+    const ttCred = phoneAccountRepo.save({
+      deviceId: testDeviceId,
+      platform: 'tiktok',
+      identifier: 'tiktok.creator@gmail.com',
+      password: 'TikTokSecretPass',
+      twoFactorSecret: 'KRSXG5CTMVRXEZLU',
+    });
+    expect(ttCred.platform).toBe('tiktok');
+
+    // 4. YouTube (gmail, pass, 2fa)
+    const ytCred = phoneAccountRepo.save({
+      deviceId: testDeviceId,
+      platform: 'youtube',
+      identifier: 'channel.yt@gmail.com',
+      password: 'YTPasswordPass',
+      twoFactorSecret: 'OBZXG33QNZ2W423M',
+    });
+    expect(ytCred.platform).toBe('youtube');
+
+    // Retrieve all for device
+    const allCreds = phoneAccountRepo.getAll(testDeviceId);
+    expect(allCreds.length).toBeGreaterThanOrEqual(4);
+
+    const retrievedGoogle = phoneAccountRepo.getByPlatform('google', testDeviceId);
+    expect(retrievedGoogle?.identifier).toBe('creator.channel@gmail.com');
+  });
 });
