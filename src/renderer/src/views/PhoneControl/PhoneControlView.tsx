@@ -63,9 +63,7 @@ export const PhoneControlView: React.FC = () => {
   // Phone Setup & Diagnostics State
   const [diagnostic, setDiagnostic] = useState<PhoneSetupDiagnostic | null>(null);
   const [isLoadingDiagnostic, setIsLoadingDiagnostic] = useState(false);
-  const [installingPackage, setInstallingPackage] = useState<string | null>(null);
-  const [isBatchInstalling, setIsBatchInstalling] = useState(false);
-  const [appFilter, setAppFilter] = useState<'all' | 'missing' | 'installed'>('all');
+
 
   // Modals & Wizards
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -578,70 +576,7 @@ export const PhoneControlView: React.FC = () => {
   };
 
 
-  const handleInstallSingleApp = async (app: LocalAppPackageInfo) => {
-    if (!selectedDevice && !diagnostic?.deviceId) return;
-    const targetDevId = selectedDevice?.id || diagnostic?.deviceId || 'virtual_device';
 
-    setInstallingPackage(app.packageName);
-    try {
-      if (window.api) {
-        addToast({
-          type: 'info',
-          title: `Installing ${app.appName}...`,
-          message: `Pushing and installing ${app.format.toUpperCase()} from apps folder to device`,
-        });
-
-        const res: AppInstallResult = await window.api.installAppOnPhone(targetDevId, app.filePath);
-        if (res.success) {
-          addToast({
-            type: 'success',
-            title: `${app.appName} Installed!`,
-            message: res.message,
-          });
-          await loadDiagnostic(targetDevId);
-        } else {
-          addToast({
-            type: 'error',
-            title: `Installation Failed: ${app.appName}`,
-            message: res.message,
-          });
-        }
-      }
-    } catch (err: any) {
-      addToast({ type: 'error', title: 'Install Error', message: err.message });
-    } finally {
-      setInstallingPackage(null);
-    }
-  };
-
-  const handleBatchInstallAll = async () => {
-    if (!selectedDevice && !diagnostic?.deviceId) return;
-    const targetDevId = selectedDevice?.id || diagnostic?.deviceId || 'virtual_device';
-
-    setIsBatchInstalling(true);
-    try {
-      if (window.api) {
-        addToast({
-          type: 'info',
-          title: 'Batch Installing Apps...',
-          message: 'Installing all missing apps from apps/ folder to phone',
-        });
-
-        const batchRes = await window.api.installAllAppsOnPhone(targetDevId);
-        addToast({
-          type: batchRes.failed === 0 ? 'success' : 'warn',
-          title: `Batch Installation Finished`,
-          message: `Successfully installed ${batchRes.installed} of ${batchRes.total} missing apps.`,
-        });
-        await loadDiagnostic(targetDevId);
-        await fetchDevices();
-      }
-    } catch (err: any) {
-      addToast({ type: 'error', title: 'Batch Install Failed', message: err.message });
-    } finally {
-      setIsBatchInstalling(false);
-    }
-  };
 
   const handleRequestRoot = async () => {
     if (!selectedDevice && !diagnostic?.deviceId) return;
@@ -691,11 +626,7 @@ export const PhoneControlView: React.FC = () => {
     }
   };
 
-  const filteredApps = (diagnostic?.appsFolderStatus.apps || []).filter((app) => {
-    if (appFilter === 'missing') return !app.isInstalled;
-    if (appFilter === 'installed') return app.isInstalled;
-    return true;
-  });
+
 
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-6 select-none overflow-y-auto h-full">
@@ -1276,19 +1207,19 @@ export const PhoneControlView: React.FC = () => {
                 </h3>
               </div>
 
-              {diagnostic?.appsFolderStatus.missingCount && diagnostic.appsFolderStatus.missingCount > 0 ? (
+              {phoneSocialApps.some((a) => !a.isInstalled) ? (
                 <Button
                   variant="primary"
                   size="sm"
                   icon={<Download size={14} />}
-                  loading={isBatchInstalling}
-                  onClick={handleBatchInstallAll}
+                  loading={isBatchPlayStoreInstalling}
+                  onClick={handleBatchPlayStoreInstallAll}
                 >
-                  Install All Missing Apps ({diagnostic.appsFolderStatus.missingCount})
+                  Install Play Store Apps ({phoneSocialApps.filter((a) => !a.isInstalled).length} missing)
                 </Button>
               ) : (
                 <Badge variant="success" size="md">
-                  ✓ All Required Apps Installed
+                  ✓ All Required Play Store Apps Installed
                 </Badge>
               )}
             </div>
@@ -1729,29 +1660,28 @@ export const PhoneControlView: React.FC = () => {
               </div>
             </Card>
 
-            {/* Pillar 4: Studio Apps Status */}
+            {/* Pillar 4: Play Store Publishing Apps */}
             <Card
-              title="4. Studio Apps Folder"
-              subtitle="Local APK & XAPK packages"
+              title="4. Play Store Apps"
+              subtitle="7 Publishing & Studio Apps"
             >
               <div className="space-y-3 text-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-studio-400">Installed Apps:</span>
+                  <span className="text-studio-400">Play Store Apps:</span>
                   <Badge
                     variant={
-                      diagnostic?.appsFolderStatus.missingCount === 0 ? 'success' : 'warning'
+                      phoneSocialApps.length > 0 && phoneSocialApps.every((a) => a.isInstalled) ? 'success' : 'warning'
                     }
                     size="sm"
                   >
-                    {diagnostic?.appsFolderStatus.installedCount || 0} /{' '}
-                    {diagnostic?.appsFolderStatus.totalAppsInFolder || 0}
+                    {phoneSocialApps.filter((a) => a.isInstalled).length} / {phoneSocialApps.length || 7}
                   </Badge>
                 </div>
 
                 <div className="p-2.5 rounded-lg bg-studio-900 border border-studio-800 text-[11px] text-studio-300">
-                  {diagnostic?.appsFolderStatus.missingCount === 0
-                    ? 'All APK packages from apps/ folder installed.'
-                    : `${diagnostic?.appsFolderStatus.missingCount} package(s) ready to install from apps/`}
+                  {phoneSocialApps.length > 0 && phoneSocialApps.every((a) => a.isInstalled)
+                    ? 'All publishing apps installed via Google Play Store.'
+                    : `${phoneSocialApps.filter((a) => !a.isInstalled).length} app(s) missing. Ready for Play Store auto-install.`}
                 </div>
 
                 <Button
@@ -1759,164 +1689,18 @@ export const PhoneControlView: React.FC = () => {
                   size="sm"
                   className="w-full text-[11px]"
                   icon={<Download size={12} />}
-                  loading={isBatchInstalling}
-                  disabled={!diagnostic?.appsFolderStatus.missingCount}
-                  onClick={handleBatchInstallAll}
+                  loading={isBatchPlayStoreInstalling}
+                  disabled={phoneSocialApps.length > 0 && phoneSocialApps.every((a) => a.isInstalled)}
+                  onClick={handleBatchPlayStoreInstallAll}
                 >
-                  Install All Missing
+                  Install via Play Store
                 </Button>
               </div>
             </Card>
           </div>
-
-          {/* Local Apps Folder Manager */}
-          <Card
-            title="Local 'apps' Folder Packages"
-            subtitle="APKs and XAPKs detected in apps/ folder ready for 1-click phone installation"
-            action={
-              <div className="flex items-center gap-2">
-                <div className="flex bg-studio-900 p-0.5 rounded-lg border border-studio-800 text-[11px]">
-                  <button
-                    type="button"
-                    onClick={() => setAppFilter('all')}
-                    className={`px-2 py-0.5 rounded ${
-                      appFilter === 'all' ? 'bg-studio-750 text-white' : 'text-studio-400'
-                    }`}
-                  >
-                    All ({diagnostic?.appsFolderStatus.totalAppsInFolder || 0})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAppFilter('missing')}
-                    className={`px-2 py-0.5 rounded ${
-                      appFilter === 'missing' ? 'bg-studio-750 text-white' : 'text-studio-400'
-                    }`}
-                  >
-                    Missing ({diagnostic?.appsFolderStatus.missingCount || 0})
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setAppFilter('installed')}
-                    className={`px-2 py-0.5 rounded ${
-                      appFilter === 'installed' ? 'bg-studio-750 text-white' : 'text-studio-400'
-                    }`}
-                  >
-                    Installed ({diagnostic?.appsFolderStatus.installedCount || 0})
-                  </button>
-                </div>
-
-                <Button
-                  variant="primary"
-                  size="sm"
-                  icon={<Download size={13} />}
-                  loading={isBatchInstalling}
-                  disabled={!diagnostic?.appsFolderStatus.missingCount}
-                  onClick={handleBatchInstallAll}
-                >
-                  Install Missing
-                </Button>
-              </div>
-            }
-          >
-            {filteredApps.length === 0 ? (
-              <div className="text-center py-8 text-xs text-studio-500">
-                No apps matching the filter.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
-                {filteredApps.map((app) => {
-                  const isCurrentInstalling = installingPackage === app.packageName;
-
-                  return (
-                    <div
-                      key={app.fileName}
-                      className={`p-3.5 rounded-xl border flex flex-col justify-between space-y-3 transition-all ${
-                        app.isInstalled
-                          ? 'bg-studio-900/90 border-emerald-500/20 shadow-subtle'
-                          : 'bg-studio-850/80 border-studio-750 hover:border-studio-650'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <span className="font-bold text-studio-100 text-xs truncate max-w-[150px]">
-                            {app.appName}
-                          </span>
-                          <span
-                            className={`text-[9px] uppercase font-mono px-1.5 py-0.5 rounded font-semibold ${
-                              app.format === 'xapk'
-                                ? 'bg-indigo-950/80 text-indigo-300 border border-indigo-700/50'
-                                : 'bg-cyan-950/80 text-cyan-300 border border-cyan-700/50'
-                            }`}
-                          >
-                            {app.format}
-                          </span>
-                        </div>
-
-                        <span className="text-[10px] text-studio-400 font-mono block truncate">
-                          {app.packageName}
-                        </span>
-
-                        <div className="flex items-center justify-between text-[10px] text-studio-400 mt-2">
-                          <span className="text-studio-400 font-mono">
-                            {(app.fileSizeBytes / (1024 * 1024)).toFixed(1)} MB
-                          </span>
-                          {app.isInstalled ? (
-                            <span className="text-emerald-400 font-semibold flex items-center gap-1">
-                              <Check size={11} /> Installed
-                            </span>
-                          ) : (
-                            <span className="text-amber-400 font-semibold flex items-center gap-1">
-                              <Download size={11} /> Not Installed
-                            </span>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="pt-2 border-t border-studio-800">
-                        {app.isInstalled ? (
-                          <div className="flex gap-1.5">
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              className="flex-1 text-[11px]"
-                              icon={<Play size={11} />}
-                              onClick={() => {
-                                if (selectedDevice) handleLaunchApp(selectedDevice.id, app.packageName);
-                              }}
-                            >
-                              Launch
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              title="Reinstall APK"
-                              icon={<RefreshCw size={11} className={isCurrentInstalling ? 'animate-spin' : ''} />}
-                              loading={isCurrentInstalling}
-                              onClick={() => handleInstallSingleApp(app)}
-                            />
-                          </div>
-                        ) : (
-                          <Button
-                            variant="primary"
-                            size="sm"
-                            className="w-full text-[11px]"
-                            icon={<Download size={12} />}
-                            loading={isCurrentInstalling}
-                            onClick={() => handleInstallSingleApp(app)}
-                          >
-                            Install to Phone
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </Card>
         </div>
-        </div>
-      </Modal>
+      </div>
+    </Modal>
 
       {/* Setup Guide Modal */}
       <Modal
