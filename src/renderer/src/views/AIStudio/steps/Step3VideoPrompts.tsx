@@ -86,6 +86,14 @@ export const Step3VideoPrompts: React.FC<Step3VideoPromptsProps> = ({
 
   const handleGenerateSceneVideo = async (sceneId: string) => {
     if (!window.api) return;
+    if (primaryChar && (!primaryChar.references || primaryChar.references.length === 0)) {
+      addToast({
+        type: 'warn',
+        title: 'Character Image Required',
+        message: `Cannot generate video: "${primaryChar.name}" has no image. Only characters with a generated or uploaded image can be used.`,
+      });
+      return;
+    }
     setIsGeneratingSceneVideo(sceneId);
     try {
       await window.api.generateSceneVideo(sceneId);
@@ -104,6 +112,14 @@ export const Step3VideoPrompts: React.FC<Step3VideoPromptsProps> = ({
 
   const handleGenerateAllSceneVideos = async () => {
     if (!window.api) return;
+    if (primaryChar && (!primaryChar.references || primaryChar.references.length === 0)) {
+      addToast({
+        type: 'warn',
+        title: 'Character Image Required',
+        message: `Cannot generate videos: "${primaryChar.name}" has no image. Only characters with a generated or uploaded image can be used.`,
+      });
+      return;
+    }
     setIsGeneratingSceneVideo('all');
     try {
       const res = await window.api.generateAllSceneVideos(project.id);
@@ -304,9 +320,19 @@ ${scene.narration}
 
       {/* Continuity Tags & Keyframe Photo Banner */}
       {primaryChar && (
-        <div className="p-3.5 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-between gap-4 text-xs">
+        <div
+          className={`p-3.5 rounded-2xl flex items-center justify-between gap-4 text-xs ${
+            defaultRefPhoto
+              ? 'bg-brand-500/10 border border-brand-500/20'
+              : 'bg-amber-500/10 border border-amber-500/30'
+          }`}
+        >
           <div className="flex items-center gap-3 min-w-0">
-            <div className="w-12 h-12 rounded-xl bg-studio-950 border border-brand-500/50 overflow-hidden shrink-0 flex items-center justify-center relative shadow-subtle">
+            <div
+              className={`w-12 h-12 rounded-xl bg-studio-950 border overflow-hidden shrink-0 flex items-center justify-center relative shadow-subtle ${
+                defaultRefPhoto ? 'border-brand-500/50' : 'border-amber-500/50'
+              }`}
+            >
               {defaultRefPhoto ? (
                 <img
                   src={`file://${defaultRefPhoto.replace(/\\/g, '/')}`}
@@ -314,25 +340,34 @@ ${scene.narration}
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <Camera size={20} className="text-studio-600" />
+                <Lock size={20} className="text-amber-400" />
               )}
-              <span className="absolute bottom-0 inset-x-0 bg-brand-500 text-white text-[8px] font-bold text-center">
-                KEY
+              <span
+                className={`absolute bottom-0 inset-x-0 text-white text-[8px] font-bold text-center ${
+                  defaultRefPhoto ? 'bg-brand-500' : 'bg-amber-500'
+                }`}
+              >
+                {defaultRefPhoto ? 'KEY' : 'LOCK'}
               </span>
             </div>
 
             <div className="min-w-0">
               <span className="text-studio-200 block truncate">
-                Locked Face Continuity: <strong className="text-brand-300 font-bold">{primaryChar.name}</strong>
+                {defaultRefPhoto ? 'Locked Face Continuity: ' : '⚠️ Missing Reference Photo: '}
+                <strong className={defaultRefPhoto ? 'text-brand-300 font-bold' : 'text-amber-300 font-bold'}>
+                  {primaryChar.name}
+                </strong>
               </span>
               <span className="text-[11px] text-studio-400 block truncate mt-0.5">
-                Using reference photo as initial keyframe seed • {primaryChar.references.length} available photo angle{primaryChar.references.length === 1 ? '' : 's'}
+                {defaultRefPhoto
+                  ? `Using reference photo as initial keyframe seed • ${primaryChar.references.length} available photo angle${primaryChar.references.length === 1 ? '' : 's'}`
+                  : 'Characters require a generated or uploaded image to generate scene videos. Return to Step 1 to add a reference photo.'}
               </span>
             </div>
           </div>
 
           <div className="shrink-0 flex items-center gap-2">
-            {defaultRefPhoto && (
+            {defaultRefPhoto ? (
               <Button
                 variant="secondary"
                 size="sm"
@@ -341,6 +376,10 @@ ${scene.narration}
               >
                 Copy Keyframe Photo
               </Button>
+            ) : (
+              <Badge variant="warning" size="sm" dot>
+                Image Required
+              </Badge>
             )}
             <Badge variant="primary" size="sm">
               {scenes.length} Scenes

@@ -98,9 +98,26 @@ export const AIStudioView: React.FC = () => {
   // Toggle Character Selection
   const handleToggleCharacter = async (charId: string) => {
     if (!activeProject) return;
+    const char = characters.find((c) => c.id === charId);
+    if (!char) return;
+
     const current = activeProject.selectedCharacterIds || [];
+    const isCurrentlySelected = current.includes(charId);
+
+    if (!isCurrentlySelected) {
+      // Enforce: Character must have a generated image or uploaded image to be used
+      if (!char.references || char.references.length === 0) {
+        addToast({
+          type: 'warn',
+          title: 'Character Image Required',
+          message: `Only characters with a generated image or uploaded image can be used. Please generate or upload a photo for "${char.name}".`,
+        });
+        return;
+      }
+    }
+
     let updatedIds: string[];
-    if (current.includes(charId)) {
+    if (isCurrentlySelected) {
       updatedIds = current.filter((id) => id !== charId);
     } else {
       updatedIds = [...current, charId];
@@ -118,6 +135,15 @@ export const AIStudioView: React.FC = () => {
         return {
           valid: false,
           reason: 'No character selected. Please select or create an AI protagonist to continue.',
+        };
+      }
+
+      const selected = characters.filter((c) => activeProject.selectedCharacterIds?.includes(c.id));
+      const missingImage = selected.find((c) => !c.references || c.references.length === 0);
+      if (missingImage) {
+        return {
+          valid: false,
+          reason: `Character "${missingImage.name}" has no image. Only characters with a generated image or uploaded image can be used.`,
         };
       }
     } else if (stepNumber === 2) {

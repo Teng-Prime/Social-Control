@@ -180,6 +180,15 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
           }
           addToast({ type: 'success', title: 'Character Profile Updated', message: form.name });
         } else {
+          // A character MUST have an image (Generate to Image or Upload Image)
+          if (!uploadedPhotoPath && !autoGenerateOnSave) {
+            addToast({
+              type: 'warn',
+              title: 'Image Required',
+              message: 'Characters must have a generated image or uploaded image to be used. Auto-generating AI image.',
+            });
+          }
+
           const created = await window.api.createCharacter(form);
           addToast({ type: 'success', title: 'Character Created', message: created.name });
 
@@ -190,14 +199,15 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
               'Direct uploaded reference photo',
               true
             );
-          } else if (autoGenerateOnSave) {
+          } else {
+            // Auto-generate AI photo so character is immediately usable
             setIsGeneratingPhoto(created.id);
             try {
               await window.api.generateCharacterPhoto(created.id, 'front');
               addToast({
                 type: 'success',
                 title: 'AI Reference Photo Created',
-                message: 'Front portrait photo generated for character consistency.',
+                message: 'Front portrait generated. Character is now ready to use.',
               });
             } catch (err: any) {
               console.warn('Auto photo generation notice:', err.message);
@@ -337,7 +347,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
             Step 1: Character Photo Generation & Consistent Identity
           </h2>
           <p className="text-xs text-studio-400 mt-0.5">
-            Generate AI reference photos of your character to use as the visual keyframe across all story videos.
+            Only characters with a <strong>generated image</strong> or <strong>uploaded image</strong> can be used for story video generation.
           </p>
         </div>
 
@@ -348,7 +358,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
             icon={<Sparkles size={13} />}
             onClick={() => handleOpenNewCharacter('ai')}
           >
-            Generate AI Character
+            Generate to Image
           </Button>
 
           <Button
@@ -357,7 +367,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
             icon={<Upload size={13} />}
             onClick={handleDirectUploadNewCharacter}
           >
-            Upload Character Photo
+            Upload Image
           </Button>
 
           <div className="bg-studio-950 p-1 rounded-xl border border-studio-800 flex items-center gap-1 ml-2">
@@ -428,6 +438,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
               {characters.map((char) => {
                 const isSelected = selectedCharacterIds.includes(char.id);
+                const hasImage = Boolean(char.references && char.references.length > 0);
                 const primaryRef = char.references.find((r) => r.isPrimary) || char.references[0];
                 const isGeneratingThis = isGeneratingPhoto === char.id;
                 const isPhotoMenuOpen = photoMenuCharId === char.id;
@@ -435,11 +446,23 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                 return (
                   <div
                     key={char.id}
-                    onClick={() => onToggleCharacter(char.id)}
-                    className={`p-4 rounded-2xl border transition-all cursor-pointer relative group flex flex-col justify-between ${
-                      isSelected
-                        ? 'bg-brand-500/15 border-brand-500 shadow-glow-brand ring-1 ring-brand-500/30'
-                        : 'bg-studio-850/80 border-studio-800 hover:border-studio-700 hover:bg-studio-800/60'
+                    onClick={() => {
+                      if (!hasImage) {
+                        addToast({
+                          type: 'warn',
+                          title: 'Image Required to Use',
+                          message: `Cannot use "${char.name}". Only characters with a generated image or uploaded image can be used in story videos.`,
+                        });
+                        return;
+                      }
+                      onToggleCharacter(char.id);
+                    }}
+                    className={`p-4 rounded-2xl border transition-all relative group flex flex-col justify-between ${
+                      !hasImage
+                        ? 'bg-studio-900/60 border-amber-500/30'
+                        : isSelected
+                        ? 'bg-brand-500/15 border-brand-500 shadow-glow-brand ring-1 ring-brand-500/30 cursor-pointer'
+                        : 'bg-studio-850/80 border-studio-800 hover:border-studio-700 hover:bg-studio-800/60 cursor-pointer'
                     }`}
                   >
                     <div>
@@ -474,77 +497,113 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                           </div>
 
                           <div className="min-w-0">
-                            <h3 className="text-sm font-bold text-studio-100 truncate">{char.name}</h3>
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm font-bold text-studio-100 truncate">{char.name}</h3>
+                              {hasImage ? (
+                                <Badge variant="success" size="sm" dot>
+                                  Ready
+                                </Badge>
+                              ) : (
+                                <Badge variant="warning" size="sm" dot>
+                                  Needs Image
+                                </Badge>
+                              )}
+                            </div>
                             <p className="text-[11px] text-studio-400 line-clamp-1 mt-0.5">
                               {char.description || char.appearance}
                             </p>
                             <span className="text-[10px] text-brand-400 font-mono mt-1 block font-semibold">
-                              {char.references.length} Keyframe Photo{char.references.length === 1 ? '' : 's'}
+                              {hasImage
+                                ? `${char.references.length} Keyframe Photo${char.references.length === 1 ? '' : 's'}`
+                                : '⚠️ Unusable (No Image)'}
                             </span>
                           </div>
                         </div>
 
-                        {/* Checkbox indicator */}
-                        <div
-                          className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
-                            isSelected
-                              ? 'bg-brand-500 text-white shadow-subtle'
-                              : 'bg-studio-800/80 border border-studio-700 text-transparent group-hover:text-studio-400'
-                          }`}
-                        >
-                          <Check size={14} className={isSelected ? 'opacity-100' : 'opacity-0'} />
-                        </div>
+                        {/* Checkbox / Lock indicator */}
+                        {hasImage ? (
+                          <div
+                            className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
+                              isSelected
+                                ? 'bg-brand-500 text-white shadow-subtle'
+                                : 'bg-studio-800/80 border border-studio-700 text-transparent group-hover:text-studio-400'
+                            }`}
+                          >
+                            <Check size={14} className={isSelected ? 'opacity-100' : 'opacity-0'} />
+                          </div>
+                        ) : (
+                          <div
+                            className="w-6 h-6 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center"
+                            title="Only characters with a generated image or uploaded image can be used"
+                          >
+                            <Lock size={12} />
+                          </div>
+                        )}
                       </div>
 
                       {/* Reference Photos Gallery Strip */}
                       <div className="mb-3" onClick={(e) => e.stopPropagation()}>
-                        <div className="flex items-center justify-between text-[10px] text-studio-400 mb-1">
-                          <span className="font-semibold uppercase font-mono">Reference Photos (For Video):</span>
-                          {char.references.length > 0 && (
-                            <span className="text-studio-500">Click photo to set Primary</span>
-                          )}
-                        </div>
-
-                        {char.references.length === 0 ? (
-                          <div className="p-2.5 rounded-xl bg-studio-950/70 border border-dashed border-studio-750 text-center space-y-1.5">
-                            <span className="text-[11px] text-amber-300 block">⚠️ No reference photos generated</span>
-                            <button
-                              onClick={() => handleGeneratePhoto(char.id, 'front')}
-                              disabled={isGeneratingThis}
-                              className="px-2.5 py-1 rounded-lg bg-brand-500 hover:bg-brand-400 text-white text-[10px] font-bold inline-flex items-center gap-1 shadow-subtle"
-                            >
-                              <Camera size={11} />
-                              {isGeneratingThis ? 'Generating Photo...' : 'Generate AI Photo'}
-                            </button>
-                          </div>
+                        {hasImage ? (
+                          <>
+                            <div className="flex items-center justify-between text-[10px] text-studio-400 mb-1">
+                              <span className="font-semibold uppercase font-mono">Reference Photos (For Video):</span>
+                              <span className="text-studio-500">Click photo to set Primary</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none">
+                              {char.references.map((ref) => {
+                                const isRefPrimary = ref.isPrimary;
+                                return (
+                                  <div
+                                    key={ref.id}
+                                    onClick={() => handleSetPrimaryReference(char.id, ref.id)}
+                                    className={`w-11 h-11 rounded-lg overflow-hidden shrink-0 border relative cursor-pointer hover:border-brand-400 transition-all ${
+                                      isRefPrimary
+                                        ? 'border-brand-500 ring-2 ring-brand-500/40'
+                                        : 'border-studio-750 opacity-80 hover:opacity-100'
+                                    }`}
+                                    title={isRefPrimary ? 'Primary Reference Keyframe' : 'Click to make Primary Reference'}
+                                  >
+                                    <img
+                                      src={`file://${ref.imagePath.replace(/\\/g, '/')}`}
+                                      alt="Reference"
+                                      className="w-full h-full object-cover"
+                                    />
+                                    {isRefPrimary && (
+                                      <span className="absolute bottom-0 inset-x-0 bg-brand-500 text-white text-[8px] font-bold text-center py-0.2">
+                                        KEY
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </>
                         ) : (
-                          <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none">
-                            {char.references.map((ref) => {
-                              const isRefPrimary = ref.isPrimary;
-                              return (
-                                <div
-                                  key={ref.id}
-                                  onClick={() => handleSetPrimaryReference(char.id, ref.id)}
-                                  className={`w-11 h-11 rounded-lg overflow-hidden shrink-0 border relative cursor-pointer hover:border-brand-400 transition-all ${
-                                    isRefPrimary
-                                      ? 'border-brand-500 ring-2 ring-brand-500/40'
-                                      : 'border-studio-750 opacity-80 hover:opacity-100'
-                                  }`}
-                                  title={isRefPrimary ? 'Primary Reference Keyframe' : 'Click to make Primary Reference'}
-                                >
-                                  <img
-                                    src={`file://${ref.imagePath.replace(/\\/g, '/')}`}
-                                    alt="Reference"
-                                    className="w-full h-full object-cover"
-                                  />
-                                  {isRefPrimary && (
-                                    <span className="absolute bottom-0 inset-x-0 bg-brand-500 text-white text-[8px] font-bold text-center py-0.2">
-                                      KEY
-                                    </span>
-                                  )}
-                                </div>
-                              );
-                            })}
+                          /* Prompt box when character has no image */
+                          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-center space-y-1.5">
+                            <span className="text-[11px] font-bold text-amber-300 block">
+                              ⚠️ Cannot Use — Image Required
+                            </span>
+                            <p className="text-[10px] text-studio-400 leading-tight">
+                              Generate to image or upload image to activate this character.
+                            </p>
+                            <div className="flex items-center justify-center gap-2 pt-1">
+                              <button
+                                onClick={() => handleGeneratePhoto(char.id, 'front')}
+                                disabled={isGeneratingThis}
+                                className="px-2.5 py-1 rounded-lg bg-brand-500 hover:bg-brand-400 text-white text-[10px] font-bold inline-flex items-center gap-1 shadow-subtle"
+                              >
+                                <Sparkles size={11} />
+                                {isGeneratingThis ? 'Generating...' : 'Generate to Image'}
+                              </button>
+                              <button
+                                onClick={() => handleUploadReferenceImage(char.id)}
+                                className="px-2.5 py-1 rounded-lg bg-studio-800 hover:bg-studio-700 text-studio-200 border border-studio-700 text-[10px] font-bold inline-flex items-center gap-1 shadow-subtle"
+                              >
+                                <Upload size={11} className="text-sky-400" />
+                                <span>Upload Image</span>
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
