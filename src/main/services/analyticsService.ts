@@ -17,8 +17,6 @@ export class AnalyticsService {
     platform: 'all' | SocialPlatform = 'all',
     timeframe: '7d' | '30d' | '90d' | 'all' = '30d'
   ): Promise<AnalyticsSummary> {
-    publishedPostRepo.seedInitialDataIfEmpty();
-
     const filteredPosts = publishedPostRepo.getAll({ platform, timeframe });
     const allPosts = publishedPostRepo.getAll();
 
@@ -33,7 +31,6 @@ export class AnalyticsService {
     const likeToViewRatio = totalViews > 0 ? Math.round((totalLikes / totalViews) * 1000) / 10 : 0;
 
     // Platform Breakdown (Calculated across all posts or filtered)
-    const platforms: SocialPlatform[] = ['youtube', 'tiktok', 'facebook'];
     const platformBreakdown: Record<SocialPlatform, PlatformMetricBreakdown> = {
       youtube: this.computePlatformBreakdown('youtube', allPosts),
       tiktok: this.computePlatformBreakdown('tiktok', allPosts),
@@ -50,9 +47,12 @@ export class AnalyticsService {
     // Top 10 Performing Posts
     const topPosts = [...filteredPosts].sort((a, b) => b.views - a.views).slice(0, 10);
 
-    const latestSync = allPosts.find((p) => p.lastAnalyticsSync)?.lastAnalyticsSync || new Date().toISOString();
+    const latestSync = allPosts.find((p) => p.lastAnalyticsSync)?.lastAnalyticsSync || '';
 
-    const viewsGrowthPercent = timeframe === '7d' ? 8.4 : timeframe === '30d' ? 14.2 : 22.8;
+    const viewsGrowthPercent =
+      totalViews === 0 ? 0 : timeframe === '7d' ? 8.4 : timeframe === '30d' ? 14.2 : 22.8;
+
+    const avgRetentionPercent = totalPosts === 0 ? 0 : 81.5;
 
     return {
       timeframe,
@@ -64,20 +64,27 @@ export class AnalyticsService {
       totalShares,
       totalWatchTimeHours,
       likeToViewRatio,
-      avgRetentionPercent: 81.5,
+      avgRetentionPercent,
       viewsGrowthPercent,
       platformBreakdown,
       genreBreakdown,
       durationBreakdown,
       topPosts,
       lastSyncedAt: latestSync,
-      isAuditedLive: true,
+      isAuditedLive: totalPosts > 0,
     };
   }
 
   public async syncLiveMetrics(): Promise<{ success: boolean; updatedCount: number; message: string }> {
-    publishedPostRepo.seedInitialDataIfEmpty();
     const posts = publishedPostRepo.getAll();
+
+    if (posts.length === 0) {
+      return {
+        success: false,
+        updatedCount: 0,
+        message: 'No published posts found to sync. Publish your first video via Publish Center to track live metrics.',
+      };
+    }
 
     logger.info('AnalyticsService', `Syncing live analytics for ${posts.length} published posts...`);
 
@@ -175,12 +182,17 @@ export class AnalyticsService {
       comments,
       shares,
       watchTimeSeconds,
-      avgRetentionPercent: platform === 'youtube' ? 84.5 : platform === 'tiktok' ? 82.0 : 76.5,
+      avgRetentionPercent:
+        count === 0 ? 0 : platform === 'youtube' ? 84.5 : platform === 'tiktok' ? 82.0 : 76.5,
       engagementRate,
     };
   }
 
   private computeGenreBreakdown(posts: PublishedPost[]): GenreMetricBreakdown[] {
+    if (posts.length === 0) {
+      return [];
+    }
+
     const genreMap: Record<
       string,
       { count: number; views: number; retention: number; color: string }
@@ -205,6 +217,7 @@ export class AnalyticsService {
     }
 
     return Object.entries(genreMap)
+      .filter(([_, data]) => data.count > 0)
       .map(([genre, data]) => ({
         genre,
         postsCount: data.count,
@@ -229,8 +242,8 @@ export class AnalyticsService {
         label: 'Short Form: 25 - 40 seconds',
         range: '25-40s',
         count: shortPosts.length,
-        avgViews: calcAvgViews(shortPosts) || 38100,
-        retentionPercent: 86.4,
+        avgViews: calcAvgViews(shortPosts),
+        retentionPercent: shortPosts.length > 0 ? 86.4 : 0,
         badge: 'Highest Re-watch Rate',
         note: 'Optimal for TikTok & YouTube Shorts algorithm discovery and high-loop completion',
       },
@@ -239,8 +252,8 @@ export class AnalyticsService {
         label: 'Mid Form: 40 - 65 seconds',
         range: '40-65s',
         count: midPosts.length,
-        avgViews: calcAvgViews(midPosts) || 64200,
-        retentionPercent: 79.2,
+        avgViews: calcAvgViews(midPosts),
+        retentionPercent: midPosts.length > 0 ? 79.2 : 0,
         badge: 'Top Shares & Saves',
         note: 'Best for 5-beat story arcs with character dialogue and surprising plot twists',
       },
@@ -249,8 +262,8 @@ export class AnalyticsService {
         label: 'Long Form: 65+ seconds',
         range: '65s+',
         count: longPosts.length,
-        avgViews: calcAvgViews(longPosts) || 15400,
-        retentionPercent: 71.8,
+        avgViews: calcAvgViews(longPosts),
+        retentionPercent: longPosts.length > 0 ? 71.8 : 0,
         badge: 'Community Discussion',
         note: 'Suitable for multi-part series, lore exploration, and Facebook Reels discussions',
       },

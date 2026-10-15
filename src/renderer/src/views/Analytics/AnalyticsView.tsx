@@ -205,7 +205,7 @@ export const AnalyticsView: React.FC = () => {
           </span>
           <span className="text-[10px] text-emerald-400 block mt-1 flex items-center gap-1 font-medium">
             <TrendingUp size={11} />
-            +{summary?.viewsGrowthPercent ?? 14.2}% from last {timeframe}
+            {summary?.totalViews ? `+${summary.viewsGrowthPercent}% from last ${timeframe}` : `0% from last ${timeframe}`}
           </span>
         </div>
 
@@ -219,7 +219,7 @@ export const AnalyticsView: React.FC = () => {
             {formatNumber(summary?.totalLikes ?? 0)}
           </span>
           <span className="text-[10px] text-emerald-400 block mt-1 font-medium">
-            {summary?.likeToViewRatio ?? 7.6}% like-to-view ratio
+            {summary?.likeToViewRatio ?? 0}% like-to-view ratio
           </span>
         </div>
 
@@ -247,7 +247,7 @@ export const AnalyticsView: React.FC = () => {
             {summary?.totalWatchTimeHours ?? 0} hrs
           </span>
           <span className="text-[10px] text-emerald-400 block mt-1 font-medium">
-            {summary?.avgRetentionPercent ?? 81.5}% avg retention at 0:05
+            {summary?.avgRetentionPercent ?? 0}% avg retention at 0:05
           </span>
         </div>
       </div>
@@ -316,7 +316,7 @@ export const AnalyticsView: React.FC = () => {
                     <div className="flex justify-between items-center text-studio-300">
                       <span className="text-studio-400">Avg Retention:</span>
                       <strong className="text-emerald-400 font-mono font-semibold">
-                        {pData?.avgRetentionPercent || 80}%
+                        {pData?.postsCount ? `${pData.avgRetentionPercent}%` : '0%'}
                       </strong>
                     </div>
                   </div>
@@ -338,29 +338,37 @@ export const AnalyticsView: React.FC = () => {
             </Badge>
           }
         >
-          <div className="space-y-3.5 text-xs">
-            {(summary?.genreBreakdown || []).map((item) => {
-              const maxViews = summary?.genreBreakdown[0]?.views || 1;
-              const widthPct = Math.max(12, Math.round((item.views / maxViews) * 100));
+          {(!summary?.genreBreakdown || summary.genreBreakdown.length === 0) ? (
+            <div className="py-8 text-center text-studio-400">
+              <Sparkles size={24} className="mx-auto mb-2 text-studio-500 opacity-60" />
+              <p className="text-xs font-semibold text-studio-300">No Genre Analytics Yet</p>
+              <p className="text-[11px] text-studio-500 mt-1">Publish stories across mystery, action, or drama to visualize genre completion rates.</p>
+            </div>
+          ) : (
+            <div className="space-y-3.5 text-xs">
+              {summary.genreBreakdown.map((item) => {
+                const maxViews = summary.genreBreakdown[0]?.views || 1;
+                const widthPct = Math.max(12, Math.round((item.views / maxViews) * 100));
 
-              return (
-                <div key={item.genre} className="space-y-1.5">
-                  <div className="flex justify-between text-studio-300">
-                    <span className="font-semibold text-studio-200">{item.genre}</span>
-                    <span className="font-mono text-studio-400 text-[11px]">
-                      {formatNumber(item.views)} views • {item.retentionPercent}% completion
-                    </span>
+                return (
+                  <div key={item.genre} className="space-y-1.5">
+                    <div className="flex justify-between text-studio-300">
+                      <span className="font-semibold text-studio-200">{item.genre}</span>
+                      <span className="font-mono text-studio-400 text-[11px]">
+                        {formatNumber(item.views)} views • {item.retentionPercent}% completion
+                      </span>
+                    </div>
+                    <div className="w-full h-2.5 rounded-full bg-studio-950 border border-studio-800 overflow-hidden">
+                      <div
+                        className={`h-full ${item.color} rounded-full transition-all duration-500`}
+                        style={{ width: `${widthPct}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full h-2.5 rounded-full bg-studio-950 border border-studio-800 overflow-hidden">
-                    <div
-                      className={`h-full ${item.color} rounded-full transition-all duration-500`}
-                      style={{ width: `${widthPct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </Card>
 
         {/* Optimal Video Length Insights */}
@@ -368,29 +376,37 @@ export const AnalyticsView: React.FC = () => {
           title="Optimal Video Length Insights"
           subtitle="Watch time retention across target durations in your library"
         >
-          <div className="space-y-3 text-xs">
-            {(summary?.durationBreakdown || []).map((item) => (
-              <div
-                key={item.bucket}
-                className="p-3 bg-studio-900 rounded-xl border border-studio-800 space-y-1 hover:border-studio-700 transition-colors"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-studio-200 text-xs">{item.label}</span>
-                  <Badge variant="success" size="sm">
-                    {item.badge}
-                  </Badge>
+          {summary?.totalPosts === 0 ? (
+            <div className="py-8 text-center text-studio-400">
+              <Clock size={24} className="mx-auto mb-2 text-studio-500 opacity-60" />
+              <p className="text-xs font-semibold text-studio-300">No Duration Analytics Yet</p>
+              <p className="text-[11px] text-studio-500 mt-1">Completion and loop metrics will appear here once videos are published.</p>
+            </div>
+          ) : (
+            <div className="space-y-3 text-xs">
+              {(summary?.durationBreakdown || []).map((item) => (
+                <div
+                  key={item.bucket}
+                  className="p-3 bg-studio-900 rounded-xl border border-studio-800 space-y-1 hover:border-studio-700 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold text-studio-200 text-xs">{item.label}</span>
+                    <Badge variant="success" size="sm">
+                      {item.badge}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-studio-400">{item.note}</p>
+                  <div className="flex items-center gap-3 pt-1 text-[10px] font-mono text-studio-400">
+                    <span>Avg Views: <strong className="text-studio-200">{formatNumber(item.avgViews)}</strong></span>
+                    <span>•</span>
+                    <span>Retention: <strong className="text-emerald-400">{item.retentionPercent}%</strong></span>
+                    <span>•</span>
+                    <span>Sample Size: <strong className="text-studio-200">{item.count} videos</strong></span>
+                  </div>
                 </div>
-                <p className="text-[11px] text-studio-400">{item.note}</p>
-                <div className="flex items-center gap-3 pt-1 text-[10px] font-mono text-studio-400">
-                  <span>Avg Views: <strong className="text-studio-200">{formatNumber(item.avgViews)}</strong></span>
-                  <span>•</span>
-                  <span>Retention: <strong className="text-emerald-400">{item.retentionPercent}%</strong></span>
-                  <span>•</span>
-                  <span>Sample Size: <strong className="text-studio-200">{item.count} videos</strong></span>
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
 

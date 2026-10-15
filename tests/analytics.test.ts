@@ -3,6 +3,7 @@ import { analyticsService } from '../src/main/services/analyticsService';
 import { publishedPostRepo } from '../src/main/database/repositories/publishedPostRepository';
 import { publishJobRepo } from '../src/main/database/repositories/publishJobRepository';
 import { mediaAssetRepo } from '../src/main/database/repositories/mediaAssetRepository';
+import { appDb } from '../src/main/database/db';
 
 describe('Performance & Content Analytics Engine', () => {
   beforeEach(() => {
@@ -115,5 +116,33 @@ describe('Performance & Content Analytics Engine', () => {
     const postInRepo = publishedPostRepo.getByPublishJobId(job.id);
     expect(postInRepo).toBeDefined();
     expect(postInRepo?.remotePostId).toBe('yt_remote_123');
+  });
+
+  it('should return honest zero metrics and empty breakdowns when no posts exist without auto-seeding', async () => {
+    // Purge posts to simulate fresh state
+    const rawDb = appDb.getRawDb();
+    rawDb.exec('DELETE FROM published_posts; DELETE FROM publish_jobs;');
+
+    const summary = await analyticsService.getSummary('all', '30d');
+    expect(summary.totalPosts).toBe(0);
+    expect(summary.totalViews).toBe(0);
+    expect(summary.totalLikes).toBe(0);
+    expect(summary.totalComments).toBe(0);
+    expect(summary.totalShares).toBe(0);
+    expect(summary.totalWatchTimeHours).toBe(0);
+    expect(summary.viewsGrowthPercent).toBe(0);
+    expect(summary.avgRetentionPercent).toBe(0);
+    expect(summary.genreBreakdown).toHaveLength(0);
+    expect(summary.topPosts).toHaveLength(0);
+    expect(summary.isAuditedLive).toBe(false);
+    expect(summary.platformBreakdown.youtube.postsCount).toBe(0);
+    expect(summary.platformBreakdown.youtube.views).toBe(0);
+    expect(summary.platformBreakdown.youtube.avgRetentionPercent).toBe(0);
+    expect(summary.durationBreakdown.every((d) => d.count === 0 && d.avgViews === 0 && d.retentionPercent === 0)).toBe(true);
+
+    const syncRes = await analyticsService.syncLiveMetrics();
+    expect(syncRes.success).toBe(false);
+    expect(syncRes.updatedCount).toBe(0);
+    expect(syncRes.message).toContain('No published posts found');
   });
 });

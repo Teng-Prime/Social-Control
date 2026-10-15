@@ -5,7 +5,6 @@ import { logger } from '../../logger';
 export class PublishedPostRepository {
   public getAll(filter?: { platform?: string; timeframe?: string }): PublishedPost[] {
     const db = appDb.getRawDb();
-    this.seedInitialDataIfEmpty();
 
     let query = `
       SELECT p.id, p.publish_job_id as publishJobId, p.media_asset_id as mediaAssetId,
@@ -291,6 +290,9 @@ export class PublishedPostRepository {
           `).run(accountId, s.platform, `Studio ${s.platform.toUpperCase()}`, accountId);
         }
 
+        const filePath = `D:/Videos/Published/${s.title.replace(/[^a-zA-Z0-9]/g, '_')}_${assetId}.mp4`;
+        const fileName = `${s.title.replace(/[^a-zA-Z0-9]/g, '_')}_${assetId}.mp4`;
+
         // Create Media Asset
         db.prepare(`
           INSERT OR IGNORE INTO media_assets (
@@ -305,8 +307,8 @@ export class PublishedPostRepository {
         `).run(
           assetId,
           s.title,
-          `D:/Videos/Published/${s.title.replace(/[^a-zA-Z0-9]/g, '_')}.mp4`,
-          `${s.title.replace(/[^a-zA-Z0-9]/g, '_')}.mp4`,
+          filePath,
+          fileName,
           s.duration,
           JSON.stringify(['viral', 'ai-story', s.tag, s.platform])
         );
