@@ -41,7 +41,6 @@ export const Sidebar: React.FC = () => {
       items: [
         { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={18} /> },
         { id: 'ai-studio', label: 'AI Studio', icon: <Sparkles size={18} /> },
-        { id: 'characters', label: 'AI Characters', icon: <Users size={18} /> },
         { id: 'story-projects', label: 'Story Projects', icon: <Film size={18} /> },
         { id: 'video-library', label: 'Video Library', icon: <Video size={18} />, badge: stats?.totalGeneratedVideos },
       ],

@@ -36,6 +36,7 @@ interface Step1CharacterProps {
   onRefreshCharacters: () => Promise<void>;
   project: StoryProject;
   onUpdateProject: (updates: Partial<StoryProject>) => Promise<void>;
+  onOpenCharactersConfig?: () => void;
 }
 
 export const Step1Character: React.FC<Step1CharacterProps> = ({
@@ -45,6 +46,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
   onRefreshCharacters,
   project,
   onUpdateProject,
+  onOpenCharactersConfig,
 }) => {
   const { addToast } = useAppStore();
 
@@ -352,6 +354,19 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {onOpenCharactersConfig && (
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Users size={13} className="text-cyan-400" />}
+              onClick={onOpenCharactersConfig}
+              className="bg-[#102A50] border border-[rgba(91,145,255,0.25)] text-studio-100 hover:text-white hover:border-brand-400 shadow-subtle"
+              title="Open full AI Characters configuration modal"
+            >
+              AI Characters Config
+            </Button>
+          )}
+
           <Button
             variant="primary"
             size="sm"

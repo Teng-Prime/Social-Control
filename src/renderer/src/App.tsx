@@ -36,7 +36,7 @@ export const App: React.FC = () => {
       case 'ai-studio':
         return <AIStudioView />;
       case 'characters':
-        return <CharactersView />;
+        return <AIStudioView initialOpenCharactersConfig={true} />;
       case 'story-projects':
         return <StoryProjectsView />;
       case 'video-library':

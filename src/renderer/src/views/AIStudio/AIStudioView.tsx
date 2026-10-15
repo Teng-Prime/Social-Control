@@ -18,6 +18,7 @@ import { Step4Voiceover } from './steps/Step4Voiceover';
 import { Step5BackgroundMusic } from './steps/Step5BackgroundMusic';
 import { Step6SoundEffects } from './steps/Step6SoundEffects';
 import { Step7FinalExport } from './steps/Step7FinalExport';
+import { CharactersView } from '../Characters/CharactersView';
 
 import {
   Users,
@@ -36,7 +37,11 @@ import {
   Settings,
 } from 'lucide-react';
 
-export const AIStudioView: React.FC = () => {
+interface AIStudioViewProps {
+  initialOpenCharactersConfig?: boolean;
+}
+
+export const AIStudioView: React.FC<AIStudioViewProps> = ({ initialOpenCharactersConfig = false }) => {
   const { addToast } = useAppStore();
 
   const [projects, setProjects] = useState<StoryProject[]>([]);
@@ -47,6 +52,13 @@ export const AIStudioView: React.FC = () => {
   const [isAutosaving, setIsAutosaving] = useState<boolean>(false);
   const [validationError, setValidationError] = useState<string | null>(null);
   const [quickConfigStep, setQuickConfigStep] = useState<number | null>(null);
+  const [isCharactersModalOpen, setIsCharactersModalOpen] = useState<boolean>(initialOpenCharactersConfig);
+
+  useEffect(() => {
+    if (initialOpenCharactersConfig) {
+      setIsCharactersModalOpen(true);
+    }
+  }, [initialOpenCharactersConfig]);
 
   // Load all projects and characters on mount
   const loadStudioData = async (preferredProjectId?: string) => {
@@ -370,8 +382,22 @@ export const AIStudioView: React.FC = () => {
               })}
             </div>
 
-            {/* Quick Config Button & Autosave Status */}
-            <div className="flex items-center gap-3 shrink-0 ml-4">
+            {/* Quick Actions: AI Characters Button, Quick Config Button & Autosave Status */}
+            <div className="flex items-center gap-2.5 shrink-0 ml-4">
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<Users size={13} className="text-cyan-400" />}
+                onClick={() => setIsCharactersModalOpen(true)}
+                className="h-7 text-xs px-2.5 bg-[#102A50] border border-[rgba(91,145,255,0.25)] text-studio-100 hover:text-white hover:border-brand-400 transition-all shadow-subtle flex items-center gap-1.5"
+                title="Open AI Characters Studio & Configuration"
+              >
+                <span>AI Characters</span>
+                <span className="px-1.5 py-0.2 rounded-full bg-brand-500/25 border border-brand-500/30 text-cyan-300 text-[10px] font-mono">
+                  {characters.length}
+                </span>
+              </Button>
+
               <Button
                 variant="secondary"
                 size="sm"
@@ -418,6 +444,7 @@ export const AIStudioView: React.FC = () => {
                   onRefreshCharacters={() => loadStudioData(activeProject.id)}
                   project={activeProject}
                   onUpdateProject={handleUpdateActiveProject}
+                  onOpenCharactersConfig={() => setIsCharactersModalOpen(true)}
                 />
               )}
 
@@ -865,6 +892,31 @@ export const AIStudioView: React.FC = () => {
           </div>
         </Modal>
       )}
+
+      {/* AI Characters Studio & Configuration Popup Modal */}
+      <Modal
+        isOpen={isCharactersModalOpen}
+        onClose={() => setIsCharactersModalOpen(false)}
+        title="AI Characters Configuration"
+        subtitle="Manage persistent AI characters, generate keyframe angles, upload reference photos, and lock visual continuity"
+        maxWidth="3xl"
+        noPadding
+      >
+        <CharactersView
+          isModal={true}
+          onClose={() => setIsCharactersModalOpen(false)}
+          onCharactersChange={async () => {
+            await loadStudioData(activeProject?.id);
+          }}
+          onSelectCharacterForProject={async (char) => {
+            if (activeProject) {
+              await handleToggleCharacter(char.id);
+            }
+          }}
+          selectedCharacterIds={activeProject?.selectedCharacterIds || []}
+          activeProjectId={activeProject?.id}
+        />
+      </Modal>
     </div>
   );
 };

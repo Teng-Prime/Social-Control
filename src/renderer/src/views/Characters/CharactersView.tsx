@@ -22,7 +22,23 @@ import {
 } from 'lucide-react';
 import { Character, CharacterReference } from '../../../shared/types';
 
-export const CharactersView: React.FC = () => {
+export interface CharactersViewProps {
+  isModal?: boolean;
+  onClose?: () => void;
+  onCharactersChange?: () => void;
+  onSelectCharacterForProject?: (character: Character) => void;
+  selectedCharacterIds?: string[];
+  activeProjectId?: string;
+}
+
+export const CharactersView: React.FC<CharactersViewProps> = ({
+  isModal = false,
+  onClose,
+  onCharactersChange,
+  onSelectCharacterForProject,
+  selectedCharacterIds = [],
+  activeProjectId,
+}) => {
   const { addToast } = useAppStore();
   const [characters, setCharacters] = useState<Character[]>([]);
   const [selectedCharacter, setSelectedCharacter] = useState<Character | null>(null);
@@ -54,7 +70,11 @@ export const CharactersView: React.FC = () => {
       if (selectedCharacter) {
         const updated = list.find((c) => c.id === selectedCharacter.id);
         if (updated) setSelectedCharacter(updated);
+        else if (list.length > 0) setSelectedCharacter(list[0]);
+      } else if (list.length > 0) {
+        setSelectedCharacter(list[0]);
       }
+      onCharactersChange?.();
     }
   };
 
@@ -279,7 +299,7 @@ export const CharactersView: React.FC = () => {
   };
 
   return (
-    <div className="flex h-full select-none overflow-hidden">
+    <div className={`flex select-none overflow-hidden ${isModal ? 'h-[75vh] min-h-[560px] max-h-[82vh]' : 'h-full'}`}>
       {/* Left List Column */}
       <div className="w-80 border-r border-[rgba(91,145,255,0.18)] bg-[#07112A]/90 backdrop-blur-md flex flex-col shrink-0">
         <div className="p-4 border-b border-[rgba(91,145,255,0.14)] flex items-center justify-between">
@@ -343,15 +363,22 @@ export const CharactersView: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <h4 className="text-xs font-semibold text-studio-100 truncate">{char.name}</h4>
-                      {hasImage ? (
-                        <Badge variant="success" size="sm" dot>
-                          Ready
-                        </Badge>
-                      ) : (
-                        <Badge variant="warning" size="sm" dot>
-                          Needs Image
-                        </Badge>
-                      )}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {selectedCharacterIds.includes(char.id) && (
+                          <Badge variant="brand" size="sm">
+                            Active
+                          </Badge>
+                        )}
+                        {hasImage ? (
+                          <Badge variant="success" size="sm" dot>
+                            Ready
+                          </Badge>
+                        ) : (
+                          <Badge variant="warning" size="sm" dot>
+                            Needs Image
+                          </Badge>
+                        )}
+                      </div>
                     </div>
                     <p className="text-[11px] text-studio-400 truncate mt-0.5">{char.description || char.appearance}</p>
                     <span className="text-[10px] text-cyan-400/80 font-mono">
@@ -403,6 +430,28 @@ export const CharactersView: React.FC = () => {
               </div>
 
               <div className="flex items-center gap-2">
+                {onSelectCharacterForProject && (
+                  <Button
+                    variant={selectedCharacterIds.includes(selectedCharacter.id) ? 'secondary' : 'primary'}
+                    size="sm"
+                    icon={<Sparkles size={14} className={selectedCharacterIds.includes(selectedCharacter.id) ? 'text-brand-400' : 'text-white'} />}
+                    onClick={() => onSelectCharacterForProject(selectedCharacter)}
+                    disabled={!selectedCharacter.references || selectedCharacter.references.length === 0}
+                    className="font-semibold shadow-subtle"
+                    title={
+                      !selectedCharacter.references || selectedCharacter.references.length === 0
+                        ? 'Generate or upload an image first'
+                        : selectedCharacterIds.includes(selectedCharacter.id)
+                        ? 'Deselect this character from the active story'
+                        : 'Use this character in the active story'
+                    }
+                  >
+                    {selectedCharacterIds.includes(selectedCharacter.id)
+                      ? 'Deselect from Story'
+                      : 'Use in Active Story'}
+                  </Button>
+                )}
+
                 <Button
                   variant="secondary"
                   size="sm"
