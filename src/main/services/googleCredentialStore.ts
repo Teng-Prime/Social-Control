@@ -20,6 +20,7 @@ export interface OAuthTokenData {
  */
 export class GoogleCredentialStore {
   public static readonly CLIENT_ID_SECRET_KEY = 'oauth_google_client_id';
+  public static readonly CLIENT_SECRET_KEY = 'oauth_google_client_secret';
 
   /**
    * Validates the structure and format of a Google Desktop OAuth Client ID.
@@ -92,6 +93,43 @@ export class GoogleCredentialStore {
     const id = this.getClientId();
     const validation = this.validateClientId(id);
     return validation.valid;
+  }
+
+  /**
+   * Retrieves the stored Google OAuth Client Secret, checking secure vault and environment variables.
+   */
+  public getClientSecret(): string {
+    const configured = secureStorageService.getSecret(GoogleCredentialStore.CLIENT_SECRET_KEY);
+    if (configured && configured.trim()) {
+      return configured.trim();
+    }
+
+    if (process.env.GOOGLE_CLIENT_SECRET && process.env.GOOGLE_CLIENT_SECRET.trim()) {
+      return process.env.GOOGLE_CLIENT_SECRET.trim();
+    }
+
+    return '';
+  }
+
+  /**
+   * Saves or clears the Google OAuth Client Secret in secure storage.
+   */
+  public setClientSecret(clientSecret: string): void {
+    const trimmed = clientSecret ? clientSecret.trim() : '';
+    if (trimmed) {
+      secureStorageService.setSecret(GoogleCredentialStore.CLIENT_SECRET_KEY, trimmed);
+      logger.info('GoogleCredentialStore', 'Configured custom Google OAuth Client Secret');
+    } else {
+      secureStorageService.deleteSecret(GoogleCredentialStore.CLIENT_SECRET_KEY);
+      logger.info('GoogleCredentialStore', 'Cleared Google OAuth Client Secret');
+    }
+  }
+
+  /**
+   * Checks whether a client secret is configured.
+   */
+  public isClientSecretConfigured(): boolean {
+    return Boolean(this.getClientSecret());
   }
 
   /**

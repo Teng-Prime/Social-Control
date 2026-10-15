@@ -13,6 +13,7 @@ describe('Google Flow AI Integration Architecture & Separation of Concerns', () 
       socialAccountRepo.delete(acc.id);
     }
     secureStorageService.deleteSecret('oauth_google_client_id');
+    secureStorageService.deleteSecret('oauth_google_client_secret');
   });
 
   afterEach(() => {
@@ -140,5 +141,117 @@ describe('Google Flow AI Integration Architecture & Separation of Concerns', () 
     const afterDisconnect = flowService.getFlowConnectionStatus();
     expect(afterDisconnect.status).toBe('not_connected');
     expect(afterDisconnect.connectedEmail).toBeUndefined();
+  });
+
+  // 6. GoogleCredentialStore - Client Secret Persistence & OS Vault Protection
+  it('6. GoogleCredentialStore: saves, retrieves, and clears Client Secret in encrypted store', () => {
+    expect(googleCredentialStore.getClientSecret()).toBe('');
+    expect(googleCredentialStore.isClientSecretConfigured()).toBe(false);
+
+    const secret = 'GOCSPX-mockClientSecret1234567890';
+    googleCredentialStore.setClientSecret(secret);
+    expect(googleCredentialStore.getClientSecret()).toBe(secret);
+    expect(googleCredentialStore.isClientSecretConfigured()).toBe(true);
+
+    googleCredentialStore.setClientSecret('');
+    expect(googleCredentialStore.getClientSecret()).toBe('');
+    expect(googleCredentialStore.isClientSecretConfigured()).toBe(false);
+  });
+
+  // 7. Token Exchange & Refresh with client_secret
+  it('7. GoogleOAuthService: sends client_secret in POST body to Google token endpoint when configured', async () => {
+    let capturedBody = '';
+    const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url: any, init?: any) => {
+      if (String(url).includes('oauth2.googleapis.com/token')) {
+        capturedBody = init?.body || '';
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            access_token: 'mock_access_with_secret',
+            refresh_token: 'mock_refresh_with_secret',
+            expires_in: 3600,
+          }),
+        } as any;
+      }
+      return { ok: false, status: 404, json: async () => ({}) } as any;
+    });
+
+    const clientId = '123456789012-abcdefghijklmnopqrstuvwxyz123456.apps.googleusercontent.com';
+    const clientSecret = 'GOCSPX-secret123456';
+
+    // A. exchangeCodeForTokens passes client_secret
+    await googleOAuthService.exchangeCodeForTokens('code_123', 'verifier_123', 'http://127.0.0.1:8080', clientId, clientSecret);
+    expect(capturedBody).toContain('client_secret=GOCSPX-secret123456');
+    expect(capturedBody).toContain(`client_id=${encodeURIComponent(clientId)}`);
+    expect(capturedBody).toContain('grant_type=authorization_code');
+
+    // B. refreshTokens passes client_secret
+    await googleOAuthService.refreshTokens(clientId, 'ref_token_123', clientSecret);
+    expect(capturedBody).toContain('client_secret=GOCSPX-secret123456');
+    expect(capturedBody).toContain(`client_id=${encodeURIComponent(clientId)}`);
+    expect(capturedBody).toContain('grant_type=refresh_token');
+
+    fetchSpy.mockRestore();
+  });
+
+  // 8. Helpful Error Handling and Browser Feedback on "client_secret is missing"
+  it('8. GoogleOAuthService: translates Google "client_secret is missing" error into actionable guidance and renders failure in browser', async () => {
+    const fetchSpy = vi.spyOn(global, 'fetch').mockImplementation(async (url: any) => {
+      if (String(url).includes('oauth2.googleapis.com/token')) {
+        return {
+          ok: false,
+          status: 400,
+          json: async () => ({
+            error: 'invalid_request',
+            error_description: 'client_secret is missing',
+          }),
+        } as any;
+      }
+      return { ok: false, status: 404, json: async () => ({}) } as any;
+    });
+
+    const clientId = '123456789012-abcdefghijklmnopqrstuvwxyz123456.apps.googleusercontent.com';
+
+    // A. Direct exchangeCodeForTokens throws actionable error
+    await expect(
+      googleOAuthService.exchangeCodeForTokens('code_x', 'ver_x', 'http://127.0.0.1:8080', clientId)
+    ).rejects.toThrow(/Google requires a Client Secret for your Client ID/);
+
+    // B. Loopback callback renders failure in browser (not false success)
+    const loopback = await googleOAuthService.startLoopbackServer(0);
+    const state = 'state_secret_missing_test';
+
+    (googleOAuthService as any).pendingSession = {
+      state,
+      codeVerifier: 'verifier_test',
+      nonce: 'nonce_test',
+      redirectUri: loopback.redirectUri,
+      server: loopback.server,
+      timeoutTimer: setTimeout(() => {}, 60000),
+      clientId,
+      sessionHandled: false,
+      resolve: vi.fn(),
+      reject: vi.fn(),
+    };
+
+    const res = await new Promise<{ statusCode: number; body: string }>((resolve, reject) => {
+      import('http').then(({ default: http }) => {
+        http.get(`${loopback.redirectUri}?code=code_without_secret&state=${state}`, (httpRes) => {
+          let body = '';
+          httpRes.on('data', (c) => (body += c));
+          httpRes.on('end', () => resolve({ statusCode: httpRes.statusCode || 200, body }));
+        }).on('error', reject);
+      });
+    });
+
+    // Must NOT state success!
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toContain('Connection Incomplete');
+    expect(res.body).toContain('Google requires a Client Secret for your Client ID');
+    expect(res.body).not.toContain('Google Account Connected!');
+
+    googleOAuthService.cleanUpServer(loopback.server);
+    fetchSpy.mockRestore();
   });
 });

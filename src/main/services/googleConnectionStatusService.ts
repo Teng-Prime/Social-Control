@@ -25,6 +25,7 @@ export class GoogleConnectionStatusService {
    */
   public refreshStatusFromStorage(): GoogleAuthState {
     const isConfigured = googleCredentialStore.isClientIdConfigured();
+    const isSecretConfigured = googleCredentialStore.isClientSecretConfigured();
     const activeAccount = googleCredentialStore.getConnectedAccount();
 
     if (!activeAccount) {
@@ -32,6 +33,7 @@ export class GoogleConnectionStatusService {
         status: 'not_connected',
         statusLabel: 'Not Connected',
         clientIdConfigured: isConfigured,
+        clientSecretConfigured: isSecretConfigured,
       };
       return this.currentState;
     }
@@ -56,6 +58,7 @@ export class GoogleConnectionStatusService {
         lastConnectedAt: activeAccount.updatedAt,
         hasRefreshToken: hasRefresh,
         clientIdConfigured: isConfigured,
+        clientSecretConfigured: isSecretConfigured,
       };
     } else {
       this.currentState = {
@@ -71,6 +74,7 @@ export class GoogleConnectionStatusService {
         lastConnectedAt: activeAccount.updatedAt,
         hasRefreshToken: hasRefresh,
         clientIdConfigured: isConfigured,
+        clientSecretConfigured: isSecretConfigured,
       };
     }
 
@@ -101,7 +105,8 @@ export class GoogleConnectionStatusService {
    * Initiates Google Sign-In with validation and state transitions.
    */
   public async connectGoogle(
-    customClientId?: string
+    customClientId?: string,
+    customClientSecret?: string
   ): Promise<{ success: boolean; state: GoogleAuthState; authUrl?: string }> {
     // 1. Prevent duplicate requests while connecting
     if (this.currentState.status === 'connecting' || googleOAuthService.isAuthInProgress()) {
@@ -125,6 +130,7 @@ export class GoogleConnectionStatusService {
         failureReason: 'configuration_missing',
         error: errorMsg,
         clientIdConfigured: false,
+        clientSecretConfigured: googleCredentialStore.isClientSecretConfigured(),
       };
 
       this.broadcastStatus(configErrorState);
@@ -136,17 +142,27 @@ export class GoogleConnectionStatusService {
       googleCredentialStore.setClientId(customClientId.trim());
     }
 
+    if (customClientSecret !== undefined) {
+      googleCredentialStore.setClientSecret(customClientSecret.trim());
+    }
+
+    const effectiveClientSecret = customClientSecret?.trim() || googleCredentialStore.getClientSecret();
+
     // 3. Transition to Connecting
     const connectingState: GoogleAuthState = {
       status: 'connecting',
       statusLabel: 'Opening browser for Google authorization...',
       clientIdConfigured: true,
+      clientSecretConfigured: Boolean(effectiveClientSecret),
     };
     this.broadcastStatus(connectingState);
 
     // 4. Execute OAuth flow
     try {
-      const { profile, tokenData, authUrl } = await googleOAuthService.executeFlow(effectiveClientId);
+      const { profile, tokenData, authUrl } = await googleOAuthService.executeFlow(
+        effectiveClientId,
+        effectiveClientSecret
+      );
 
       // 5. Securely persist credentials
       const account = googleCredentialStore.saveGoogleConnection(profile, tokenData);
@@ -159,6 +175,7 @@ export class GoogleConnectionStatusService {
         lastConnectedAt: new Date().toISOString(),
         hasRefreshToken: Boolean(tokenData.refresh_token),
         clientIdConfigured: true,
+        clientSecretConfigured: Boolean(effectiveClientSecret),
       };
 
       this.broadcastStatus(connectedState);
@@ -180,6 +197,7 @@ export class GoogleConnectionStatusService {
         failureReason,
         error: err.message || 'Authentication failed',
         clientIdConfigured: true,
+        clientSecretConfigured: Boolean(effectiveClientSecret),
       };
 
       this.broadcastStatus(errorState);
@@ -204,6 +222,7 @@ export class GoogleConnectionStatusService {
         failureReason: 'connection_error',
         error: 'No active Google account found to refresh.',
         clientIdConfigured: googleCredentialStore.isClientIdConfigured(),
+        clientSecretConfigured: googleCredentialStore.isClientSecretConfigured(),
       };
       this.broadcastStatus(errState);
       return { success: false, state: errState };
@@ -218,14 +237,16 @@ export class GoogleConnectionStatusService {
         error: 'No refresh token stored. Please click Reconnect to sign in.',
         account,
         clientIdConfigured: googleCredentialStore.isClientIdConfigured(),
+        clientSecretConfigured: googleCredentialStore.isClientSecretConfigured(),
       };
       this.broadcastStatus(expiredState);
       return { success: false, state: expiredState };
     }
 
     const clientId = googleCredentialStore.getClientId();
+    const clientSecret = googleCredentialStore.getClientSecret();
     try {
-      const tokenData = await googleOAuthService.refreshTokens(clientId, refreshToken);
+      const tokenData = await googleOAuthService.refreshTokens(clientId, refreshToken, clientSecret);
       const updated = googleCredentialStore.updateRefreshedTokens(
         account.id,
         tokenData.access_token,
@@ -246,6 +267,7 @@ export class GoogleConnectionStatusService {
         hasRefreshToken: true,
         lastConnectedAt: new Date().toISOString(),
         clientIdConfigured: true,
+        clientSecretConfigured: googleCredentialStore.isClientSecretConfigured(),
       };
 
       this.broadcastStatus(refreshedState);
@@ -260,6 +282,7 @@ export class GoogleConnectionStatusService {
         account,
         hasRefreshToken: true,
         clientIdConfigured: googleCredentialStore.isClientIdConfigured(),
+        clientSecretConfigured: googleCredentialStore.isClientSecretConfigured(),
       };
       this.broadcastStatus(failedState);
       return { success: false, state: failedState };
@@ -305,10 +328,11 @@ export class GoogleConnectionStatusService {
    * Reconnects by clearing any broken session and triggering a fresh OAuth sign-in.
    */
   public async reconnect(
-    customClientId?: string
+    customClientId?: string,
+    customClientSecret?: string
   ): Promise<{ success: boolean; state: GoogleAuthState; authUrl?: string }> {
     googleOAuthService.cancelPendingOAuth();
-    return this.connectGoogle(customClientId);
+    return this.connectGoogle(customClientId, customClientSecret);
   }
 }
 

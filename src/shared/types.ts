@@ -772,13 +772,14 @@ export interface GoogleAuthState {
   lastConnectedAt?: string;
   hasRefreshToken?: boolean;
   clientIdConfigured?: boolean;
+  clientSecretConfigured?: boolean;
 }
 
 export interface IAuthAPI {
-  signInWithGoogle: (clientId?: string) => Promise<{ success: boolean; state: GoogleAuthState; authUrl?: string }>;
+  signInWithGoogle: (clientId?: string, clientSecret?: string) => Promise<{ success: boolean; state: GoogleAuthState; authUrl?: string }>;
   getSession: () => Promise<GoogleAuthState>;
   signOut: (accountId?: string) => Promise<{ success: boolean; state: GoogleAuthState }>;
-  reconnect: (accountId?: string) => Promise<{ success: boolean; state: GoogleAuthState }>;
+  reconnect: (clientId?: string, clientSecret?: string) => Promise<{ success: boolean; state: GoogleAuthState }>;
   refreshToken: (accountId?: string) => Promise<{ success: boolean; state: GoogleAuthState }>;
   onAuthStateChanged: (callback: (state: GoogleAuthState) => void) => () => void;
 }
@@ -869,12 +870,14 @@ export interface IElectronAPI {
   connectSocialAccount: (platform: SocialPlatform, authCode?: string) => Promise<{ authUrl?: string; account?: SocialAccount }>;
   disconnectSocialAccount: (id: string) => Promise<boolean>;
   getGoogleAuthStatus: () => Promise<GoogleAuthState>;
-  connectGoogleAccount: (customClientId?: string) => Promise<{ success: boolean; state: GoogleAuthState; authUrl?: string }>;
+  connectGoogleAccount: (customClientId?: string, customClientSecret?: string) => Promise<{ success: boolean; state: GoogleAuthState; authUrl?: string }>;
   disconnectGoogleAccount: (accountId?: string) => Promise<{ success: boolean; state: GoogleAuthState }>;
-  reconnectGoogleAccount: (accountId?: string) => Promise<{ success: boolean; state: GoogleAuthState }>;
+  reconnectGoogleAccount: (customClientId?: string, customClientSecret?: string) => Promise<{ success: boolean; state: GoogleAuthState }>;
   refreshGoogleToken: (accountId?: string) => Promise<{ success: boolean; state: GoogleAuthState }>;
   setGoogleClientId: (clientId: string) => Promise<boolean>;
   getGoogleClientId: () => Promise<string>;
+  setGoogleClientSecret: (clientSecret: string) => Promise<boolean>;
+  getGoogleClientSecret: () => Promise<string>;
   cancelGoogleAuth: () => Promise<boolean>;
   onGoogleAuthChanged?: (callback: (state: GoogleAuthState) => void) => () => void;
   getPublishJobs: (filter?: { status?: string; platform?: string }) => Promise<PublishJob[]>;

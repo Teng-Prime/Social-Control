@@ -24,6 +24,7 @@ export interface PendingOAuthSession {
   server: http.Server;
   timeoutTimer: NodeJS.Timeout;
   clientId: string;
+  clientSecret?: string;
   sessionHandled: boolean;
   resolve: (value: { profile: GoogleUserProfile; tokenData: OAuthTokenResponse }) => void;
   reject: (reason: any) => void;
@@ -349,23 +350,18 @@ export class GoogleOAuthService {
       return;
     }
 
-    // 3. Render success in browser
-    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-    res.end(
-      this.renderHtmlResponse(
-        true,
-        'Google Account Connected!',
-        'Authorization successful. You may close this tab and return to Social Earnings Studio.'
-      )
-    );
-
-    // 4. Exchange authorization code for tokens
+    // 3. Exchange authorization code for tokens & validate profile
     try {
+      const { googleCredentialStore } = await import('./googleCredentialStore');
+      const { googleConnectionStatusService } = await import('./googleConnectionStatusService');
+
+      const effectiveSecret = session.clientSecret || googleCredentialStore.getClientSecret();
       const tokenData = await this.exchangeCodeForTokens(
         queryCode,
         session.codeVerifier,
         session.redirectUri,
-        session.clientId
+        session.clientId,
+        effectiveSecret
       );
 
       let profile: GoogleUserProfile;
@@ -376,8 +372,6 @@ export class GoogleOAuthService {
       }
 
       // Persist credentials in secure store
-      const { googleCredentialStore } = await import('./googleCredentialStore');
-      const { googleConnectionStatusService } = await import('./googleConnectionStatusService');
       const account = googleCredentialStore.saveGoogleConnection(profile, tokenData);
 
       const connectedState = {
@@ -388,14 +382,37 @@ export class GoogleOAuthService {
         lastConnectedAt: new Date().toISOString(),
         hasRefreshToken: Boolean(tokenData.refresh_token),
         clientIdConfigured: googleCredentialStore.isClientIdConfigured(),
+        clientSecretConfigured: googleCredentialStore.isClientSecretConfigured(),
       };
 
       googleConnectionStatusService.broadcastStatus(connectedState);
+
+      // Render success in browser after exchange succeeds
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(
+        this.renderHtmlResponse(
+          true,
+          'Google Account Connected!',
+          'Authorization successful. You may close this tab and return to Social Earnings Studio.'
+        )
+      );
+
       this.finishSessionWithSuccess(profile, tokenData);
     } catch (exchangeError: any) {
       logger.error('GoogleOAuthService', `Token exchange error: ${exchangeError.message}`);
+
+      // Accurately render failure in the browser
+      res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
+      res.end(
+        this.renderHtmlResponse(
+          false,
+          'Connection Incomplete',
+          exchangeError.message || 'Token exchange failed.'
+        )
+      );
+
       this.finishSessionWithError(
-        `Failed to exchange authorization code: ${exchangeError.message}`,
+        exchangeError.message || 'Failed to exchange authorization code',
         'connection_error'
       );
     }
@@ -417,15 +434,25 @@ export class GoogleOAuthService {
     code: string,
     codeVerifier: string,
     redirectUri: string,
-    clientId: string
+    clientId: string,
+    clientSecret?: string
   ): Promise<OAuthTokenResponse> {
-    const params = new URLSearchParams({
+    const { googleCredentialStore } = await import('./googleCredentialStore');
+    const effectiveSecret = clientSecret || googleCredentialStore.getClientSecret();
+
+    const bodyParams: Record<string, string> = {
       code,
       client_id: clientId,
       redirect_uri: redirectUri,
       grant_type: 'authorization_code',
       code_verifier: codeVerifier,
-    });
+    };
+
+    if (effectiveSecret && effectiveSecret.trim()) {
+      bodyParams.client_secret = effectiveSecret.trim();
+    }
+
+    const params = new URLSearchParams(bodyParams);
 
     const response = await fetch(GoogleOAuthService.TOKEN_ENDPOINT, {
       method: 'POST',
@@ -436,7 +463,10 @@ export class GoogleOAuthService {
     const data = (await response.json()) as OAuthTokenResponse;
 
     if (!response.ok || data.error) {
-      const msg = data.error_description || data.error || `HTTP ${response.status}`;
+      let msg = data.error_description || data.error || `HTTP ${response.status}`;
+      if (msg.toLowerCase().includes('client_secret is missing')) {
+        msg = 'Google requires a Client Secret for your Client ID. Please click "Configure Client ID" in the app and paste your Client Secret (GOCSPX-...).';
+      }
       throw new Error(`Google token exchange failed: ${msg}`);
     }
 
@@ -465,13 +495,23 @@ export class GoogleOAuthService {
 
   public async refreshTokens(
     clientId: string,
-    refreshToken: string
+    refreshToken: string,
+    clientSecret?: string
   ): Promise<OAuthTokenResponse> {
-    const params = new URLSearchParams({
+    const { googleCredentialStore } = await import('./googleCredentialStore');
+    const effectiveSecret = clientSecret || googleCredentialStore.getClientSecret();
+
+    const bodyParams: Record<string, string> = {
       client_id: clientId,
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
-    });
+    };
+
+    if (effectiveSecret && effectiveSecret.trim()) {
+      bodyParams.client_secret = effectiveSecret.trim();
+    }
+
+    const params = new URLSearchParams(bodyParams);
 
     const response = await fetch(GoogleOAuthService.TOKEN_ENDPOINT, {
       method: 'POST',
@@ -481,7 +521,11 @@ export class GoogleOAuthService {
 
     const data = (await response.json()) as OAuthTokenResponse;
     if (!response.ok || data.error) {
-      throw new Error(data.error_description || data.error || `HTTP ${response.status}`);
+      let msg = data.error_description || data.error || `HTTP ${response.status}`;
+      if (msg.toLowerCase().includes('client_secret is missing')) {
+        msg = 'Google requires a Client Secret for your Client ID. Please configure your Client Secret in Settings.';
+      }
+      throw new Error(msg);
     }
 
     return data;
@@ -504,7 +548,8 @@ export class GoogleOAuthService {
   // ==========================================
 
   public async executeFlow(
-    clientId: string
+    clientId: string,
+    clientSecret?: string
   ): Promise<{ profile: GoogleUserProfile; tokenData: OAuthTokenResponse; authUrl: string }> {
     this.cancelPendingOAuth();
 
@@ -549,6 +594,7 @@ export class GoogleOAuthService {
         server,
         timeoutTimer,
         clientId,
+        clientSecret,
         sessionHandled: false,
         resolve: (val) => resolve({ ...val, authUrl }),
         reject,

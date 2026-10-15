@@ -24,6 +24,8 @@ import {
   HelpCircle,
   Globe,
   Sliders,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 
 export const GoogleLogoSvg: React.FC<{ size?: number; className?: string }> = ({
@@ -74,6 +76,8 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [clientIdInput, setClientIdInput] = useState('');
+  const [clientSecretInput, setClientSecretInput] = useState('');
+  const [showSecret, setShowSecret] = useState(false);
   const [testResult, setTestResult] = useState<{ valid: boolean; message: string } | null>(null);
 
   const fetchStatus = async () => {
@@ -84,6 +88,10 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
       const configuredId = await window.api.getGoogleClientId();
       if (configuredId) {
         setClientIdInput(configuredId);
+      }
+      const configuredSecret = await window.api.getGoogleClientSecret();
+      if (configuredSecret) {
+        setClientSecretInput(configuredSecret);
       }
     } catch (err: any) {
       console.warn('Could not fetch Google auth status:', err);
@@ -162,7 +170,10 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
         duration: 8000,
       });
 
-      const res = await window.api.connectGoogleAccount(effectiveClientId || undefined);
+      const res = await window.api.connectGoogleAccount(
+        effectiveClientId || undefined,
+        clientSecretInput.trim() || undefined
+      );
       setAuthState(res.state);
 
       if (res.success) {
@@ -232,7 +243,10 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
         title: 'Reconnecting to Google...',
         message: 'Launching browser sign-in to renew authorization.',
       });
-      const res = await window.api.reconnectGoogleAccount();
+      const res = await window.api.reconnectGoogleAccount(
+        clientIdInput.trim() || undefined,
+        clientSecretInput.trim() || undefined
+      );
       setAuthState(res.state);
       if (res.success) {
         addToast({
@@ -258,15 +272,20 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
     const val = validateClientIdSyntax(clientIdInput);
     if (!val.valid) {
       setTestResult({ valid: false, message: val.error || 'Invalid Client ID' });
+    } else if (clientSecretInput.trim()) {
+      setTestResult({
+        valid: true,
+        message: 'Valid Client ID & Client Secret configured. Ready to save and connect.',
+      });
     } else {
       setTestResult({
         valid: true,
-        message: 'Valid Google Desktop Client ID syntax. Ready to save and connect.',
+        message: 'Valid Client ID. If Google Cloud issued a Client Secret (GOCSPX-...), paste it below.',
       });
     }
   };
 
-  // Save Client ID in Modal
+  // Save Client ID and Secret in Modal
   const handleSaveClientId = async () => {
     if (!window.api) return;
     const cleanId = clientIdInput.trim();
@@ -281,10 +300,11 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
     }
 
     await window.api.setGoogleClientId(cleanId);
+    await window.api.setGoogleClientSecret(clientSecretInput.trim());
     addToast({
       type: 'success',
-      title: 'Client ID Configured',
-      message: 'Google credentials saved. You can now connect your Google account.',
+      title: 'Credentials Saved',
+      message: 'Google Client ID & Client Secret saved securely in OS encrypted vault.',
     });
     setShowConfigModal(false);
     setTestResult(null);
@@ -523,14 +543,16 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
             </div>
 
             <div className="flex gap-2 shrink-0">
-              {authState.failureReason === 'configuration_missing' ? (
+              {authState.failureReason === 'configuration_missing' ||
+              authState.error?.toLowerCase().includes('client_secret') ||
+              authState.error?.includes('Client Secret') ? (
                 <Button
                   variant="primary"
                   size="sm"
                   icon={<Sliders size={13} />}
                   onClick={() => setShowConfigModal(true)}
                 >
-                  Configure Client ID
+                  Configure Credentials
                 </Button>
               ) : (
                 <Button
@@ -613,14 +635,14 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
         )}
       </Card>
 
-      {/* Configure Client ID Modal (Advanced Settings) */}
+      {/* Configure Client ID & Secret Modal (Advanced Settings) */}
       <Modal
         isOpen={showConfigModal}
         onClose={() => {
           setShowConfigModal(false);
           setTestResult(null);
         }}
-        title="Configure Google OAuth Client ID"
+        title="Configure Google OAuth Credentials"
         subtitle="Desktop application authentication credentials"
         size="md"
       >
@@ -628,9 +650,9 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
           <div className="p-4 rounded-xl bg-brand-500/10 border border-brand-500/30 backdrop-blur-md flex items-start gap-3">
             <Info className="text-brand-400 shrink-0 mt-0.5" size={16} />
             <div className="space-y-1">
-              <span className="font-semibold text-white">Google Cloud Desktop Client ID</span>
+              <span className="font-semibold text-white">Google Cloud OAuth Credentials</span>
               <p className="text-studio-300 leading-relaxed text-[11px]">
-                Google requires external desktop applications to use an official OAuth Client ID registered as <strong>"Desktop app"</strong> in Google Cloud Console. No client secret is required or allowed in native desktop apps.
+                Google Cloud Console generates a <strong>Client ID</strong> and typically a <strong>Client Secret</strong> (e.g. <code>GOCSPX-...</code>). Both credentials are encrypted and stored in your native OS vault (Windows DPAPI / Mac Keychain).
               </p>
             </div>
           </div>
@@ -648,6 +670,32 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
               placeholder="e.g. 1234567890-abcdef123456.apps.googleusercontent.com"
               helperText="Must end with '.apps.googleusercontent.com'. Desktop clients use PKCE (S256)."
             />
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="font-semibold text-white block">
+                OAuth 2.0 Client Secret (GOCSPX-...)
+              </label>
+              <button
+                type="button"
+                onClick={() => setShowSecret(!showSecret)}
+                className="text-[11px] text-cyan-400 hover:text-cyan-300 transition-colors inline-flex items-center gap-1 cursor-pointer"
+              >
+                {showSecret ? <EyeOff size={12} /> : <Eye size={12} />}
+                <span>{showSecret ? 'Hide' : 'Show'}</span>
+              </button>
+            </div>
+            <Input
+              type={showSecret ? 'text' : 'password'}
+              value={clientSecretInput}
+              onChange={(e) => {
+                setClientSecretInput(e.target.value);
+                setTestResult(null);
+              }}
+              placeholder="e.g. GOCSPX-abcdef123456ghijklmn789"
+              helperText="Issued by Google Cloud alongside your Client ID. Required for Google token exchange."
+            />
 
             {testResult && (
               <div
@@ -664,12 +712,12 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
           </div>
 
           <div className="p-4 rounded-xl bg-studio-900/90 border border-studio-700/60 backdrop-blur-sm space-y-2 text-[11px]">
-            <span className="font-semibold text-white block">How to get your Client ID in 1 minute:</span>
+            <span className="font-semibold text-white block">How to get your credentials in 1 minute:</span>
             <ol className="list-decimal list-inside space-y-1 text-studio-300">
               <li>Open <strong>Google Cloud Console &gt; Credentials</strong> (link below).</li>
               <li>Click <strong>Create Credentials &gt; OAuth client ID</strong>.</li>
               <li>Select Application type: <strong>Desktop app</strong> (name: <em>Social Earnings Studio</em>).</li>
-              <li>Click <strong>Create</strong> and copy your <strong>Client ID</strong>.</li>
+              <li>Copy both the <strong>Client ID</strong> and <strong>Client Secret (GOCSPX-...)</strong> into the fields above.</li>
               <li><em>Note:</em> In <strong>OAuth consent screen</strong>, ensure your Gmail is added under <strong>Test users</strong> (if your app is in Testing mode).</li>
             </ol>
           </div>

@@ -94,12 +94,16 @@ const api: IElectronAPI = {
   connectSocialAccount: (platform) => ipcRenderer.invoke('connectSocialAccount', platform),
   disconnectSocialAccount: (id) => ipcRenderer.invoke('disconnectSocialAccount', id),
   getGoogleAuthStatus: () => ipcRenderer.invoke('getGoogleAuthStatus'),
-  connectGoogleAccount: (clientId) => ipcRenderer.invoke('connectGoogleAccount', clientId),
-  disconnectGoogleAccount: (accountId) => ipcRenderer.invoke('disconnectGoogleAccount', accountId),
-  reconnectGoogleAccount: (accountId) => ipcRenderer.invoke('reconnectGoogleAccount', accountId),
-  refreshGoogleToken: (accountId) => ipcRenderer.invoke('refreshGoogleToken', accountId),
-  setGoogleClientId: (clientId) => ipcRenderer.invoke('setGoogleClientId', clientId),
+  connectGoogleAccount: (clientId?: string, clientSecret?: string) =>
+    ipcRenderer.invoke('connectGoogleAccount', clientId, clientSecret),
+  disconnectGoogleAccount: (accountId?: string) => ipcRenderer.invoke('disconnectGoogleAccount', accountId),
+  reconnectGoogleAccount: (clientId?: string, clientSecret?: string) =>
+    ipcRenderer.invoke('reconnectGoogleAccount', clientId, clientSecret),
+  refreshGoogleToken: (accountId?: string) => ipcRenderer.invoke('refreshGoogleToken', accountId),
+  setGoogleClientId: (clientId: string) => ipcRenderer.invoke('setGoogleClientId', clientId),
   getGoogleClientId: () => ipcRenderer.invoke('getGoogleClientId'),
+  setGoogleClientSecret: (clientSecret: string) => ipcRenderer.invoke('setGoogleClientSecret', clientSecret),
+  getGoogleClientSecret: () => ipcRenderer.invoke('getGoogleClientSecret'),
   cancelGoogleAuth: () => ipcRenderer.invoke('cancelGoogleAuth'),
   onGoogleAuthChanged: (callback) => {
     const handler = (_: any, state: any) => callback(state);
@@ -186,10 +190,12 @@ const api: IElectronAPI = {
 };
 
 const authAPI = {
-  signInWithGoogle: (clientId?: string) => ipcRenderer.invoke('connectGoogleAccount', clientId),
+  signInWithGoogle: (clientId?: string, clientSecret?: string) =>
+    ipcRenderer.invoke('connectGoogleAccount', clientId, clientSecret),
   getSession: () => ipcRenderer.invoke('getGoogleAuthStatus'),
   signOut: (accountId?: string) => ipcRenderer.invoke('disconnectGoogleAccount', accountId),
-  reconnect: (accountId?: string) => ipcRenderer.invoke('reconnectGoogleAccount', accountId),
+  reconnect: (clientId?: string, clientSecret?: string) =>
+    ipcRenderer.invoke('reconnectGoogleAccount', clientId, clientSecret),
   refreshToken: (accountId?: string) => ipcRenderer.invoke('refreshGoogleToken', accountId),
   onAuthStateChanged: (callback: (state: any) => void) => {
     const handler = (_: any, state: any) => callback(state);

@@ -68,6 +68,19 @@ export class GoogleAuthService {
     return googleCredentialStore.isClientIdConfigured();
   }
 
+  public getClientSecret(): string {
+    return googleCredentialStore.getClientSecret();
+  }
+
+  public setClientSecret(clientSecret: string): void {
+    googleCredentialStore.setClientSecret(clientSecret);
+    googleConnectionStatusService.refreshStatusFromStorage();
+  }
+
+  public isClientSecretConfigured(): boolean {
+    return googleCredentialStore.isClientSecretConfigured();
+  }
+
   // Loopback Server & Token Exchange
   public startLoopbackServer(
     preferredPort: number = 0
@@ -87,9 +100,10 @@ export class GoogleAuthService {
     code: string,
     codeVerifier: string,
     redirectUri: string,
-    clientId: string
+    clientId: string,
+    clientSecret?: string
   ): Promise<OAuthTokenResponse> {
-    return googleOAuthService.exchangeCodeForTokens(code, codeVerifier, redirectUri, clientId);
+    return googleOAuthService.exchangeCodeForTokens(code, codeVerifier, redirectUri, clientId, clientSecret);
   }
 
   public fetchUserProfile(accessToken: string): Promise<GoogleUserProfile> {
@@ -146,9 +160,17 @@ export class GoogleAuthService {
 
   // Flow Execution & Status
   public startOAuthFlow(
-    customClientId?: string
+    customClientId?: string,
+    customClientSecret?: string
   ): Promise<{ success: boolean; state: GoogleAuthState; authUrl?: string }> {
-    return googleConnectionStatusService.connectGoogle(customClientId);
+    return googleConnectionStatusService.connectGoogle(customClientId, customClientSecret);
+  }
+
+  public reconnect(
+    customClientId?: string,
+    customClientSecret?: string
+  ): Promise<{ success: boolean; state: GoogleAuthState; authUrl?: string }> {
+    return googleConnectionStatusService.reconnect(customClientId, customClientSecret);
   }
 
   public getStatus(): GoogleAuthState {

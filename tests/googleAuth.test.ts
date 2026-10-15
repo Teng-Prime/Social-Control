@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import crypto from 'crypto';
 import http from 'http';
 import { googleAuthService } from '../src/main/services/googleAuthService';
+import { googleOAuthService } from '../src/main/services/googleOAuthService';
 import { socialAccountRepo } from '../src/main/database/repositories/socialAccountRepository';
 import { secureStorageService } from '../src/main/services/secureStorage';
 import { validateIpcSender } from '../src/main/ipc/index';
@@ -300,16 +301,16 @@ describe('Google OAuth 2.0 PKCE, OIDC Identity & Security Management', () => {
     const loopback = await googleAuthService.startLoopbackServer(0);
     const state = 'replay_test_state';
 
-    vi.spyOn(googleAuthService as any, 'exchangeCodeForTokens').mockResolvedValue({
+    vi.spyOn(googleOAuthService, 'exchangeCodeForTokens').mockResolvedValue({
       access_token: 'mock_token',
       expires_in: 3600,
     });
-    vi.spyOn(googleAuthService as any, 'validateIdToken').mockResolvedValue({
+    vi.spyOn(googleOAuthService, 'validateIdToken').mockResolvedValue({
       id: 'sub_mock',
       email: 'test@example.com',
       name: 'Test User',
     });
-    vi.spyOn(googleAuthService as any, 'fetchUserProfile').mockResolvedValue({
+    vi.spyOn(googleOAuthService, 'fetchUserProfile').mockResolvedValue({
       id: 'sub_mock',
       email: 'test@example.com',
       name: 'Test User',
