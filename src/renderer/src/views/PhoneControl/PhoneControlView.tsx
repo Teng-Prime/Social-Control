@@ -193,9 +193,13 @@ export const PhoneControlView: React.FC = () => {
       return;
     }
 
+    const existingCred = accountCredentials.find((c) => c.platform === platform);
+    const isUpdate = Boolean(existingCred && existingCred.id);
+
     setSavingPlatform(platform);
     try {
       const saved = await window.api.savePhoneAccountCredential({
+        id: existingCred?.id,
         deviceId: targetDevKey,
         platform,
         identifier: inputToSave.identifier.trim(),
@@ -210,7 +214,7 @@ export const PhoneControlView: React.FC = () => {
       addToast({
         type: 'success',
         title: 'Saved successfully',
-        message: `${platform.toUpperCase()} credentials saved for ${saved.identifier} on ${targetModel}.`,
+        message: `${platform.toUpperCase()} credentials ${isUpdate ? 'updated' : 'saved'} for ${saved.identifier} on ${targetModel}.`,
       });
 
       // Update form inputs immediately with confirmed saved record

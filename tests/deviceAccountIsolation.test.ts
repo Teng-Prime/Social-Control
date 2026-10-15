@@ -489,4 +489,192 @@ describe('Device-Specific Platform Account Isolation (Tests A through G)', () =>
     const p2TikTok = phoneAccountRepo.getByPlatform('tiktok', phone2Serial);
     expect(p2TikTok?.identifier).not.toBe('virtual.staging@tiktok.com');
   });
+
+  // ---------------------------------------------------------------------------
+  // Mandatory Verification Flow (Tests 1 through 8)
+  // ---------------------------------------------------------------------------
+  describe('Mandatory Verification Flow (Tests 1 through 8)', () => {
+    const dev1 = 'emulator-5556';
+    const dev2 = 'emulator-5558';
+
+    it('Test 1 — Create: Enter a new Google account on Phone 1, save, verify database contains record', () => {
+      const created = phoneAccountRepo.create({
+        deviceId: dev1,
+        platform: 'google',
+        identifier: 'test1.creator@gmail.com',
+        password: 'Password123!',
+        twoFactorSecret: 'TOTPSECRET1',
+      });
+
+      expect(created).toBeDefined();
+      expect(created.id).toBeDefined();
+      expect(created.identifier).toBe('test1.creator@gmail.com');
+      expect(created.deviceId).toBe(dev1);
+
+      // Verify direct database persistence
+      const fromDb = phoneAccountRepo.getById(created.id);
+      expect(fromDb).not.toBeNull();
+      expect(fromDb?.identifier).toBe('test1.creator@gmail.com');
+    });
+
+    it('Test 2 — Read: Refresh/reload, verify saved Google account loads correctly', () => {
+      // Load accounts for dev1
+      const accounts = phoneAccountRepo.getAll(dev1);
+      const googleAcc = accounts.find((a) => a.platform === 'google');
+
+      expect(googleAcc).toBeDefined();
+      expect(googleAcc?.identifier).toBe('test1.creator@gmail.com');
+      expect(googleAcc?.password).toBe('Password123!');
+      expect(googleAcc?.twoFactorSecret).toBe('TOTPSECRET1');
+    });
+
+    it('Test 3 — Update: Change the account identifier, click Save, verify original database record is updated', () => {
+      const existing = phoneAccountRepo.getByPlatform('google', dev1);
+      expect(existing).not.toBeNull();
+      const originalId = existing!.id;
+
+      // Update identifier
+      const updated = phoneAccountRepo.save({
+        id: originalId,
+        deviceId: dev1,
+        platform: 'google',
+        identifier: 'test3.updated.creator@gmail.com',
+      });
+
+      expect(updated.id).toBe(originalId);
+      expect(updated.identifier).toBe('test3.updated.creator@gmail.com');
+
+      // Verify DB row has the new identifier and was updated in place
+      const fromDb = phoneAccountRepo.getById(originalId);
+      expect(fromDb?.identifier).toBe('test3.updated.creator@gmail.com');
+      expect(fromDb?.password).toBe('Password123!'); // Password preserved
+    });
+
+    it('Test 4 — No duplicates: Click Save multiple times, verify only one record exists for device/platform', () => {
+      // Save 3 times in a row with same or modified data
+      phoneAccountRepo.save({
+        deviceId: dev1,
+        platform: 'google',
+        identifier: 'test3.updated.creator@gmail.com',
+      });
+      phoneAccountRepo.save({
+        deviceId: dev1,
+        platform: 'google',
+        identifier: 'test3.updated.creator@gmail.com',
+      });
+      phoneAccountRepo.save({
+        deviceId: dev1,
+        platform: 'google',
+        identifier: 'test3.updated.creator@gmail.com',
+      });
+
+      // Verify count in database for dev1 and google is exactly 1
+      const allDev1 = phoneAccountRepo.getAll(dev1);
+      const googleRecords = allDev1.filter((a) => a.platform === 'google');
+      expect(googleRecords.length).toBe(1);
+    });
+
+    it('Test 5 — Device isolation: Save Account A on Phone 1 and Account B on Phone 2, edit Phone 2, verify Phone 1 unchanged', () => {
+      // Save on Phone 1
+      phoneAccountRepo.save({
+        deviceId: dev1,
+        platform: 'facebook',
+        identifier: 'phone1.facebook.uid',
+        password: 'P1FbPassword',
+      });
+
+      // Save on Phone 2
+      phoneAccountRepo.save({
+        deviceId: dev2,
+        platform: 'facebook',
+        identifier: 'phone2.facebook.uid',
+        password: 'P2FbPassword',
+      });
+
+      // Edit Phone 2
+      phoneAccountRepo.save({
+        deviceId: dev2,
+        platform: 'facebook',
+        identifier: 'phone2.facebook.uid.MODIFIED',
+        password: 'P2FbNewPassword',
+      });
+
+      // Verify Phone 2 is updated
+      const p2Fb = phoneAccountRepo.getByPlatform('facebook', dev2);
+      expect(p2Fb?.identifier).toBe('phone2.facebook.uid.MODIFIED');
+
+      // Verify Phone 1 is completely UNCHANGED
+      const p1Fb = phoneAccountRepo.getByPlatform('facebook', dev1);
+      expect(p1Fb?.identifier).toBe('phone1.facebook.uid');
+      expect(p1Fb?.password).toBe('P1FbPassword');
+    });
+
+    it('Test 6 — Partial update: Update account identifier while leaving password blank, verify existing password preserved', () => {
+      // 1. Initial complete record
+      phoneAccountRepo.save({
+        deviceId: dev1,
+        platform: 'tiktok',
+        identifier: 'p1.tiktok.initial@gmail.com',
+        password: 'InitialTikTokSecretPassword',
+        twoFactorSecret: 'TIKTOK2FAKEY',
+      });
+
+      // 2. Partial update with blank password
+      const partialUpdate = phoneAccountRepo.save({
+        deviceId: dev1,
+        platform: 'tiktok',
+        identifier: 'p1.tiktok.identifier.changed@gmail.com',
+        password: '', // Blank
+      });
+
+      expect(partialUpdate.identifier).toBe('p1.tiktok.identifier.changed@gmail.com');
+      expect(partialUpdate.password).toBe('InitialTikTokSecretPassword');
+      expect(partialUpdate.twoFactorSecret).toBe('TIKTOK2FAKEY');
+
+      // 3. Confirm in DB query
+      const fromDb = phoneAccountRepo.getByPlatform('tiktok', dev1);
+      expect(fromDb?.identifier).toBe('p1.tiktok.identifier.changed@gmail.com');
+      expect(fromDb?.password).toBe('InitialTikTokSecretPassword');
+      expect(fromDb?.twoFactorSecret).toBe('TIKTOK2FAKEY');
+    });
+
+    it('Test 7 — Error recovery: Simulate backend validation error, verify app reports failure cleanly', () => {
+      // Attempting to create or save with blank identifier should throw validation error
+      expect(() => {
+        phoneAccountRepo.create({
+          deviceId: dev1,
+          platform: 'youtube',
+          identifier: '   ',
+        });
+      }).toThrow('Account identifier is required');
+
+      // Attempting to update non-existent ID should throw descriptive error
+      expect(() => {
+        phoneAccountRepo.update('non_existent_record_id_9999', {
+          identifier: 'valid@gmail.com',
+        });
+      }).toThrow('not found');
+    });
+
+    it('Test 8 — Regression: Verify all platform rows, device selection, and auto-login work', async () => {
+      // Save youtube credentials on dev1
+      phoneAccountRepo.save({
+        deviceId: dev1,
+        platform: 'youtube',
+        identifier: 'creator.yt@gmail.com',
+      });
+
+      const autoLoginRes = await atxAutomationService.autoLoginYouTubeGoogle(dev1);
+      expect(autoLoginRes.success).toBe(true);
+      expect(autoLoginRes.accountEmail).toBe('creator.yt@gmail.com');
+
+      // Check all 4 platforms are accessible
+      const allDev1 = phoneAccountRepo.getAll(dev1);
+      const platforms = allDev1.map((a) => a.platform);
+      expect(platforms).toContain('google');
+      expect(platforms).toContain('facebook');
+      expect(platforms).toContain('tiktok');
+      expect(platforms).toContain('youtube');
+    });
+  });
 });

@@ -1021,6 +1021,12 @@ export function registerIpcHandlers(): void {
   });
 
   ipcMain.handle('savePhoneAccountCredential', async (_, credential: any) => {
+    if (!credential || !credential.platform) {
+      throw new Error('Invalid account payload: platform is required.');
+    }
+    if (!credential.identifier || typeof credential.identifier !== 'string' || !credential.identifier.trim()) {
+      throw new Error('Invalid account payload: account identifier cannot be blank.');
+    }
     return phoneAccountRepo.save(credential);
   });
 
