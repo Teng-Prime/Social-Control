@@ -1,10 +1,50 @@
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, nativeImage } from 'electron';
 import path from 'path';
+import fs from 'fs';
 import { setupSecurityPolicies } from './security';
 import { appDb } from './database/db';
 import { queueService } from './services/queueService';
 import { registerIpcHandlers } from './ipc';
 import { logger } from './logger';
+
+// Set Application User Model ID for Windows Taskbar grouping and icon binding
+if (process.platform === 'win32') {
+  app.setAppUserModelId('com.socialearningsstudio.app');
+}
+
+/**
+ * Resolves the application taskbar & window icon across development and production packaging
+ */
+function getAppIconPath(): string {
+  const isWin = process.platform === 'win32';
+  const iconName = isWin ? 'icon.ico' : 'icon.png';
+
+  const candidateDirs = [
+    path.join(__dirname, '../../resources'),
+    path.join(__dirname, '../resources'),
+    path.join(__dirname, 'resources'),
+    path.join(process.cwd(), 'resources'),
+    path.join(__dirname, '../../build'),
+    path.join(process.cwd(), 'build'),
+  ];
+
+  for (const dir of candidateDirs) {
+    const fullPath = path.join(dir, iconName);
+    if (fs.existsSync(fullPath)) {
+      return fullPath;
+    }
+  }
+
+  // Fallback to PNG on Windows if ICO is not found
+  for (const dir of candidateDirs) {
+    const pngPath = path.join(dir, 'icon.png');
+    if (fs.existsSync(pngPath)) {
+      return pngPath;
+    }
+  }
+
+  return '';
+}
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -21,6 +61,9 @@ async function createWindow(): Promise<void> {
   // Start automation background queue worker
   queueService.start();
 
+  const iconPath = getAppIconPath();
+  const iconImage = iconPath ? nativeImage.createFromPath(iconPath) : undefined;
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -31,6 +74,7 @@ async function createWindow(): Promise<void> {
     frame: false, // Frameless window - custom sleek titlebar frame rendered in React
     titleBarStyle: 'hidden',
     autoHideMenuBar: true,
+    icon: iconImage || (iconPath ? iconPath : undefined),
     webPreferences: {
       preload: path.join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -38,6 +82,10 @@ async function createWindow(): Promise<void> {
       sandbox: false,
     },
   });
+
+  if (iconImage && !iconImage.isEmpty()) {
+    mainWindow.setIcon(iconImage);
+  }
 
   mainWindow.setMenuBarVisibility(false);
 
