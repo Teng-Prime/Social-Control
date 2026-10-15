@@ -295,13 +295,13 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ initialOpenCharacter
   };
 
   const stepsConfig = [
-    { num: 1, title: 'Character', icon: <Users size={14} /> },
-    { num: 2, title: 'Story & Hook', icon: <Sparkles size={14} /> },
-    { num: 3, title: 'Prompts', icon: <Film size={14} /> },
-    { num: 4, title: 'Voice-over', icon: <Mic size={14} /> },
-    { num: 5, title: 'Music', icon: <Music size={14} /> },
-    { num: 6, title: 'Sound FX', icon: <Volume2 size={14} /> },
-    { num: 7, title: 'Final Video', icon: <Video size={14} /> },
+    { num: 1, title: 'Character', icon: <Users size={13} /> },
+    { num: 2, title: 'Story', icon: <Sparkles size={13} /> },
+    { num: 3, title: 'Prompts', icon: <Film size={13} /> },
+    { num: 4, title: 'Voice', icon: <Mic size={13} /> },
+    { num: 5, title: 'Music', icon: <Music size={13} /> },
+    { num: 6, title: 'Sound FX', icon: <Volume2 size={13} /> },
+    { num: 7, title: 'Export', icon: <Video size={13} /> },
   ];
 
   const selectedChars = characters.filter((c) =>
@@ -327,70 +327,54 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ initialOpenCharacter
 
       {/* 2. Main Guided Workspace */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
-        {/* Step Progress Stepper Bar */}
-        <div className="px-6 py-3 border-b border-[rgba(91,145,255,0.18)] bg-[#07112A]/90 backdrop-blur-md shrink-0">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none">
+        {/* Step Progress Stepper Bar - Friendly Responsive Single-Row Layout (No Scrollbar) */}
+        <div className="px-4 py-2.5 border-b border-[rgba(91,145,255,0.18)] bg-[#07112A]/90 backdrop-blur-md shrink-0">
+          <div className="flex items-center justify-between gap-3">
+            {/* Steps Workflow Track */}
+            <div className="flex-1 flex items-center gap-1.5 min-w-0">
               {stepsConfig.map((s, idx) => {
                 const isActive = currentStep === s.num;
                 const isPassed = currentStep > s.num;
 
                 return (
                   <React.Fragment key={s.num}>
-                    <div
-                      className={`flex items-center rounded-xl transition-all shrink-0 border ${
+                    <button
+                      type="button"
+                      onClick={() => handleStepClick(s.num)}
+                      className={`flex-1 min-w-0 flex items-center justify-center gap-1 px-2 py-1.5 rounded-xl text-xs transition-all border select-none ${
                         isActive
-                          ? 'bg-gradient-to-r from-brand-500 to-cyan-500 border-brand-400 text-white shadow-[0_0_15px_rgba(8,123,255,0.35)]'
+                          ? 'bg-gradient-to-r from-brand-500 to-cyan-500 border-brand-400 text-white font-semibold shadow-[0_0_12px_rgba(8,123,255,0.4)]'
                           : isPassed
-                          ? 'bg-[#102A50] border-[rgba(91,145,255,0.25)] text-studio-100'
-                          : 'bg-[#081633]/60 border-[rgba(91,145,255,0.15)] text-studio-400 hover:text-studio-200'
+                          ? 'bg-[#102A50]/80 border-[rgba(91,145,255,0.22)] text-cyan-300 hover:text-white hover:bg-[#102A50]'
+                          : 'bg-[#081633]/60 border-[rgba(91,145,255,0.14)] text-studio-400 hover:text-studio-200 hover:bg-[#102A50]/40'
                       }`}
+                      title={`Go to Step ${s.num}: ${s.title}`}
                     >
-                      <button
-                        onClick={() => handleStepClick(s.num)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold hover:opacity-90"
-                      >
-                        <span className={isActive ? 'text-white' : isPassed ? 'text-cyan-400' : 'text-studio-500'}>
-                          {isPassed ? <CheckCircle2 size={13} /> : s.icon}
-                        </span>
-                        <span>
-                          {s.num}. {s.title}
-                        </span>
-                      </button>
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setQuickConfigStep(s.num);
-                        }}
-                        className={`p-1 mr-1.5 rounded-md text-[10px] flex items-center gap-1 transition-colors ${
-                          isActive
-                            ? 'hover:bg-white/20 text-white/90'
-                            : 'hover:bg-[#102A50] text-studio-400 hover:text-studio-100'
-                        }`}
-                        title={`Configure Step ${s.num}: ${s.title}`}
-                      >
-                        <Settings size={12} />
-                      </button>
-                    </div>
+                      <span className="shrink-0">
+                        {isPassed ? <CheckCircle2 size={12} className="text-cyan-400" /> : s.icon}
+                      </span>
+                      <span className="truncate text-[11px] font-medium tracking-tight">
+                        {s.num}. {s.title}
+                      </span>
+                    </button>
 
                     {idx < stepsConfig.length - 1 && (
-                      <div className="w-3 h-0.5 bg-[rgba(91,145,255,0.2)] shrink-0" />
+                      <div className="w-1.5 h-0.5 bg-[rgba(91,145,255,0.2)] shrink-0" />
                     )}
                   </React.Fragment>
                 );
               })}
             </div>
 
-            {/* Quick Actions: AI Characters Button, Quick Config Button & Autosave Status */}
-            <div className="flex items-center gap-2.5 shrink-0 ml-4">
+            {/* Quick Actions & Autosave */}
+            <div className="flex items-center gap-2 shrink-0">
               <Button
                 variant="secondary"
                 size="sm"
                 icon={<Users size={13} className="text-cyan-400" />}
                 onClick={() => setIsCharactersModalOpen(true)}
-                className="h-7 text-xs px-2.5 bg-[#102A50] border border-[rgba(91,145,255,0.25)] text-studio-100 hover:text-white hover:border-brand-400 transition-all shadow-subtle flex items-center gap-1.5"
-                title="Open AI Characters Studio & Configuration"
+                className="h-7 text-xs px-2.5 bg-[#102A50] border border-[rgba(91,145,255,0.25)] text-studio-100 hover:text-white hover:border-brand-400 transition-all shadow-subtle flex items-center gap-1.5 shrink-0"
+                title="Manage AI Characters"
               >
                 <span>AI Characters</span>
                 <span className="px-1.5 py-0.2 rounded-full bg-brand-500/25 border border-brand-500/30 text-cyan-300 text-[10px] font-mono">
@@ -401,16 +385,17 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ initialOpenCharacter
               <Button
                 variant="secondary"
                 size="sm"
-                icon={<Settings size={12} />}
+                icon={<Settings size={12} className="text-brand-400" />}
                 onClick={() => setQuickConfigStep(currentStep)}
-                className="h-7 text-xs px-2.5 bg-studio-900 border border-studio-800 text-studio-300 hover:text-white"
+                className="h-7 text-xs px-2.5 bg-[#081633] border border-[rgba(91,145,255,0.2)] text-studio-300 hover:text-white hover:border-brand-400 transition-all shrink-0"
+                title="Open Studio Configuration Dialog"
               >
-                Config Step {currentStep}
+                <span>Config</span>
               </Button>
 
-              <div className="text-[11px] text-studio-500 flex items-center gap-1.5 font-mono">
-                <span className={`w-2 h-2 rounded-full ${isAutosaving ? 'bg-amber-400 animate-ping' : 'bg-emerald-400'}`} />
-                <span>{isAutosaving ? 'Saving Draft...' : 'Autosaved'}</span>
+              <div className="flex items-center gap-1.5 text-[10px] text-studio-400 font-mono shrink-0 pl-1">
+                <span className={`w-1.5 h-1.5 rounded-full ${isAutosaving ? 'bg-amber-400 animate-ping' : 'bg-emerald-400 shadow-[0_0_8px_#10B981]'}`} />
+                <span>{isAutosaving ? 'Saving...' : 'Saved'}</span>
               </div>
             </div>
           </div>
@@ -591,8 +576,8 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ initialOpenCharacter
         <Modal
           isOpen={quickConfigStep !== null}
           onClose={() => setQuickConfigStep(null)}
-          title={`Configure Step ${quickConfigStep}: ${stepsConfig[quickConfigStep - 1]?.title}`}
-          subtitle="Adjust AI parameters, story hooks, prompts, and audio presets for this workflow stage"
+          title="Studio Configuration"
+          subtitle="Adjust AI parameters, story hooks, prompts, and audio presets across all workflow steps"
           maxWidth="lg"
           footer={
             <div className="flex items-center justify-between w-full">
@@ -604,7 +589,7 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ initialOpenCharacter
                   setQuickConfigStep(null);
                 }}
               >
-                Go to Step {quickConfigStep} Page
+                Go to Step {quickConfigStep} in Workspace
               </Button>
               <Button variant="primary" size="sm" onClick={() => setQuickConfigStep(null)}>
                 Done
@@ -612,6 +597,23 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ initialOpenCharacter
             </div>
           }
         >
+          {/* Step Selector Tabs inside Modal - All in One Friendly Dialog */}
+          <div className="flex items-center gap-1 p-1 bg-studio-950 rounded-xl border border-studio-800 mb-4 overflow-x-auto scrollbar-none">
+            {stepsConfig.map((s) => (
+              <button
+                key={s.num}
+                onClick={() => setQuickConfigStep(s.num)}
+                className={`flex-1 py-1.5 px-2 rounded-lg text-[11px] font-medium transition-all text-center truncate ${
+                  quickConfigStep === s.num
+                    ? 'bg-[#102A50] text-cyan-400 font-semibold border border-[rgba(91,145,255,0.25)] shadow-subtle'
+                    : 'text-studio-400 hover:text-studio-200'
+                }`}
+              >
+                {s.num}. {s.title}
+              </button>
+            ))}
+          </div>
+
           <div className="space-y-4 text-xs">
             {quickConfigStep === 1 && (
               <div className="space-y-3">
