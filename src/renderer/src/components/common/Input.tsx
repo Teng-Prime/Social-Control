@@ -21,32 +21,32 @@ export const Input: React.FC<InputProps> = ({
   return (
     <div className="w-full">
       {label && (
-        <label htmlFor={inputId} className="block text-xs font-medium text-studio-300 mb-1.5">
+        <label htmlFor={inputId} className="block text-xs font-semibold text-[#F1F5FF] mb-1.5 tracking-tight">
           {label}
         </label>
       )}
-      <div className="relative rounded-lg shadow-sm">
+      <div className="relative rounded-xl shadow-sm">
         {icon && (
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-studio-400">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#91A4C5]">
             {icon}
           </div>
         )}
         <input
           id={inputId}
-          className={`w-full bg-[#081633]/90 border rounded-xl px-3.5 py-2 text-sm text-studio-100 placeholder-studio-400/60 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all ${
+          className={`w-full bg-[#07122A] border rounded-xl px-3.5 py-2 text-xs md:text-sm text-[#F1F5FF] placeholder-[#546F96] focus:outline-none focus:ring-1 focus:ring-[#00C8F5]/40 focus:border-[#00C8F5] transition-all ${
             icon ? 'pl-10' : ''
           } ${
             error
-              ? 'border-rose-500/80 focus:ring-rose-500'
-              : 'border-[rgba(91,145,255,0.22)] hover:border-brand-500/40'
+              ? 'border-[#FF5D73] focus:ring-[#FF5D73]'
+              : 'border-[#18345C] hover:border-[#087BFF]/60'
           } ${className}`}
           {...props}
         />
       </div>
       {error ? (
-        <p className="mt-1 text-xs text-rose-400">{error}</p>
+        <p className="mt-1 text-xs text-[#FF5D73]">{error}</p>
       ) : helperText ? (
-        <p className="mt-1 text-xs text-studio-500">{helperText}</p>
+        <p className="mt-1 text-[11px] text-[#91A4C5]">{helperText}</p>
       ) : null}
     </div>
   );

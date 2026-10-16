@@ -342,14 +342,14 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
   return (
     <div className="space-y-6">
       {/* Step Header & Mode Switcher */}
-      <div className="flex items-center justify-between pb-4 border-b border-studio-800">
+      <div className="flex items-center justify-between pb-4 border-b border-[#18345C]">
         <div>
-          <h2 className="text-base font-bold text-studio-100 flex items-center gap-2">
-            <Users size={18} className="text-brand-400" />
+          <h2 className="text-base font-bold text-[#F1F5FF] flex items-center gap-2">
+            <Users size={18} className="text-[#00C8F5]" />
             Step 1: Character Photo Generation & Consistent Identity
           </h2>
-          <p className="text-xs text-studio-400 mt-0.5">
-            Only characters with a <strong>generated image</strong> or <strong>uploaded image</strong> can be used for story video generation.
+          <p className="text-xs text-[#91A4C5] mt-0.5">
+            Only characters with a <strong className="text-[#00C8F5]">generated image</strong> or <strong className="text-[#00C8F5]">uploaded image</strong> can be used for story video generation.
           </p>
         </div>
 
@@ -358,9 +358,9 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
             <Button
               variant="secondary"
               size="sm"
-              icon={<Users size={13} className="text-cyan-400" />}
+              icon={<Users size={13} className="text-[#00C8F5]" />}
               onClick={onOpenCharactersConfig}
-              className="bg-[#102A50] border border-[rgba(91,145,255,0.25)] text-studio-100 hover:text-white hover:border-brand-400 shadow-subtle"
+              className="bg-[#0A1933] border border-[#18345C] text-[#F1F5FF] hover:text-white hover:border-[#00C8F5] shadow-subtle rounded-xl"
               title="Open full AI Characters configuration modal"
             >
               AI Characters Config
@@ -368,10 +368,11 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
           )}
 
           <Button
-            variant="primary"
+            variant="cyan"
             size="sm"
             icon={<Sparkles size={13} />}
             onClick={() => handleOpenNewCharacter('ai')}
+            className="font-bold shadow-[0_0_12px_rgba(0,200,245,0.3)] rounded-xl"
           >
             Generate to Image
           </Button>
@@ -379,19 +380,20 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
           <Button
             variant="secondary"
             size="sm"
-            icon={<Upload size={13} />}
+            icon={<Upload size={13} className="text-[#00C8F5]" />}
             onClick={handleDirectUploadNewCharacter}
+            className="bg-[#0A1933] border border-[#18345C] text-[#F1F5FF] hover:border-[#00C8F5] rounded-xl"
           >
             Upload Image
           </Button>
 
-          <div className="bg-studio-950 p-1 rounded-xl border border-studio-800 flex items-center gap-1 ml-2">
+          <div className="bg-[#07122A] p-1 rounded-xl border border-[#18345C] flex items-center gap-1 ml-2">
             <button
               onClick={() => setMode('select')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 mode === 'select'
-                  ? 'bg-brand-500 text-white shadow-subtle'
-                  : 'text-studio-400 hover:text-studio-200'
+                  ? 'bg-[#00C8F5] text-[#050B1D] font-bold shadow-[0_0_8px_rgba(0,200,245,0.4)]'
+                  : 'text-[#91A4C5] hover:text-[#F1F5FF]'
               }`}
             >
               Saved ({characters.length})
@@ -400,8 +402,8 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
               onClick={() => handleOpenNewCharacter('ai')}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all flex items-center gap-1.5 ${
                 mode === 'create'
-                  ? 'bg-brand-500 text-white shadow-subtle'
-                  : 'text-studio-400 hover:text-studio-200'
+                  ? 'bg-[#00C8F5] text-[#050B1D] font-bold shadow-[0_0_8px_rgba(0,200,245,0.4)]'
+                  : 'text-[#91A4C5] hover:text-[#F1F5FF]'
               }`}
             >
               <Plus size={13} />
@@ -412,18 +414,18 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
       </div>
 
       {/* Selected Status Bar */}
-      <div className="p-3.5 rounded-xl bg-studio-850/70 border border-studio-800 flex items-center justify-between">
+      <div className="p-4 rounded-2xl bg-[#0A1933] border border-[#18345C] flex items-center justify-between shadow-subtle">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-lg bg-brand-500/20 text-brand-400 flex items-center justify-center">
-            <UserCheck size={16} />
+          <div className="w-9 h-9 rounded-xl bg-[#00C8F5]/15 border border-[#00C8F5]/30 text-[#00C8F5] flex items-center justify-center shadow-[0_0_10px_rgba(0,200,245,0.2)]">
+            <UserCheck size={18} />
           </div>
           <div>
-            <span className="text-xs font-semibold text-studio-200 block">
+            <span className="text-xs font-bold text-[#F1F5FF] block">
               {selectedCharacters.length === 0
                 ? 'No character selected yet'
                 : `${selectedCharacters.length} Protagonist${selectedCharacters.length > 1 ? 's' : ''} Selected for Story`}
             </span>
-            <span className="text-[11px] text-studio-400">
+            <span className="text-[11px] text-[#91A4C5]">
               {selectedCharacters.length === 0
                 ? 'Select a character below. Their reference photos will be used to generate the scene videos.'
                 : selectedCharacters.map((c) => `${c.name} (${c.references.length} reference photos)`).join(' • ')}
@@ -474,10 +476,10 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                     }}
                     className={`p-4 rounded-2xl border transition-all relative group flex flex-col justify-between ${
                       !hasImage
-                        ? 'bg-studio-900/60 border-amber-500/30'
+                        ? 'bg-[#0A1933]/60 border-[#FFB84D]/40'
                         : isSelected
-                        ? 'bg-brand-500/15 border-brand-500 shadow-glow-brand ring-1 ring-brand-500/30 cursor-pointer'
-                        : 'bg-studio-850/80 border-studio-800 hover:border-studio-700 hover:bg-studio-800/60 cursor-pointer'
+                        ? 'bg-gradient-to-br from-[#087BFF]/20 via-[#0A1933] to-[#0D2040] border-[#00C8F5] shadow-[0_0_16px_rgba(0,200,245,0.3)] ring-1 ring-[#00C8F5]/50 cursor-pointer'
+                        : 'bg-[#0A1933] border-[#18345C] hover:border-[#00C8F5]/40 hover:bg-[#0D2040]/70 cursor-pointer'
                     }`}
                   >
                     <div>
@@ -492,7 +494,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                                 setPreviewPhoto(primaryRef);
                               }
                             }}
-                            className="w-16 h-16 rounded-xl bg-studio-950 border border-studio-750 overflow-hidden shrink-0 flex items-center justify-center relative shadow-subtle hover:scale-105 transition-transform"
+                            className="w-16 h-16 rounded-xl bg-[#050B1D] border border-[#18345C] overflow-hidden shrink-0 flex items-center justify-center relative shadow-subtle hover:scale-105 transition-transform"
                             title="Click to preview full reference photo"
                           >
                             {primaryRef ? (
@@ -502,10 +504,10 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                                 className="w-full h-full object-cover"
                               />
                             ) : (
-                              <Users size={26} className="text-studio-600" />
+                              <Users size={26} className="text-[#546F96]" />
                             )}
                             {char.isLocked && (
-                              <div className="absolute bottom-1 right-1 bg-amber-500 text-black p-0.5 rounded shadow">
+                              <div className="absolute bottom-1 right-1 bg-[#FFB84D] text-[#050B1D] p-0.5 rounded shadow">
                                 <Lock size={10} />
                               </div>
                             )}
@@ -513,7 +515,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
 
                           <div className="min-w-0">
                             <div className="flex items-center gap-2">
-                              <h3 className="text-sm font-bold text-studio-100 truncate">{char.name}</h3>
+                              <h3 className="text-sm font-bold text-[#F1F5FF] truncate">{char.name}</h3>
                               {hasImage ? (
                                 <Badge variant="success" size="sm" dot>
                                   Ready
@@ -524,10 +526,10 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-[11px] text-studio-400 line-clamp-1 mt-0.5">
+                            <p className="text-[11px] text-[#91A4C5] line-clamp-1 mt-0.5">
                               {char.description || char.appearance}
                             </p>
-                            <span className="text-[10px] text-brand-400 font-mono mt-1 block font-semibold">
+                            <span className="text-[10px] text-[#00C8F5] font-mono mt-1 block font-bold">
                               {hasImage
                                 ? `${char.references.length} Keyframe Photo${char.references.length === 1 ? '' : 's'}`
                                 : '⚠️ Unusable (No Image)'}
@@ -540,15 +542,15 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                           <div
                             className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
                               isSelected
-                                ? 'bg-brand-500 text-white shadow-subtle'
-                                : 'bg-studio-800/80 border border-studio-700 text-transparent group-hover:text-studio-400'
+                                ? 'bg-[#00C8F5] text-[#050B1D] font-bold shadow-[0_0_8px_rgba(0,200,245,0.4)]'
+                                : 'bg-[#050B1D] border border-[#18345C] text-transparent group-hover:text-[#91A4C5]'
                             }`}
                           >
-                            <Check size={14} className={isSelected ? 'opacity-100' : 'opacity-0'} />
+                            <Check size={14} className={isSelected ? 'opacity-100 stroke-[3]' : 'opacity-0'} />
                           </div>
                         ) : (
                           <div
-                            className="w-6 h-6 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 flex items-center justify-center"
+                            className="w-6 h-6 rounded-lg bg-[#FFB84D]/10 border border-[#FFB84D]/30 text-[#FFB84D] flex items-center justify-center"
                             title="Only characters with a generated image or uploaded image can be used"
                           >
                             <Lock size={12} />
@@ -560,9 +562,9 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                       <div className="mb-3" onClick={(e) => e.stopPropagation()}>
                         {hasImage ? (
                           <>
-                            <div className="flex items-center justify-between text-[10px] text-studio-400 mb-1">
+                            <div className="flex items-center justify-between text-[10px] text-[#91A4C5] mb-1">
                               <span className="font-semibold uppercase font-mono">Reference Photos (For Video):</span>
-                              <span className="text-studio-500">Click photo to set Primary</span>
+                              <span className="text-[#546F96]">Click photo to set Primary</span>
                             </div>
                             <div className="flex items-center gap-1.5 overflow-x-auto py-1 scrollbar-none">
                               {char.references.map((ref) => {
@@ -571,10 +573,10 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                                   <div
                                     key={ref.id}
                                     onClick={() => handleSetPrimaryReference(char.id, ref.id)}
-                                    className={`w-11 h-11 rounded-lg overflow-hidden shrink-0 border relative cursor-pointer hover:border-brand-400 transition-all ${
+                                    className={`w-11 h-11 rounded-lg overflow-hidden shrink-0 border relative cursor-pointer hover:border-[#00C8F5] transition-all ${
                                       isRefPrimary
-                                        ? 'border-brand-500 ring-2 ring-brand-500/40'
-                                        : 'border-studio-750 opacity-80 hover:opacity-100'
+                                        ? 'border-[#00C8F5] ring-2 ring-[#00C8F5]/40 shadow-[0_0_8px_rgba(0,200,245,0.3)]'
+                                        : 'border-[#18345C] opacity-80 hover:opacity-100 bg-[#050B1D]'
                                     }`}
                                     title={isRefPrimary ? 'Primary Reference Keyframe' : 'Click to make Primary Reference'}
                                   >
@@ -584,7 +586,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                                       className="w-full h-full object-cover"
                                     />
                                     {isRefPrimary && (
-                                      <span className="absolute bottom-0 inset-x-0 bg-brand-500 text-white text-[8px] font-bold text-center py-0.2">
+                                      <span className="absolute bottom-0 inset-x-0 bg-[#00C8F5] text-[#050B1D] text-[8px] font-bold text-center py-0.2">
                                         KEY
                                       </span>
                                     )}
@@ -595,27 +597,27 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                           </>
                         ) : (
                           /* Prompt box when character has no image */
-                          <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-center space-y-1.5">
-                            <span className="text-[11px] font-bold text-amber-300 block">
+                          <div className="p-3 rounded-xl bg-[#FFB84D]/10 border border-[#FFB84D]/30 text-center space-y-1.5">
+                            <span className="text-[11px] font-bold text-[#FFB84D] block">
                               ⚠️ Cannot Use — Image Required
                             </span>
-                            <p className="text-[10px] text-studio-400 leading-tight">
+                            <p className="text-[10px] text-[#91A4C5] leading-tight">
                               Generate to image or upload image to activate this character.
                             </p>
                             <div className="flex items-center justify-center gap-2 pt-1">
                               <button
                                 onClick={() => handleGeneratePhoto(char.id, 'front')}
                                 disabled={isGeneratingThis}
-                                className="px-2.5 py-1 rounded-lg bg-brand-500 hover:bg-brand-400 text-white text-[10px] font-bold inline-flex items-center gap-1 shadow-subtle"
+                                className="px-2.5 py-1 rounded-lg bg-[#00C8F5] hover:bg-[#087BFF] text-[#050B1D] hover:text-white text-[10px] font-bold inline-flex items-center gap-1 shadow-subtle transition-colors"
                               >
                                 <Sparkles size={11} />
                                 {isGeneratingThis ? 'Generating...' : 'Generate to Image'}
                               </button>
                               <button
                                 onClick={() => handleUploadReferenceImage(char.id)}
-                                className="px-2.5 py-1 rounded-lg bg-studio-800 hover:bg-studio-700 text-studio-200 border border-studio-700 text-[10px] font-bold inline-flex items-center gap-1 shadow-subtle"
+                                className="px-2.5 py-1 rounded-lg bg-[#0A1933] hover:bg-[#0D2040] text-[#F1F5FF] border border-[#18345C] text-[10px] font-bold inline-flex items-center gap-1 shadow-subtle transition-colors"
                               >
-                                <Upload size={11} className="text-sky-400" />
+                                <Upload size={11} className="text-[#00C8F5]" />
                                 <span>Upload Image</span>
                               </button>
                             </div>
@@ -624,21 +626,21 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                       </div>
 
                       {/* Continuity Tags */}
-                      <div className="p-2.5 rounded-xl bg-studio-950/60 border border-studio-800/80 space-y-1 text-[11px] mb-3">
+                      <div className="p-2.5 rounded-xl bg-[#050B1D] border border-[#18345C] space-y-1 text-[11px] mb-3">
                         <div className="truncate">
-                          <span className="text-studio-500">Appearance: </span>
-                          <span className="text-studio-300">{char.appearance}</span>
+                          <span className="text-[#546F96] font-mono text-[10px] uppercase">Appearance: </span>
+                          <span className="text-[#F1F5FF]">{char.appearance}</span>
                         </div>
                         <div className="truncate">
-                          <span className="text-studio-500">Wardrobe: </span>
-                          <span className="text-studio-300">{char.clothing}</span>
+                          <span className="text-[#546F96] font-mono text-[10px] uppercase">Wardrobe: </span>
+                          <span className="text-[#F1F5FF]">{char.clothing}</span>
                         </div>
                       </div>
                     </div>
 
                     {/* Action Bar & Photo Generator Menu */}
                     <div
-                      className="pt-2 border-t border-studio-800/60 flex items-center justify-between"
+                      className="pt-2 border-t border-[#18345C] flex items-center justify-between"
                       onClick={(e) => e.stopPropagation()}
                     >
                       {/* Photo Generation Dropdown */}
@@ -646,7 +648,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                         <button
                           onClick={() => setPhotoMenuCharId(isPhotoMenuOpen ? null : char.id)}
                           disabled={isGeneratingThis}
-                          className="text-[11px] text-brand-400 hover:text-brand-300 font-bold flex items-center gap-1 px-2 py-1 rounded-lg bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/30"
+                          className="text-[11px] text-[#00C8F5] hover:text-white font-bold flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#00C8F5]/10 hover:bg-[#00C8F5]/20 border border-[#00C8F5]/30 transition-colors"
                         >
                           <Camera size={12} />
                           {isGeneratingThis ? 'Generating...' : 'Generate Photo'}
@@ -655,45 +657,45 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
 
                         {/* Angle Selection Dropdown Menu */}
                         {isPhotoMenuOpen && (
-                          <div className="absolute left-0 bottom-8 w-56 bg-studio-950 border border-studio-750 rounded-xl shadow-2xl p-1.5 z-30 space-y-1 text-left">
-                            <span className="text-[10px] text-studio-500 font-mono px-2 py-0.5 block uppercase">
+                          <div className="absolute left-0 bottom-8 w-56 bg-[#07122A] border border-[#18345C] rounded-xl shadow-2xl p-1.5 z-30 space-y-1 text-left">
+                            <span className="text-[10px] text-[#546F96] font-mono px-2 py-0.5 block uppercase">
                               Select Camera Angle:
                             </span>
                             <button
                               onClick={() => handleGeneratePhoto(char.id, 'front')}
-                              className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-studio-800 text-[11px] text-studio-200 flex items-center justify-between"
+                              className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-[#0A1933] text-[11px] text-[#F1F5FF] flex items-center justify-between transition-colors"
                             >
                               <span>📸 Front Portrait</span>
-                              <span className="text-[9px] text-brand-400 font-mono">Headshot</span>
+                              <span className="text-[9px] text-[#00C8F5] font-mono">Headshot</span>
                             </button>
                             <button
                               onClick={() => handleGeneratePhoto(char.id, 'three_quarter')}
-                              className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-studio-800 text-[11px] text-studio-200 flex items-center justify-between"
+                              className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-[#0A1933] text-[11px] text-[#F1F5FF] flex items-center justify-between transition-colors"
                             >
                               <span>📐 3/4 Cinematic Angle</span>
-                              <span className="text-[9px] text-brand-400 font-mono">Dramatic</span>
+                              <span className="text-[9px] text-[#00C8F5] font-mono">Dramatic</span>
                             </button>
                             <button
                               onClick={() => handleGeneratePhoto(char.id, 'profile')}
-                              className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-studio-800 text-[11px] text-studio-200 flex items-center justify-between"
+                              className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-[#0A1933] text-[11px] text-[#F1F5FF] flex items-center justify-between transition-colors"
                             >
                               <span>👤 Side Profile</span>
-                              <span className="text-[9px] text-brand-400 font-mono">Silhouette</span>
+                              <span className="text-[9px] text-[#00C8F5] font-mono">Silhouette</span>
                             </button>
                             <button
                               onClick={() => handleGeneratePhoto(char.id, 'full_body')}
-                              className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-studio-800 text-[11px] text-studio-200 flex items-center justify-between"
+                              className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-[#0A1933] text-[11px] text-[#F1F5FF] flex items-center justify-between transition-colors"
                             >
                               <span>🧥 Full Wardrobe Shot</span>
-                              <span className="text-[9px] text-brand-400 font-mono">Costume</span>
+                              <span className="text-[9px] text-[#00C8F5] font-mono">Costume</span>
                             </button>
-                            <div className="border-t border-studio-800/80 my-1" />
+                            <div className="border-t border-[#18345C] my-1" />
                             <button
                               onClick={() => handleGenerateMultiAngleSuite(char.id)}
-                              className="w-full text-left px-2 py-1.5 rounded-lg bg-brand-500/15 hover:bg-brand-500/25 text-[11px] font-bold text-brand-300 flex items-center justify-between"
+                              className="w-full text-left px-2 py-1.5 rounded-lg bg-[#087BFF]/20 hover:bg-[#087BFF]/30 text-[11px] font-bold text-[#00C8F5] flex items-center justify-between transition-colors"
                             >
                               <span>✨ Generate All 3 Angles</span>
-                              <span className="text-[9px] text-brand-400 font-mono">Full Suite</span>
+                              <span className="text-[9px] text-[#00C8F5] font-mono">Full Suite</span>
                             </button>
                           </div>
                         )}
@@ -706,10 +708,10 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                             e.stopPropagation();
                             handleOpenEditCharacter(char);
                           }}
-                          className="text-[11px] font-bold flex items-center gap-1 px-2.5 py-1 rounded-lg bg-studio-800 hover:bg-studio-700 text-studio-200 border border-studio-700 hover:border-brand-500 transition-all shadow-subtle"
+                          className="text-[11px] font-bold flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#07122A] hover:bg-[#0A1933] text-[#F1F5FF] border border-[#18345C] hover:border-[#00C8F5] transition-all shadow-subtle"
                           title="Configure Character attributes and visual parameters"
                         >
-                          <Sliders size={12} className="text-brand-400" />
+                          <Sliders size={12} className="text-[#00C8F5]" />
                           <span>Config</span>
                         </button>
 
@@ -719,10 +721,10 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                             e.stopPropagation();
                             handleUploadReferenceImage(char.id);
                           }}
-                          className="text-[11px] font-medium flex items-center gap-1 px-2 py-1 rounded-lg bg-studio-800/80 hover:bg-studio-750 text-studio-300 hover:text-white border border-studio-750 transition-all"
+                          className="text-[11px] font-medium flex items-center gap-1 px-2 py-1 rounded-lg bg-[#07122A] hover:bg-[#0A1933] text-[#91A4C5] hover:text-white border border-[#18345C] transition-all"
                           title="Upload Character Reference Photo directly"
                         >
-                          <Upload size={12} className="text-sky-400" />
+                          <Upload size={12} className="text-[#00C8F5]" />
                           <span>Upload Photo</span>
                         </button>
                       </div>
@@ -730,14 +732,14 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                       <div className="flex items-center gap-1.5">
                         <button
                           onClick={() => handleToggleLock(char)}
-                          className="p-1 rounded text-studio-400 hover:text-amber-400"
+                          className="p-1 rounded text-[#91A4C5] hover:text-[#FFB84D] transition-colors"
                           title={char.isLocked ? 'Unlock Appearance' : 'Lock Appearance for strict video continuity'}
                         >
-                          {char.isLocked ? <Lock size={13} className="text-amber-400" /> : <Unlock size={13} />}
+                          {char.isLocked ? <Lock size={13} className="text-[#FFB84D]" /> : <Unlock size={13} />}
                         </button>
                         <button
                           onClick={() => handleDeleteCharacter(char.id, char.name)}
-                          className="p-1 rounded text-studio-500 hover:text-rose-400"
+                          className="p-1 rounded text-[#91A4C5] hover:text-[#FF5D73] transition-colors"
                           title="Delete Character"
                         >
                           <Trash2 size={13} />
@@ -803,12 +805,12 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-studio-300 mb-1.5">
-                Permanent Appearance & Facial Details * (Used to generate the reference photo and scene prompts)
+              <label className="block text-xs font-semibold text-[#F1F5FF] mb-1.5">
+                Permanent Appearance & Facial Details * (Used to generate reference photos and scene prompts)
               </label>
               <textarea
                 rows={2}
-                className="w-full bg-studio-950 border border-studio-800 rounded-xl p-3 text-xs text-studio-100 placeholder-studio-500 focus:outline-none focus:border-brand-500"
+                className="w-full bg-[#050B1D] border border-[#18345C] rounded-xl p-3 text-xs text-[#F1F5FF] placeholder-[#546F96] focus:outline-none focus:border-[#00C8F5] transition-all"
                 value={form.appearance}
                 onChange={(e) => setForm({ ...form, appearance: e.target.value })}
                 placeholder="e.g. Athletic build, sleek dark hair, expressive amber eyes, distinct jawline..."
@@ -816,12 +818,12 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-studio-300 mb-1.5">
+              <label className="block text-xs font-semibold text-[#F1F5FF] mb-1.5">
                 Wardrobe & Clothing Consistency (Dresses protagonist identically across video scenes)
               </label>
               <textarea
                 rows={2}
-                className="w-full bg-studio-950 border border-studio-800 rounded-xl p-3 text-xs text-studio-100 placeholder-studio-500 focus:outline-none focus:border-brand-500"
+                className="w-full bg-[#050B1D] border border-[#18345C] rounded-xl p-3 text-xs text-[#F1F5FF] placeholder-[#546F96] focus:outline-none focus:border-[#00C8F5] transition-all"
                 value={form.clothing}
                 onChange={(e) => setForm({ ...form, clothing: e.target.value })}
                 placeholder="e.g. Modern charcoal bomber jacket, dark utility cargo pants, silver pendant..."
@@ -836,8 +838,8 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
             />
 
             {/* Reference Photo Sourcing: Generate AI or Upload */}
-            <div className="p-4 bg-studio-950 border border-studio-800 rounded-2xl space-y-3">
-              <span className="text-xs font-bold text-studio-200 block uppercase tracking-wider">
+            <div className="p-4 bg-[#050B1D] border border-[#18345C] rounded-2xl space-y-3">
+              <span className="text-xs font-bold text-[#F1F5FF] block uppercase tracking-wider font-mono">
                 Keyframe Reference Photo Source
               </span>
 
@@ -848,17 +850,17 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                     setCreationSource('ai');
                     setUploadedPhotoPath(null);
                   }}
-                  className={`p-3 rounded-xl border text-left transition-all ${
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
                     creationSource === 'ai' && !uploadedPhotoPath
-                      ? 'bg-brand-500/20 border-brand-500 text-brand-200 shadow-subtle'
-                      : 'bg-studio-900 border-studio-800 text-studio-400 hover:text-studio-200'
+                      ? 'bg-[#087BFF]/20 border-[#00C8F5] text-[#F1F5FF] shadow-[0_0_12px_rgba(0,200,245,0.25)]'
+                      : 'bg-[#0A1933] border-[#18345C] text-[#91A4C5] hover:text-[#F1F5FF]'
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <Sparkles size={14} className="text-brand-400" />
-                    <span className="font-bold text-xs">Generate with AI</span>
+                    <Sparkles size={15} className="text-[#00C8F5]" />
+                    <span className="font-bold text-xs text-[#F1F5FF]">Generate with AI</span>
                   </div>
-                  <span className="text-[10px] block opacity-80">
+                  <span className="text-[10px] block text-[#91A4C5]">
                     Auto-synthesizes high-resolution keyframe portrait matching facial prompt details
                   </span>
                 </button>
@@ -869,33 +871,33 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                     setCreationSource('upload');
                     handleSelectUploadedPhotoForForm();
                   }}
-                  className={`p-3 rounded-xl border text-left transition-all ${
+                  className={`p-3.5 rounded-xl border text-left transition-all ${
                     creationSource === 'upload' || uploadedPhotoPath
-                      ? 'bg-brand-500/20 border-brand-500 text-brand-200 shadow-subtle'
-                      : 'bg-studio-900 border-studio-800 text-studio-400 hover:text-studio-200'
+                      ? 'bg-[#087BFF]/20 border-[#00C8F5] text-[#F1F5FF] shadow-[0_0_12px_rgba(0,200,245,0.25)]'
+                      : 'bg-[#0A1933] border-[#18345C] text-[#91A4C5] hover:text-[#F1F5FF]'
                   }`}
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <Upload size={14} className="text-sky-400" />
-                    <span className="font-bold text-xs">Upload Photo File</span>
+                    <Upload size={15} className="text-[#00C8F5]" />
+                    <span className="font-bold text-xs text-[#F1F5FF]">Upload Photo File</span>
                   </div>
-                  <span className="text-[10px] block opacity-80">
+                  <span className="text-[10px] block text-[#91A4C5]">
                     Use existing headshot or character art from local computer
                   </span>
                 </button>
               </div>
 
               {uploadedPhotoPath ? (
-                <div className="p-2.5 rounded-xl bg-studio-900 border border-brand-500/30 flex items-center justify-between">
+                <div className="p-3 rounded-xl bg-[#07122A] border border-[#00C8F5]/30 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <img
                       src={`file://${uploadedPhotoPath.replace(/\\/g, '/')}`}
                       alt="Uploaded Preview"
-                      className="w-12 h-12 rounded-lg object-cover border border-brand-400"
+                      className="w-12 h-12 rounded-lg object-cover border border-[#00C8F5]"
                     />
                     <div>
-                      <span className="text-xs font-bold text-studio-100 block">Photo Attached</span>
-                      <span className="text-[10px] text-studio-400 truncate max-w-xs block font-mono">
+                      <span className="text-xs font-bold text-[#F1F5FF] block">Photo Attached</span>
+                      <span className="text-[10px] text-[#91A4C5] truncate max-w-xs block font-mono">
                         {uploadedPhotoPath}
                       </span>
                     </div>
@@ -903,19 +905,19 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                   <Button
                     variant="secondary"
                     size="sm"
-                    icon={<Upload size={12} />}
+                    icon={<Upload size={12} className="text-[#00C8F5]" />}
                     onClick={handleSelectUploadedPhotoForForm}
                   >
                     Change
                   </Button>
                 </div>
               ) : creationSource === 'ai' && !editingCharacter && (
-                <label className="flex items-center gap-2 cursor-pointer text-xs text-studio-300 pt-1">
+                <label className="flex items-center gap-2 cursor-pointer text-xs text-[#91A4C5] pt-1">
                   <input
                     type="checkbox"
                     checked={autoGenerateOnSave}
                     onChange={(e) => setAutoGenerateOnSave(e.target.checked)}
-                    className="rounded border-studio-700 text-brand-500 bg-studio-900"
+                    className="rounded border-[#18345C] text-[#00C8F5] bg-[#07122A] focus:ring-[#00C8F5]"
                   />
                   <span>Auto-generate initial AI portrait reference photo upon saving</span>
                 </label>
@@ -923,13 +925,13 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
             </div>
 
             {/* Lock Continuity & Save Button */}
-            <div className="pt-4 border-t border-studio-800 flex items-center justify-between">
-              <label className="flex items-center gap-2 cursor-pointer text-xs text-studio-300">
+            <div className="pt-4 border-t border-[#18345C] flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer text-xs text-[#91A4C5]">
                 <input
                   type="checkbox"
                   checked={form.isLocked}
                   onChange={(e) => setForm({ ...form, isLocked: e.target.checked })}
-                  className="rounded border-studio-700 text-brand-500 focus:ring-brand-500 bg-studio-900"
+                  className="rounded border-[#18345C] text-[#00C8F5] bg-[#07122A] focus:ring-[#00C8F5]"
                 />
                 <span>Lock appearance details for strict prompt injection</span>
               </label>
@@ -938,7 +940,13 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                 <Button variant="secondary" size="sm" onClick={() => setMode('select')}>
                   Cancel
                 </Button>
-                <Button variant="primary" size="sm" icon={<Check size={14} />} onClick={handleSaveCharacter}>
+                <Button
+                  variant="cyan"
+                  size="sm"
+                  icon={<Check size={14} />}
+                  onClick={handleSaveCharacter}
+                  className="font-bold shadow-[0_0_12px_rgba(0,200,245,0.3)]"
+                >
                   {editingCharacter ? 'Update Character' : 'Save & Select Character'}
                 </Button>
               </div>
@@ -956,14 +964,14 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
           subtitle="Use this exact photo as the image input for video generation"
           footer={
             <div className="flex items-center justify-between w-full">
-              <span className="text-[10px] text-studio-500 font-mono truncate max-w-xs">
+              <span className="text-[10px] text-[#546F96] font-mono truncate max-w-xs">
                 {previewPhoto.imagePath}
               </span>
               <div className="flex gap-2">
                 <Button
                   variant="secondary"
                   size="sm"
-                  icon={<Copy size={13} />}
+                  icon={<Copy size={13} className="text-[#00C8F5]" />}
                   onClick={() => handleCopyPhotoToClipboard(previewPhoto.imagePath)}
                 >
                   Copy Photo
@@ -976,7 +984,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
                 >
                   Delete Photo
                 </Button>
-                <Button variant="primary" size="sm" onClick={() => setPreviewPhoto(null)}>
+                <Button variant="cyan" size="sm" onClick={() => setPreviewPhoto(null)}>
                   Done
                 </Button>
               </div>
@@ -984,16 +992,18 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
           }
         >
           <div className="space-y-3 text-xs">
-            <div className="max-h-[500px] bg-studio-950 rounded-xl overflow-hidden border border-studio-800 flex items-center justify-center p-2">
+            <div className="max-h-[500px] bg-[#050B1D] rounded-xl overflow-hidden border border-[#18345C] flex items-center justify-center p-2">
               <img
                 src={`file://${previewPhoto.imagePath.replace(/\\/g, '/')}`}
                 alt="Full Character Reference"
                 className="max-h-[460px] object-contain rounded-lg"
               />
             </div>
-            <div className="p-3 bg-studio-950 rounded-xl border border-studio-800 text-[11px] text-studio-300">
-              <strong className="text-brand-300 block mb-1">Video Generation Continuity Instruction:</strong>
-              <p>{previewPhoto.prompt}</p>
+            <div className="p-3 bg-[#050B1D] rounded-xl border border-[#18345C] text-[11px] text-[#91A4C5]">
+              <strong className="text-[#00C8F5] block mb-1 font-mono uppercase">
+                Video Generation Continuity Instruction:
+              </strong>
+              <p className="text-[#F1F5FF]">{previewPhoto.prompt}</p>
             </div>
           </div>
         </Modal>

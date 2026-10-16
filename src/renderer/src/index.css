@@ -2,66 +2,96 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg-main: #050B1D;
+  --bg-sidebar: #07122A;
+  --bg-panel: #0A1933;
+  --bg-card: #0D2040;
+  --border-color: #18345C;
+  --primary-blue: #087BFF;
+  --cyan-accent: #00C8F5;
+  --text-primary: #F1F5FF;
+  --text-secondary: #91A4C5;
+  --success: #00D6A0;
+  --warning: #FFB84D;
+  --error: #FF5D73;
+}
+
 @layer base {
   * {
-    border-color: rgba(91, 145, 255, 0.18);
+    border-color: #18345C;
   }
   body {
-    background-color: #050B1F;
-    color: #F4F7FF;
+    background-color: #050B1D;
+    color: #F1F5FF;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 }
 
-/* Custom Sleek Glass Scrollbar */
+/* Custom Sleek Dark Navy Scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #050B1F;
+  background: #050B1D;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #102A50;
+  background: #18345C;
   border-radius: 4px;
-  border: 1px solid rgba(91, 145, 255, 0.15);
+  border: 1px solid rgba(24, 52, 92, 0.6);
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: #087BFF;
 }
 
-/* Premium Blue Glass Panels */
+/* Professional Studio Dark Navy Glass Panels */
 .glass-panel {
-  background: rgba(7, 17, 42, 0.8);
+  background: rgba(7, 18, 42, 0.92);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(91, 145, 255, 0.18);
+  border: 1px solid #18345C;
 }
 
 .glass-card {
-  background: rgba(11, 29, 59, 0.65);
+  background: rgba(10, 25, 51, 0.85);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
-  border: 1px solid rgba(91, 145, 255, 0.18);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  border: 1px solid #18345C;
+  box-shadow: 0 8px 24px 0 rgba(0, 0, 0, 0.45);
 }
 
 .glass-elevated {
-  background: rgba(16, 42, 80, 0.8);
+  background: #0D2040;
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(0, 200, 255, 0.25);
-  box-shadow: 0 12px 36px 0 rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(0, 200, 245, 0.3);
+  box-shadow: 0 12px 36px 0 rgba(0, 0, 0, 0.55);
 }
 
 .subtle-border {
-  border: 1px solid rgba(91, 145, 255, 0.18);
+  border: 1px solid #18345C;
+}
+
+/* Electric Blue & Cyan Glows */
+.glow-blue {
+  box-shadow: 0 0 16px rgba(8, 123, 255, 0.35);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 16px rgba(0, 200, 245, 0.35);
+}
+
+.card-selected {
+  border-color: #00C8F5 !important;
+  box-shadow: 0 0 18px rgba(0, 200, 245, 0.28) !important;
+  background: linear-gradient(135deg, rgba(8, 123, 255, 0.16) 0%, rgba(13, 32, 64, 0.92) 100%) !important;
 }
 
 /* Custom Range Input */
 input[type=range] {
   accent-color: #087BFF;
 }
-

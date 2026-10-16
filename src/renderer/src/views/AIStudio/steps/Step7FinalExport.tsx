@@ -263,15 +263,15 @@ export const Step7FinalExport: React.FC<Step7FinalExportProps> = ({
               </div>
 
               {/* Subtitle Customizer */}
-              <div className="p-3 bg-studio-950 border border-studio-800 rounded-xl space-y-3">
+              <div className="p-3 bg-[#050B1D] border border-[#18345C] rounded-xl space-y-3">
                 <label className="flex items-center justify-between cursor-pointer">
                   <div className="flex items-center gap-2">
-                    <Subtitles size={16} className="text-brand-400" />
+                    <Subtitles size={16} className="text-[#00C8F5]" />
                     <div>
-                      <span className="font-semibold text-studio-200 block">
+                      <span className="font-semibold text-[#F1F5FF] block">
                         Burn Animated Subtitles
                       </span>
-                      <span className="text-[10px] text-studio-500">
+                      <span className="text-[10px] text-[#91A4C5]">
                         Render viral high-contrast captions synced to narration
                       </span>
                     </div>
@@ -280,18 +280,18 @@ export const Step7FinalExport: React.FC<Step7FinalExportProps> = ({
                     type="checkbox"
                     checked={currentSubtitles.enabled}
                     onChange={(e) => handleUpdateSubtitles({ enabled: e.target.checked })}
-                    className="rounded border-studio-700 text-brand-500 bg-studio-900"
+                    className="rounded border-[#18345C] text-[#00C8F5] bg-[#07122A] focus:ring-[#00C8F5]"
                   />
                 </label>
 
                 {currentSubtitles.enabled && (
-                  <div className="space-y-2 pt-2 border-t border-studio-800/60">
+                  <div className="space-y-2 pt-2 border-t border-[#18345C]">
                     <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-studio-400">Subtitle Style Preset:</span>
+                      <span className="text-[#91A4C5]">Subtitle Style Preset:</span>
                       <select
                         value={currentSubtitles.style}
                         onChange={(e) => handleUpdateSubtitles({ style: e.target.value as any })}
-                        className="bg-studio-900 border border-studio-800 rounded px-2 py-1 text-studio-200 text-xs"
+                        className="bg-[#07122A] border border-[#18345C] rounded-lg px-2.5 py-1 text-[#F1F5FF] text-xs focus:outline-none focus:border-[#00C8F5]"
                       >
                         <option value="tiktok">TikTok Bold Yellow Highlight</option>
                         <option value="boxed">Cinematic Black Box</option>
@@ -304,7 +304,7 @@ export const Step7FinalExport: React.FC<Step7FinalExportProps> = ({
                       value={currentSubtitles.text}
                       onChange={(e) => handleUpdateSubtitles({ text: e.target.value })}
                       placeholder="Editable subtitle transcript..."
-                      className="w-full bg-studio-900 border border-studio-800 rounded-lg p-2 text-xs text-studio-200 focus:outline-none"
+                      className="w-full bg-[#07122A] border border-[#18345C] rounded-lg p-2 text-xs text-[#F1F5FF] focus:outline-none focus:border-[#00C8F5]"
                     />
                   </div>
                 )}
@@ -312,9 +312,9 @@ export const Step7FinalExport: React.FC<Step7FinalExportProps> = ({
 
               {/* Render Button */}
               <Button
-                variant="primary"
+                variant="cyan"
                 size="lg"
-                className="w-full shadow-glow-brand"
+                className="w-full font-bold shadow-[0_0_16px_rgba(0,200,245,0.4)]"
                 icon={<Sparkles size={16} />}
                 onClick={handleExecuteRender}
                 disabled={isRendering || !isReadyToRender}
@@ -324,14 +324,14 @@ export const Step7FinalExport: React.FC<Step7FinalExportProps> = ({
 
               {/* Render Progress Bar */}
               {isRendering && (
-                <div className="space-y-1.5 p-3 rounded-xl bg-studio-950 border border-brand-500/20">
-                  <div className="flex justify-between text-[11px] font-semibold text-brand-400">
+                <div className="space-y-1.5 p-3 rounded-xl bg-[#050B1D] border border-[#00C8F5]/30">
+                  <div className="flex justify-between text-[11px] font-semibold text-[#00C8F5]">
                     <span>{renderStatusText}</span>
                     <span>{renderProgress}%</span>
                   </div>
-                  <div className="w-full h-2 bg-studio-900 rounded-full overflow-hidden">
+                  <div className="w-full h-2 bg-[#07122A] rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-brand-500 transition-all duration-300"
+                      className="h-full bg-gradient-to-r from-[#087BFF] to-[#00C8F5] transition-all duration-300"
                       style={{ width: `${renderProgress}%` }}
                     />
                   </div>

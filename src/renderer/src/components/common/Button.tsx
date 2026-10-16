@@ -1,7 +1,7 @@
 import React from 'react';
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'outline' | 'danger' | 'ghost' | 'cyan';
   size?: 'sm' | 'md' | 'lg';
   icon?: React.ReactNode;
   loading?: boolean;
@@ -17,14 +17,22 @@ export const Button: React.FC<ButtonProps> = ({
   disabled,
   ...props
 }) => {
-  const baseStyles = 'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-studio-900 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none cursor-pointer select-none';
+  const baseStyles =
+    'inline-flex items-center justify-center font-medium rounded-xl transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-[#050B1D] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none cursor-pointer select-none';
 
   const variants = {
-    primary: 'bg-gradient-to-r from-brand-500 via-brand-500 to-cyan-500 hover:from-brand-600 hover:to-cyan-600 text-white shadow-glow-brand font-semibold focus:ring-brand-500 border border-brand-400/30',
-    secondary: 'bg-studio-750/80 hover:bg-studio-750 text-studio-100 border border-[rgba(91,145,255,0.22)] hover:border-brand-500/40 shadow-subtle focus:ring-brand-500',
-    outline: 'border border-[rgba(91,145,255,0.28)] hover:border-brand-400 text-studio-300 hover:text-white hover:bg-brand-500/10 focus:ring-brand-500',
-    danger: 'bg-rose-500/15 hover:bg-rose-500/25 text-rose-400 border border-rose-500/30 focus:ring-rose-500',
-    ghost: 'hover:bg-studio-750/70 text-studio-400 hover:text-studio-100 focus:ring-brand-500',
+    primary:
+      'bg-gradient-to-r from-[#087BFF] to-[#00C8F5] hover:from-[#0065DB] hover:to-[#00AEE0] text-white shadow-[0_0_16px_rgba(0,200,245,0.3)] font-semibold focus:ring-[#087BFF] border border-cyan-400/40',
+    cyan:
+      'bg-[#00C8F5] hover:bg-[#00AEE0] text-[#050B1D] shadow-[0_0_16px_rgba(0,200,245,0.35)] font-bold focus:ring-[#00C8F5] border border-cyan-300',
+    secondary:
+      'bg-[#0B1D3B] hover:bg-[#102A50] text-[#F1F5FF] border border-[#18345C] hover:border-[#00C8F5]/50 shadow-subtle focus:ring-[#087BFF]',
+    outline:
+      'border border-[#18345C] hover:border-[#087BFF] text-[#91A4C5] hover:text-white hover:bg-[#087BFF]/10 focus:ring-[#087BFF]',
+    danger:
+      'bg-[#FF5D73]/15 hover:bg-[#FF5D73]/25 text-[#FF5D73] border border-[#FF5D73]/30 focus:ring-[#FF5D73]',
+    ghost:
+      'hover:bg-[#0B1D3B]/70 text-[#91A4C5] hover:text-[#F1F5FF] focus:ring-[#087BFF]',
   };
 
   const sizes = {

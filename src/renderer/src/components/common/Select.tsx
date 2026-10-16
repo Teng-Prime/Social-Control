@@ -26,29 +26,29 @@ export const Select: React.FC<SelectProps> = ({
   return (
     <div className="w-full">
       {label && (
-        <label htmlFor={selectId} className="block text-xs font-medium text-studio-300 mb-1.5">
+        <label htmlFor={selectId} className="block text-xs font-semibold text-[#F1F5FF] mb-1.5 tracking-tight">
           {label}
         </label>
       )}
       <select
         id={selectId}
-        className={`w-full bg-[#081633]/90 border rounded-xl px-3.5 py-2 text-sm text-studio-100 focus:outline-none focus:ring-2 focus:ring-brand-500/30 focus:border-brand-500 transition-all cursor-pointer ${
+        className={`w-full bg-[#07122A] border rounded-xl px-3.5 py-2 text-xs md:text-sm text-[#F1F5FF] focus:outline-none focus:ring-1 focus:ring-[#00C8F5]/40 focus:border-[#00C8F5] transition-all cursor-pointer ${
           error
-            ? 'border-rose-500/80 focus:ring-rose-500'
-            : 'border-[rgba(91,145,255,0.22)] hover:border-brand-500/40'
+            ? 'border-[#FF5D73] focus:ring-[#FF5D73]'
+            : 'border-[#18345C] hover:border-[#087BFF]/60'
         } ${className}`}
         {...props}
       >
         {options.map((opt) => (
-          <option key={opt.value} value={opt.value} className="bg-[#081633] text-studio-100">
+          <option key={opt.value} value={opt.value} className="bg-[#0A1933] text-[#F1F5FF]">
             {opt.label}
           </option>
         ))}
       </select>
       {error ? (
-        <p className="mt-1 text-xs text-rose-400">{error}</p>
+        <p className="mt-1 text-xs text-[#FF5D73]">{error}</p>
       ) : helperText ? (
-        <p className="mt-1 text-xs text-studio-500">{helperText}</p>
+        <p className="mt-1 text-[11px] text-[#91A4C5]">{helperText}</p>
       ) : null}
     </div>
   );

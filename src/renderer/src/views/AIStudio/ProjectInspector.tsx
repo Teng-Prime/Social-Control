@@ -20,6 +20,10 @@ import {
   Film,
   Image as ImageIcon,
   Settings,
+  ChevronRight,
+  ChevronLeft,
+  Sliders,
+  Check,
 } from 'lucide-react';
 
 interface ProjectInspectorProps {
@@ -27,6 +31,8 @@ interface ProjectInspectorProps {
   selectedCharacters: Character[];
   currentStep: number;
   onOpenStepConfig?: (step: number) => void;
+  isOpen?: boolean;
+  onToggle?: () => void;
 }
 
 export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
@@ -34,14 +40,43 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
   selectedCharacters,
   currentStep,
   onOpenStepConfig,
+  isOpen = true,
+  onToggle,
 }) => {
   const [previewMode, setPreviewMode] = useState<'video' | 'thumbnail'>('video');
   const [selectedSceneIndex, setSelectedSceneIndex] = useState<number>(0);
 
+  if (!isOpen) {
+    return (
+      <div className="border-l border-[#18345C] bg-[#07122A] p-2 flex flex-col items-center shrink-0 w-12 select-none justify-between h-full">
+        <button
+          onClick={onToggle}
+          title="Expand Project Inspector"
+          className="p-2.5 rounded-xl bg-[#0A1933] hover:bg-[#0D2040] text-[#91A4C5] hover:text-[#00C8F5] transition-all border border-[#18345C] hover:border-[#00C8F5]/50 shadow-subtle group"
+        >
+          <Sliders size={18} className="group-hover:scale-110 transition-transform" />
+        </button>
+        <button
+          onClick={onToggle}
+          title="Expand Inspector"
+          className="p-2 rounded-lg text-[#91A4C5] hover:text-[#F1F5FF] hover:bg-[#0A1933] transition-colors"
+        >
+          <ChevronLeft size={16} />
+        </button>
+      </div>
+    );
+  }
+
   if (!project) {
     return (
-      <aside className="w-80 border-l border-[rgba(91,145,255,0.18)] bg-[#07112A]/80 backdrop-blur-md p-4 text-xs text-studio-500 flex items-center justify-center text-center">
-        Select or create a story project to view inspector details
+      <aside className="w-80 border-l border-[#18345C] bg-[#07122A] p-6 text-xs text-[#91A4C5] flex flex-col items-center justify-center text-center space-y-3 shrink-0 h-full">
+        <div className="w-12 h-12 rounded-2xl bg-[#0A1933] border border-[#18345C] flex items-center justify-center text-[#546F96]">
+          <Film size={22} />
+        </div>
+        <p className="font-medium text-[#F1F5FF]">No Active Story Project</p>
+        <p className="text-[11px] text-[#91A4C5]">
+          Select or create a story project to view inspector details and preview scenes.
+        </p>
       </aside>
     );
   }
@@ -50,31 +85,37 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
   const activeScene = project.scenes[selectedSceneIndex] || project.scenes[0];
 
   // Determine active sample video and thumbnail
-  const sampleVideoSrc = activeScene?.videoPath || project.finalVideoPath || project.scenes.find((s) => s.videoPath)?.videoPath;
-  const sampleThumbnailSrc = activeScene?.referenceImagePath || primaryChar?.references.find((r) => r.isPrimary)?.imagePath || primaryChar?.references[0]?.imagePath;
+  const sampleVideoSrc =
+    activeScene?.videoPath ||
+    project.finalVideoPath ||
+    project.scenes.find((s) => s.videoPath)?.videoPath;
+  const sampleThumbnailSrc =
+    activeScene?.referenceImagePath ||
+    primaryChar?.references.find((r) => r.isPrimary)?.imagePath ||
+    primaryChar?.references[0]?.imagePath;
 
   const stepChecklist = [
     {
       step: 1,
       title: 'Character Consistency',
-      ready: selectedCharacters.length > 0,
-      detail: selectedCharacters.length > 0 ? `${selectedCharacters.length} selected` : 'None selected',
+      ready: selectedCharacters.length > 0 && selectedCharacters.every((c) => c.references && c.references.length > 0),
+      detail: selectedCharacters.length > 0 ? `${selectedCharacters.length} protagonist assigned` : 'None selected',
     },
     {
       step: 2,
-      title: 'Story & Hook',
+      title: 'Story & Viral Hook',
       ready: Boolean(project.hook && (project.intro || project.scenes.length > 0)),
-      detail: project.hook ? 'Approved' : 'Pending approval',
+      detail: project.hook ? 'Approved' : 'Pending hook',
     },
     {
       step: 3,
       title: 'Scene Prompts & Video',
       ready: project.scenes.length > 0,
-      detail: `${project.scenes.length} scenes defined`,
+      detail: `${project.scenes.length} scenes structured`,
     },
     {
       step: 4,
-      title: 'Voice-over',
+      title: 'Voice-over Narration',
       ready: Boolean(project.voiceSettings?.audioPath),
       detail: project.voiceSettings?.audioPath ? 'Generated' : 'Not generated',
     },
@@ -86,60 +127,78 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
     },
     {
       step: 6,
-      title: 'Sound Effects',
+      title: 'Sound Effects (SFX)',
       ready: Boolean(project.soundEffects && project.soundEffects.length > 0),
-      detail: `${project.soundEffects?.length || 0} active`,
+      detail: `${project.soundEffects?.length || 0} active SFX`,
     },
     {
       step: 7,
-      title: 'Final Export',
+      title: 'Final Video Export',
       ready: project.status === 'exported' && Boolean(project.finalVideoPath),
-      detail: project.finalVideoPath ? 'Rendered' : 'Ready to assemble',
+      detail: project.finalVideoPath ? 'Rendered & Exported' : 'Ready to assemble',
     },
   ];
 
   return (
-    <aside className="w-80 border-l border-[rgba(91,145,255,0.18)] bg-[#07112A]/90 backdrop-blur-md flex flex-col shrink-0 overflow-y-auto p-4 space-y-4 select-none">
-      {/* Active Project Meta */}
-      <div className="pb-3 border-b border-[rgba(91,145,255,0.14)]">
-        <span className="text-[10px] font-bold text-cyan-400 tracking-wider uppercase">
-          Project Inspector
-        </span>
-        <h3 className="text-sm font-bold text-studio-100 truncate mt-0.5">{project.title}</h3>
-        <div className="flex flex-wrap gap-1.5 mt-2">
-          <Badge variant="cyan" size="sm">
-            {project.genre.toUpperCase()}
-          </Badge>
-          <Badge variant="neutral" size="sm">
-            {project.aspectRatio}
-          </Badge>
-          <Badge variant="neutral" size="sm">
-            {project.targetDuration}s
-          </Badge>
-          <Badge variant="neutral" size="sm">
-            {project.platform?.toUpperCase() || 'TIKTOK'}
-          </Badge>
+    <aside className="w-84 border-l border-[#18345C] bg-[#07122A] flex flex-col shrink-0 overflow-y-auto p-4 space-y-4 select-none h-full">
+      {/* Top Header with Collapse Button */}
+      <div className="pb-3 border-b border-[#18345C] flex items-start justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-[#00C8F5] tracking-wider uppercase font-mono">
+              Project Inspector
+            </span>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#00C8F5] shadow-[0_0_6px_#00C8F5]" />
+          </div>
+          <h3 className="text-sm font-bold text-[#F1F5FF] truncate mt-1" title={project.title}>
+            {project.title}
+          </h3>
+
+          <div className="flex flex-wrap gap-1 mt-2">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#00C8F5]/10 border border-[#00C8F5]/30 text-[#00C8F5] font-mono font-bold uppercase">
+              {project.genre}
+            </span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#0A1933] border border-[#18345C] text-[#91A4C5] font-mono">
+              {project.aspectRatio}
+            </span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#0A1933] border border-[#18345C] text-[#00C8F5] font-mono font-bold">
+              {project.targetDuration}s
+            </span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#0A1933] border border-[#18345C] text-[#91A4C5] font-mono uppercase">
+              {project.platform || 'TIKTOK'}
+            </span>
+          </div>
         </div>
+
+        {onToggle && (
+          <button
+            onClick={onToggle}
+            className="p-1.5 rounded-lg hover:bg-[#0A1933] text-[#91A4C5] hover:text-[#F1F5FF] transition-colors border border-transparent hover:border-[#18345C] ml-2 shrink-0"
+            title="Collapse Inspector"
+          >
+            <ChevronRight size={16} />
+          </button>
+        )}
       </div>
 
-      {/* Sample Video & Thumbnail Preview Player */}
+      {/* Media Player Box: Sample Video & Thumbnail */}
       <Card
-        title="Sample Video & Thumbnail"
+        title="Sample Video & Preview"
         subtitle={
           activeScene
             ? `Scene ${activeScene.sceneNumber}: ${activeScene.title || 'Untitled'}`
-            : 'Storyboard Visual Preview'
+            : 'Visual Storyboard Preview'
         }
         action={
-          <div className="flex items-center gap-1 bg-[#081633] p-0.5 rounded-lg border border-[rgba(91,145,255,0.18)]">
+          <div className="flex items-center gap-1 bg-[#050B1D] p-0.5 rounded-lg border border-[#18345C]">
             <button
               onClick={() => setPreviewMode('video')}
               className={`p-1 rounded text-[10px] font-medium transition-colors ${
                 previewMode === 'video'
-                  ? 'bg-brand-500 text-white shadow-[0_0_8px_#087BFF]'
-                  : 'text-studio-400 hover:text-studio-100'
+                  ? 'bg-[#00C8F5] text-[#050B1D] font-bold shadow-[0_0_8px_rgba(0,200,245,0.4)]'
+                  : 'text-[#91A4C5] hover:text-[#F1F5FF]'
               }`}
-              title="Preview Sample Video"
+              title="Preview Video"
             >
               <Film size={12} />
             </button>
@@ -147,8 +206,8 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
               onClick={() => setPreviewMode('thumbnail')}
               className={`p-1 rounded text-[10px] font-medium transition-colors ${
                 previewMode === 'thumbnail'
-                  ? 'bg-brand-500 text-white shadow-[0_0_8px_#087BFF]'
-                  : 'text-studio-400 hover:text-studio-100'
+                  ? 'bg-[#00C8F5] text-[#050B1D] font-bold shadow-[0_0_8px_rgba(0,200,245,0.4)]'
+                  : 'text-[#91A4C5] hover:text-[#F1F5FF]'
               }`}
               title="Preview Thumbnail Keyframe"
             >
@@ -158,23 +217,27 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
         }
       >
         <div className="space-y-2.5">
-          {/* Media Player Box */}
-          <div className="aspect-video bg-studio-950 rounded-xl overflow-hidden border border-studio-800 relative flex items-center justify-center">
+          {/* Media Player Container */}
+          <div className="aspect-video bg-[#050B1D] rounded-xl overflow-hidden border border-[#18345C] relative flex items-center justify-center shadow-inner">
             {previewMode === 'video' ? (
               sampleVideoSrc ? (
                 <video
                   key={sampleVideoSrc}
                   src={`file://${sampleVideoSrc.replace(/\\/g, '/')}`}
                   controls
-                  poster={sampleThumbnailSrc ? `file://${sampleThumbnailSrc.replace(/\\/g, '/')}` : undefined}
+                  poster={
+                    sampleThumbnailSrc ? `file://${sampleThumbnailSrc.replace(/\\/g, '/')}` : undefined
+                  }
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="text-center p-3 text-studio-500">
-                  <Film size={22} className="mx-auto mb-1 opacity-50" />
-                  <span className="text-[11px] block">No sample video yet</span>
-                  <span className="text-[9px] text-studio-600">
-                    Generate in Step 3 or export in Step 7
+                <div className="text-center p-3 text-[#546F96] space-y-1">
+                  <Film size={22} className="mx-auto opacity-50 text-[#00C8F5]" />
+                  <span className="text-[11px] block font-semibold text-[#91A4C5]">
+                    No sample video yet
+                  </span>
+                  <span className="text-[9px] text-[#546F96] block">
+                    Generate scene in Step 3 or export in Step 7
                   </span>
                 </div>
               )
@@ -185,10 +248,12 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
                 className="w-full h-full object-cover"
               />
             ) : (
-              <div className="text-center p-3 text-studio-500">
-                <ImageIcon size={22} className="mx-auto mb-1 opacity-50" />
-                <span className="text-[11px] block">No thumbnail keyframe</span>
-                <span className="text-[9px] text-studio-600">
+              <div className="text-center p-3 text-[#546F96] space-y-1">
+                <ImageIcon size={22} className="mx-auto opacity-50 text-[#00C8F5]" />
+                <span className="text-[11px] block font-semibold text-[#91A4C5]">
+                  No thumbnail keyframe
+                </span>
+                <span className="text-[9px] text-[#546F96] block">
                   Select character in Step 1
                 </span>
               </div>
@@ -202,10 +267,10 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
                 <button
                   key={sc.id}
                   onClick={() => setSelectedSceneIndex(idx)}
-                  className={`px-2 py-0.5 rounded text-[10px] font-mono shrink-0 transition-colors ${
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-mono shrink-0 transition-all ${
                     selectedSceneIndex === idx
-                      ? 'bg-brand-500 text-white font-bold'
-                      : 'bg-studio-950 text-studio-400 hover:text-studio-200 border border-studio-800'
+                      ? 'bg-[#00C8F5] text-[#050B1D] font-bold shadow-[0_0_10px_rgba(0,200,245,0.4)]'
+                      : 'bg-[#050B1D] text-[#91A4C5] hover:text-[#F1F5FF] border border-[#18345C]'
                   }`}
                 >
                   S{sc.sceneNumber}
@@ -216,9 +281,9 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
                   onClick={() => {
                     setPreviewMode('video');
                   }}
-                  className="px-2 py-0.5 rounded text-[10px] font-mono shrink-0 bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 hover:bg-emerald-500/30"
+                  className="px-2.5 py-1 rounded-lg text-[10px] font-mono shrink-0 bg-[#00D6A0]/15 text-[#00D6A0] border border-[#00D6A0]/30 hover:bg-[#00D6A0]/25 font-bold"
                 >
-                  Final
+                  Final Render
                 </button>
               )}
             </div>
@@ -226,7 +291,7 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
         </div>
       </Card>
 
-      {/* Selected Character Card */}
+      {/* Selected Protagonist Identity Card */}
       <Card
         title="Protagonist Identity"
         subtitle={primaryChar ? primaryChar.name : 'No character assigned'}
@@ -234,7 +299,7 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
         {primaryChar ? (
           <div className="space-y-3 text-xs">
             <div className="flex items-center gap-3">
-              <div className="w-14 h-14 rounded-xl bg-studio-950 border border-studio-750 overflow-hidden shrink-0 flex items-center justify-center shadow-subtle">
+              <div className="w-14 h-14 rounded-xl bg-[#050B1D] border border-[#18345C] overflow-hidden shrink-0 flex items-center justify-center shadow-subtle relative">
                 {primaryChar.references[0] ? (
                   <img
                     src={`file://${primaryChar.references[0].imagePath.replace(/\\/g, '/')}`}
@@ -242,86 +307,104 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
                     className="w-full h-full object-cover"
                   />
                 ) : (
-                  <Users size={24} className="text-studio-600" />
+                  <Users size={24} className="text-[#546F96]" />
+                )}
+                {primaryChar.isLocked && (
+                  <div className="absolute bottom-0.5 right-0.5 bg-[#FFB84D] text-[#050B1D] p-0.5 rounded shadow">
+                    <Lock size={9} />
+                  </div>
                 )}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <h4 className="font-bold text-studio-100 truncate">{primaryChar.name}</h4>
-                  {primaryChar.isLocked ? (
-                    <Lock size={12} className="text-amber-400" title="Locked Appearance" />
-                  ) : (
-                    <Unlock size={12} className="text-studio-500" />
-                  )}
+                  <h4 className="font-bold text-[#F1F5FF] truncate">{primaryChar.name}</h4>
+                  <Badge variant="success" size="sm" dot>
+                    Active
+                  </Badge>
                 </div>
-                <p className="text-[11px] text-studio-400 line-clamp-2 mt-0.5">
+                <p className="text-[11px] text-[#91A4C5] line-clamp-2 mt-0.5">
                   {primaryChar.description || primaryChar.appearance}
                 </p>
-                <span className="text-[10px] text-brand-400 font-mono">
-                  {primaryChar.references.length} ref photos
+                <span className="text-[10px] text-[#00C8F5] font-mono font-bold mt-1 block">
+                  {primaryChar.references.length} reference photos
                 </span>
               </div>
             </div>
 
-            <div className="p-2 rounded-lg bg-studio-950/70 border border-studio-800 space-y-1 text-[11px]">
+            <div className="p-2.5 rounded-xl bg-[#050B1D] border border-[#18345C] space-y-1.5 text-[11px]">
               <div>
-                <span className="text-studio-500 font-medium">Appearance: </span>
-                <span className="text-studio-300">{primaryChar.appearance}</span>
+                <span className="text-[#546F96] font-medium font-mono text-[10px] uppercase">
+                  Appearance:{' '}
+                </span>
+                <span className="text-[#F1F5FF]">{primaryChar.appearance}</span>
               </div>
               <div>
-                <span className="text-studio-500 font-medium">Wardrobe: </span>
-                <span className="text-studio-300">{primaryChar.clothing}</span>
+                <span className="text-[#546F96] font-medium font-mono text-[10px] uppercase">
+                  Wardrobe:{' '}
+                </span>
+                <span className="text-[#F1F5FF]">{primaryChar.clothing}</span>
               </div>
               <div>
-                <span className="text-studio-500 font-medium">Rendering Style: </span>
-                <span className="text-studio-300">{primaryChar.visualStyle}</span>
+                <span className="text-[#546F96] font-medium font-mono text-[10px] uppercase">
+                  Style:{' '}
+                </span>
+                <span className="text-[#00C8F5]">{primaryChar.visualStyle}</span>
               </div>
             </div>
           </div>
         ) : (
-          <div className="text-center py-4 text-xs text-studio-500">
-            No character selected yet. Select a saved character in Step 1 to inject consistent appearance tags into scenes.
+          <div className="text-center py-4 text-xs text-[#91A4C5] space-y-1">
+            <Users size={20} className="mx-auto text-[#546F96] opacity-60" />
+            <p className="font-medium text-[#F1F5FF]">No Protagonist Assigned</p>
+            <p className="text-[10px] text-[#91A4C5]">
+              Select a saved character in Step 1 to inject consistent appearance tags into scenes.
+            </p>
           </div>
         )}
       </Card>
 
       {/* Production Pipeline Checklist */}
-      <Card title="Production Checklist" subtitle="7-Step Creation Readiness">
-        <div className="space-y-2 text-xs">
+      <Card title="Production Checklist" subtitle="7-Step Readiness Verification">
+        <div className="space-y-1.5 text-xs">
           {stepChecklist.map((item) => {
             const isCurrent = item.step === currentStep;
             return (
               <div
                 key={item.step}
-                className={`p-2 rounded-lg flex items-center justify-between transition-all ${
+                className={`p-2 rounded-xl flex items-center justify-between transition-all ${
                   isCurrent
-                    ? 'bg-brand-500/15 border border-brand-500/30'
-                    : 'bg-studio-850/60 border border-transparent hover:border-studio-750'
+                    ? 'bg-[#087BFF]/15 border border-[#00C8F5]/50 shadow-[0_0_10px_rgba(0,200,245,0.15)]'
+                    : 'bg-[#0A1933] border border-[#18345C] hover:border-[#18345C]/90'
                 }`}
               >
                 <div className="flex items-center gap-2.5 min-w-0">
                   {item.ready ? (
-                    <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+                    <div className="w-4 h-4 rounded-full bg-[#00D6A0]/15 border border-[#00D6A0]/40 flex items-center justify-center shrink-0">
+                      <Check size={11} className="text-[#00D6A0] stroke-[3]" />
+                    </div>
                   ) : (
                     <div
-                      className={`w-3.5 h-3.5 rounded-full border flex items-center justify-center text-[9px] ${
+                      className={`w-4 h-4 rounded-full border flex items-center justify-center text-[9px] font-mono shrink-0 ${
                         isCurrent
-                          ? 'border-brand-400 text-brand-400'
-                          : 'border-studio-600 text-studio-600'
+                          ? 'border-[#00C8F5] text-[#00C8F5] font-bold'
+                          : 'border-[#546F96] text-[#546F96]'
                       }`}
                     >
                       {item.step}
                     </div>
                   )}
+
                   <div className="min-w-0">
                     <span
-                      className={`text-xs font-medium block leading-tight truncate ${
-                        isCurrent ? 'text-brand-300 font-semibold' : 'text-studio-300'
+                      className={`text-xs font-semibold block leading-tight truncate ${
+                        isCurrent ? 'text-[#00C8F5]' : 'text-[#F1F5FF]'
                       }`}
                     >
                       {item.title}
                     </span>
-                    <span className="text-[10px] text-studio-500 truncate block">{item.detail}</span>
+                    <span className="text-[10px] text-[#91A4C5] truncate block">
+                      {item.detail}
+                    </span>
                   </div>
                 </div>
 
@@ -329,19 +412,19 @@ export const ProjectInspector: React.FC<ProjectInspectorProps> = ({
                   {onOpenStepConfig && (
                     <button
                       onClick={() => onOpenStepConfig(item.step)}
-                      className="p-1 rounded hover:bg-studio-800 text-studio-400 hover:text-studio-200 transition-colors"
+                      className="p-1 rounded-lg hover:bg-[#07122A] text-[#91A4C5] hover:text-[#00C8F5] transition-colors"
                       title={`Configure Step ${item.step}`}
                     >
                       <Settings size={12} />
                     </button>
                   )}
                   <span
-                    className={`text-[9px] px-1.5 py-0.5 rounded font-mono uppercase ${
+                    className={`text-[9px] px-2 py-0.5 rounded-full font-mono uppercase font-bold ${
                       item.ready
-                        ? 'bg-emerald-500/10 text-emerald-400'
+                        ? 'bg-[#00D6A0]/10 text-[#00D6A0] border border-[#00D6A0]/30'
                         : isCurrent
-                        ? 'bg-brand-500/20 text-brand-400'
-                        : 'bg-studio-800 text-studio-500'
+                        ? 'bg-[#00C8F5]/10 text-[#00C8F5] border border-[#00C8F5]/30'
+                        : 'bg-[#07122A] text-[#91A4C5] border border-[#18345C]'
                     }`}
                   >
                     {item.ready ? 'Ready' : isCurrent ? 'Active' : 'Pending'}

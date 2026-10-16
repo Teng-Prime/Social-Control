@@ -8,28 +8,42 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        theme: {
+          main: '#050B1D',
+          sidebar: '#07122A',
+          panel: '#0A1933',
+          card: '#0D2040',
+          border: '#18345C',
+          primary: '#087BFF',
+          cyan: '#00C8F5',
+          textMain: '#F1F5FF',
+          textMuted: '#91A4C5',
+          success: '#00D6A0',
+          warning: '#FFB84D',
+          error: '#FF5D73',
+        },
         studio: {
           950: '#030712',
-          900: '#050B1F', // Main background (#050B1F)
-          850: '#07112A', // Sidebar background (#07112A)
-          800: '#0B1D3B', // Card background (#0B1D3B)
-          750: '#102A50', // Elevated panel (#102A50)
-          700: 'rgba(91, 145, 255, 0.22)',
+          900: '#050B1D', // Main background (#050B1D)
+          850: '#07122A', // Sidebar background (#07122A)
+          800: '#0A1933', // Panel/Card background (#0A1933)
+          750: '#0D2040', // Elevated card (#0D2040)
+          700: 'rgba(24, 52, 92, 0.7)', // Border (#18345C)
           600: 'rgba(91, 145, 255, 0.35)',
           500: '#5C7699', // Muted text
-          400: '#91A6C7', // Secondary text (#91A6C7)
+          400: '#91A4C5', // Secondary text (#91A4C5)
           300: '#C2D3ED',
           200: '#E4ECF8',
-          100: '#F4F7FF', // Main text (#F4F7FF)
+          100: '#F1F5FF', // Main text (#F1F5FF)
         },
         navy: {
           950: '#030712',
-          900: '#050B1F', // Main background
-          850: '#07112A', // Sidebar background
-          800: '#081633', // Secondary background
-          700: '#0B1D3B', // Card background
+          900: '#050B1D', // Main background
+          850: '#07122A', // Sidebar background
+          800: '#0A1933', // Panel background
+          700: '#0D2040', // Card background
           600: '#102A50', // Elevated panel
-          500: '#183A6D',
+          500: '#18345C', // Border
         },
         brand: {
           50: '#EBF4FF',
@@ -45,7 +59,7 @@ module.exports = {
         },
         cyan: {
           300: '#67E8F9',
-          400: '#00C8FF', // Secondary accent (Cyan)
+          400: '#00C8F5', // Secondary accent (Cyan)
           500: '#00AEE0',
           600: '#0891B2',
         },
@@ -57,15 +71,15 @@ module.exports = {
           700: '#4F35D2',
         },
         emerald: {
-          400: '#16D9A0', // Success (#16D9A0)
+          400: '#00D6A0', // Success (#00D6A0)
           500: '#10B981',
         },
         amber: {
-          400: '#FFBE55', // Warning (#FFBE55)
+          400: '#FFB84D', // Warning (#FFB84D)
           500: '#F59E0B',
         },
         rose: {
-          400: '#FF5C7A', // Error (#FF5C7A)
+          400: '#FF5D73', // Error (#FF5D73)
           500: '#F43F5E',
         },
       },

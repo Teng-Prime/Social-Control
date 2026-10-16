@@ -16,28 +16,28 @@ export const Badge: React.FC<BadgeProps> = ({
   className = '',
 }) => {
   const variants = {
-    brand: 'bg-brand-500/15 text-brand-400 border-brand-500/30',
-    cyan: 'bg-cyan-500/15 text-cyan-400 border-cyan-500/30',
-    purple: 'bg-purple-500/15 text-purple-400 border-purple-500/30',
-    success: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30',
-    warning: 'bg-amber-500/15 text-amber-400 border-amber-500/30',
-    danger: 'bg-rose-500/15 text-rose-400 border-rose-500/30',
-    neutral: 'bg-studio-800/80 text-studio-300 border-[rgba(91,145,255,0.18)]',
+    brand: 'bg-[#087BFF]/15 text-[#338EFF] border-[#087BFF]/35',
+    cyan: 'bg-[#00C8F5]/15 text-[#00C8F5] border-[#00C8F5]/35',
+    purple: 'bg-[#7865FF]/15 text-[#9B8CFF] border-[#7865FF]/35',
+    success: 'bg-[#00D6A0]/15 text-[#00D6A0] border-[#00D6A0]/35',
+    warning: 'bg-[#FFB84D]/15 text-[#FFB84D] border-[#FFB84D]/35',
+    danger: 'bg-[#FF5D73]/15 text-[#FF5D73] border-[#FF5D73]/35',
+    neutral: 'bg-[#0A1933]/90 text-[#91A4C5] border-[#18345C]',
   };
 
   const dots = {
-    brand: 'bg-brand-400 shadow-[0_0_8px_#087BFF]',
-    cyan: 'bg-cyan-400 shadow-[0_0_8px_#00C8FF]',
-    purple: 'bg-purple-400 shadow-[0_0_8px_#7865FF]',
-    success: 'bg-emerald-400 shadow-[0_0_8px_#16D9A0]',
-    warning: 'bg-amber-400 shadow-[0_0_8px_#FFBE55]',
-    danger: 'bg-rose-400 shadow-[0_0_8px_#FF5C7A]',
-    neutral: 'bg-studio-400',
+    brand: 'bg-[#087BFF] shadow-[0_0_8px_#087BFF]',
+    cyan: 'bg-[#00C8F5] shadow-[0_0_8px_#00C8F5]',
+    purple: 'bg-[#7865FF] shadow-[0_0_8px_#7865FF]',
+    success: 'bg-[#00D6A0] shadow-[0_0_8px_#00D6A0]',
+    warning: 'bg-[#FFB84D] shadow-[0_0_8px_#FFB84D]',
+    danger: 'bg-[#FF5D73] shadow-[0_0_8px_#FF5D73]',
+    neutral: 'bg-[#91A4C5]',
   };
 
   const sizes = {
-    sm: 'text-[10px] px-2 py-0.5 gap-1.5 font-medium tracking-wide',
-    md: 'text-xs px-2.5 py-1 gap-1.5 font-medium tracking-wide',
+    sm: 'text-[10px] px-2 py-0.5 gap-1.5 font-semibold tracking-wide',
+    md: 'text-xs px-2.5 py-1 gap-1.5 font-semibold tracking-wide',
   };
 
   return (
