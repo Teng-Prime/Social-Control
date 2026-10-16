@@ -15,14 +15,10 @@ import {
   RefreshCw,
   LogOut,
   ExternalLink,
-  Settings,
   AlertCircle,
   CheckCircle2,
-  Key,
   Info,
   Sparkles,
-  HelpCircle,
-  Globe,
   Sliders,
   Eye,
   EyeOff,
@@ -73,7 +69,6 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
     clientIdConfigured: false,
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [clientIdInput, setClientIdInput] = useState('');
   const [clientSecretInput, setClientSecretInput] = useState('');
@@ -106,7 +101,6 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
       const cleanup = window.api.onGoogleAuthChanged((newState) => {
         setAuthState(newState);
         setIsLoading(false);
-        setIsRefreshing(false);
         if (newState.status === 'connected') {
           addToast({
             type: 'success',
@@ -154,7 +148,7 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
     if (!authState.clientIdConfigured && !validation.valid) {
       setShowConfigModal(true);
       addToast({
-        type: 'warning',
+        type: 'warn',
         title: 'Google Client ID Required',
         message: 'A Google Cloud Desktop Client ID is required to connect.',
       });
@@ -292,7 +286,7 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
     const val = validateClientIdSyntax(cleanId);
     if (!val.valid) {
       addToast({
-        type: 'warning',
+        type: 'warn',
         title: 'Invalid Client ID',
         message: val.error || 'Please enter a valid Desktop Client ID.',
       });
@@ -644,7 +638,7 @@ export const GoogleConnectCard: React.FC<GoogleConnectCardProps> = ({
         }}
         title="Configure Google OAuth Credentials"
         subtitle="Desktop application authentication credentials"
-        size="md"
+        maxWidth="md"
       >
         <div className="space-y-5 text-xs text-studio-300">
           <div className="p-4 rounded-xl bg-brand-500/10 border border-brand-500/30 backdrop-blur-md flex items-start gap-3">

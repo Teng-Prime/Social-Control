@@ -10,12 +10,8 @@ import {
   Pause,
   Upload,
   Search,
-  Volume2,
   Check,
   ShieldCheck,
-  Repeat,
-  Radio,
-  Sliders,
   Sparkles,
 } from 'lucide-react';
 
@@ -45,10 +41,11 @@ export const Step5BackgroundMusic: React.FC<Step5BackgroundMusicProps> = ({
     try {
       const res = await window.api.autoMatchBackgroundMusic(project.id);
       await onRefreshProject();
+      const matched = res.track;
       addToast({
         type: 'success',
         title: 'AI Background Music Matched',
-        message: `Matched ${res.matchedTrack?.title || 'mood track'} (${res.genre} / ${res.mood}) based on story tone.`,
+        message: `Matched ${matched?.trackTitle || matched?.title || 'mood track'} (${matched?.mood || 'cinematic'}) based on story tone.`,
       });
     } catch (err: any) {
       addToast({ type: 'error', title: 'Auto-match failed', message: err.message });
@@ -311,7 +308,7 @@ export const Step5BackgroundMusic: React.FC<Step5BackgroundMusicProps> = ({
                     {currentSettings.trackTitle}
                   </span>
                 </div>
-                <Badge variant="primary" size="sm">
+                <Badge variant="brand" size="sm">
                   {currentSettings.mood.toUpperCase()}
                 </Badge>
               </div>

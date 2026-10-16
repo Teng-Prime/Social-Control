@@ -1,18 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../stores/useAppStore';
-import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
-import { Badge } from '../../components/common/Badge';
 import {
   Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
   Plus,
-  Send,
-  Video,
-  Clock,
 } from 'lucide-react';
-import { PublishJob } from '../../../shared/types';
+import { PublishJob } from '../../../../shared/types';
 
 export const ContentCalendarView: React.FC = () => {
   const { setCurrentSection } = useAppStore();

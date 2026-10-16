@@ -1,8 +1,7 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Character, Scene, StoryProject } from '../../../../shared/types';
+import React, { useEffect, useState } from 'react';
+import { Character, StoryProject } from '../../../../shared/types';
 import { useAppStore } from '../../stores/useAppStore';
 import { Button } from '../../components/common/Button';
-import { Badge } from '../../components/common/Badge';
 import { EmptyState } from '../../components/common/EmptyState';
 import { Modal } from '../../components/common/Modal';
 
@@ -227,6 +226,10 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ initialOpenCharacter
         selectedCharacterIds: data.selectedCharacterIds || (defaultChar ? [defaultChar] : []),
         storyIdea: data.storyIdea || '',
         hook: data.hook || '',
+        intro: data.intro || '',
+        climax: data.climax || '',
+        ending: data.ending || '',
+        continuityNotes: data.continuityNotes || '',
         endingHook: data.endingHook || '',
       });
 
@@ -332,6 +335,10 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ initialOpenCharacter
         selectedCharacterIds: proj.selectedCharacterIds,
         storyIdea: proj.storyIdea,
         hook: proj.hook,
+        intro: proj.intro || '',
+        climax: proj.climax || '',
+        ending: proj.ending || '',
+        continuityNotes: proj.continuityNotes || '',
         endingHook: proj.endingHook,
       });
 
@@ -916,10 +923,11 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ initialOpenCharacter
                       try {
                         const res = await window.api.autoMatchBackgroundMusic(activeProject.id);
                         await loadStudioData(activeProject.id);
+                        const matchedTrack = res.track;
                         addToast({
                           type: 'success',
                           title: 'Music Auto-Matched',
-                          message: `Matched ${res.matchedTrack?.title || 'soundtrack'} (${res.genre} / ${res.mood}).`,
+                          message: `Matched ${matchedTrack?.trackTitle || matchedTrack?.title || 'soundtrack'} (${matchedTrack?.mood || 'cinematic'}).`,
                         });
                       } catch (e: any) {
                         addToast({ type: 'error', title: 'Auto-match failed', message: e.message });
@@ -943,7 +951,12 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ initialOpenCharacter
                         musicSettings: {
                           ...(activeProject.musicSettings || {
                             trackId: 'mus_cinematic',
+                            trackTitle: 'Cinematic Ambient',
                             mood: 'cinematic',
+                            trimStart: 0,
+                            trimEnd: 0,
+                            fadeIn: true,
+                            fadeOut: true,
                             loop: true,
                             ducking: true,
                           }),
@@ -980,7 +993,7 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ initialOpenCharacter
                         addToast({
                           type: 'success',
                           title: 'AI Sound Effects Generated',
-                          message: `Attached ${res.assignedEffects?.length || 0} foley cues to scenes.`,
+                          message: `Attached ${res.assignedCount ?? res.soundEffects?.length ?? 0} foley cues to scenes.`,
                         });
                       } catch (e: any) {
                         addToast({ type: 'error', title: 'SFX auto-assign failed', message: e.message });

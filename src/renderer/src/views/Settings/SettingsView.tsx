@@ -9,10 +9,7 @@ import {
   Settings,
   FolderOpen,
   Film,
-  Smartphone,
-  Key,
   Database,
-  Sliders,
   CheckCircle2,
   AlertTriangle,
   Download,
@@ -24,13 +21,11 @@ import {
   Eye,
   EyeOff,
   Sparkles,
-  Server,
   Layers,
-  Clock,
   HardDrive,
   Activity,
 } from 'lucide-react';
-import { StudioSettings } from '../../../shared/types';
+import { StudioSettings } from '../../../../shared/types';
 import { GoogleConnectCard } from '../../components/google/GoogleConnectCard';
 
 export const SettingsView: React.FC = () => {
@@ -70,7 +65,7 @@ export const SettingsView: React.FC = () => {
   }, [settings]);
 
   const handleChange = (field: keyof StudioSettings, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev: Partial<StudioSettings>) => ({ ...prev, [field]: value }));
   };
 
   const handleSave = async () => {

@@ -114,6 +114,7 @@ const api: IElectronAPI = {
   getPublishJobs: (filter) => ipcRenderer.invoke('getPublishJobs', filter),
   createPublishJob: (job) => ipcRenderer.invoke('createPublishJob', job),
   executePublishJob: (jobId) => ipcRenderer.invoke('executePublishJob', jobId),
+  retryPublishJob: (jobId) => ipcRenderer.invoke('executePublishJob', jobId),
   cancelPublishJob: (jobId) => ipcRenderer.invoke('cancelPublishJob', jobId),
   checkPlatformPostReadiness: (params) => ipcRenderer.invoke('checkPlatformPostReadiness', params),
 

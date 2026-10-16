@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { SoundEffectItem, StoryProject } from '../../../../../shared/types';
 import { Card } from '../../../components/common/Card';
 import { Button } from '../../../components/common/Button';
-import { Badge } from '../../../components/common/Badge';
-import { Select } from '../../../components/common/Select';
 import { useAppStore } from '../../../stores/useAppStore';
 import {
   Volume2,
@@ -14,8 +12,6 @@ import {
   Trash2,
   Sparkles,
   Search,
-  CheckCircle2,
-  Sliders,
 } from 'lucide-react';
 
 interface Step6SoundEffectsProps {
@@ -49,7 +45,7 @@ export const Step6SoundEffects: React.FC<Step6SoundEffectsProps> = ({
       addToast({
         type: 'success',
         title: 'AI Sound Effects Generated',
-        message: `Auto-assigned ${res.assignedEffects?.length || 0} foley cues to scenes based on script analysis.`,
+        message: `Auto-assigned ${res.assignedCount ?? res.soundEffects?.length ?? 0} foley cues to scenes based on script analysis.`,
       });
     } catch (err: any) {
       addToast({ type: 'error', title: 'SFX auto-generation failed', message: err.message });
@@ -326,8 +322,6 @@ export const Step6SoundEffects: React.FC<Step6SoundEffectsProps> = ({
             ) : (
               <div className="space-y-3">
                 {assignedEffects.map((item) => {
-                  const targetScene = project.scenes.find((s) => s.id === item.sceneId);
-
                   return (
                     <div
                       key={item.id}

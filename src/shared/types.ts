@@ -238,6 +238,7 @@ export interface Device {
   id: string;
   serial: string;
   model: string;
+  brand?: string;
   androidVersion: string;
   status: DeviceStatus;
   batteryLevel?: number;
@@ -245,7 +246,9 @@ export interface Device {
   totalStorageMb?: number;
   installedApps: InstalledAppInfo[];
   lastConnectedAt: string;
+  lastSeenAt?: string;
   isRooted?: boolean;
+  isEmulator?: boolean;
   googleAccount?: string;
   googleAccountsCount?: number;
   hasInternet?: boolean;
@@ -430,6 +433,8 @@ export interface TransferRecord {
   mediaScanTriggered: boolean;
   status: 'pending' | 'transferring' | 'completed' | 'failed' | 'cancelled';
   errorMessage?: string;
+  error?: string;
+  transferSpeedMbps?: number;
   createdAt: string;
   completedAt?: string;
 }
@@ -958,6 +963,7 @@ export interface IElectronAPI {
   getPublishJobs: (filter?: { status?: string; platform?: string }) => Promise<PublishJob[]>;
   createPublishJob: (job: Omit<PublishJob, 'id' | 'createdAt' | 'updatedAt' | 'progress' | 'status'>) => Promise<PublishJob>;
   executePublishJob: (jobId: string) => Promise<{ success: boolean; remotePostId?: string; remotePostUrl?: string; message?: string }>;
+  retryPublishJob: (jobId: string) => Promise<{ success: boolean; remotePostId?: string; remotePostUrl?: string; message?: string }>;
   cancelPublishJob: (jobId: string) => Promise<boolean>;
   checkPlatformPostReadiness: (params: PostReadinessParams) => Promise<PlatformPostCheckResult>;
 

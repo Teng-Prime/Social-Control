@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { useAppStore } from '../../stores/useAppStore';
-import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
@@ -8,12 +7,10 @@ import { Badge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
 import { EmptyState } from '../../components/common/EmptyState';
 import {
-  Video,
   Upload,
   Search,
   Grid,
   List,
-  Folder,
   Star,
   Play,
   Trash2,
@@ -22,28 +19,18 @@ import {
   Smartphone,
   Send,
   Sparkles,
-  Info,
   Plus,
   Pencil,
   Copy,
   CheckSquare,
   Square,
   Check,
-  Layers,
   FileText,
-  RefreshCw,
-  FolderInput,
-  Tag,
-  Wand2,
   X,
-  ArrowRightLeft,
-  HardDrive,
   CheckCircle2,
-  AlertCircle,
   Clock,
-  RotateCcw,
 } from 'lucide-react';
-import { MediaAsset, Device, TransferRecord, BatchTransferResult } from '../../../shared/types';
+import { MediaAsset, Device, TransferRecord, BatchTransferResult } from '../../../../shared/types';
 
 type FolderType = 'Drafts' | 'ReadyToPublish' | 'Published';
 
@@ -55,7 +42,6 @@ export const VideoLibraryView: React.FC = () => {
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid');
   const [selectedAsset, setSelectedAsset] = useState<MediaAsset | null>(null);
   const [playingAsset, setPlayingAsset] = useState<MediaAsset | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
 
   // Multi-Selection State
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -115,7 +101,6 @@ export const VideoLibraryView: React.FC = () => {
 
   // Multi-Delete Textbox State
   const [multiDeleteText, setMultiDeleteText] = useState('');
-  const [multiDeleteWithFiles, setMultiDeleteWithFiles] = useState(false);
 
   // Multi-Read Export Format
   const [readFormat, setReadFormat] = useState<'titles' | 'pipe' | 'json'>('pipe');
@@ -163,11 +148,15 @@ export const VideoLibraryView: React.FC = () => {
 
     setIsTransferring(true);
     setTransferResult(null);
+    if (!selectedDeviceId) {
+      addToast({ type: 'warn', title: 'No Phone Selected', message: 'Please select a connected phone device.' });
+      return;
+    }
     try {
       if (window.api?.batchTransferVideos) {
         const res = await window.api.batchTransferVideos({
           mediaAssetIds: transferTargetAssetIds,
-          deviceId: selectedDeviceId || undefined,
+          deviceId: selectedDeviceId,
           destinationFolder: targetPhoneDir,
         });
 
@@ -177,19 +166,20 @@ export const VideoLibraryView: React.FC = () => {
           addToast({
             type: 'success',
             title: 'Videos Transferred to Phone!',
-            message: `Successfully transferred & verified ${res.transferred} video(s) to ${targetPhoneDir}`,
+            message: `Successfully transferred & verified ${res.successful} video(s) to ${targetPhoneDir}`,
           });
-        } else if (res.transferred > 0) {
+        } else if (res.successful > 0) {
           addToast({
             type: 'warn',
             title: 'Partial Transfer Completed',
-            message: `Transferred ${res.transferred}/${res.total} videos. Check errors.`,
+            message: `Transferred ${res.successful}/${res.total} videos. Check errors.`,
           });
         } else {
+          const errMsg = res.records.filter((r: TransferRecord) => r.status === 'failed').map((r: TransferRecord) => r.errorMessage || r.error).filter(Boolean).join('; ') || 'Could not push videos to phone.';
           addToast({
             type: 'error',
             title: 'Transfer Failed',
-            message: res.errors.join('; ') || 'Could not push videos to phone.',
+            message: errMsg,
           });
         }
 
@@ -219,7 +209,6 @@ export const VideoLibraryView: React.FC = () => {
 
   // Fetch Assets from SQLite
   const fetchAssets = async () => {
-    setIsLoading(true);
     try {
       if (window.api) {
         const list = await window.api.getMediaAssets({
@@ -230,8 +219,6 @@ export const VideoLibraryView: React.FC = () => {
       }
     } catch (err: any) {
       addToast({ type: 'error', title: 'Failed to load videos', message: err.message });
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -318,7 +305,7 @@ export const VideoLibraryView: React.FC = () => {
   const handleSubmitCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!createForm.title.trim()) {
-      addToast({ type: 'warning', title: 'Validation Error', message: 'Video title is required.' });
+      addToast({ type: 'warn', title: 'Validation Error', message: 'Video title is required.' });
       return;
     }
 
@@ -539,7 +526,7 @@ export const VideoLibraryView: React.FC = () => {
 
   const handleExecuteMultiCreate = async () => {
     if (parsedCreateItems.length === 0) {
-      addToast({ type: 'warning', title: 'Textbox Empty', message: 'Enter at least one video line in the textbox.' });
+      addToast({ type: 'warn', title: 'Textbox Empty', message: 'Enter at least one video line in the textbox.' });
       return;
     }
 
@@ -570,7 +557,7 @@ export const VideoLibraryView: React.FC = () => {
     if (target === 'selected') {
       sourceList = assets.filter((a) => selectedIds.has(a.id));
       if (sourceList.length === 0) {
-        addToast({ type: 'warning', title: 'None Selected', message: 'Select videos using checkboxes first, or load by folder.' });
+        addToast({ type: 'warn', title: 'None Selected', message: 'Select videos using checkboxes first, or load by folder.' });
         return;
       }
     } else if (target === 'folder') {
@@ -639,7 +626,7 @@ export const VideoLibraryView: React.FC = () => {
   const handleExecuteMultiUpdate = async () => {
     if (parsedUpdateItems.length === 0) {
       addToast({
-        type: 'warning',
+        type: 'warn',
         title: 'No Valid Lines',
         message: 'Ensure lines follow the format: [ID] Title | Folder | Tags',
       });
@@ -725,7 +712,7 @@ export const VideoLibraryView: React.FC = () => {
 
   const handleExecuteMultiDeleteFromTextbox = async () => {
     if (parsedDeleteIds.length === 0) {
-      addToast({ type: 'warning', title: 'No IDs Detected', message: 'Enter at least one video ID or load items into the textbox.' });
+      addToast({ type: 'warn', title: 'No IDs Detected', message: 'Enter at least one video ID or load items into the textbox.' });
       return;
     }
 
@@ -1973,7 +1960,7 @@ export const VideoLibraryView: React.FC = () => {
                   <span className="text-studio-400 block mb-1">Tags</span>
                   <div className="flex flex-wrap gap-1.5">
                     {selectedAsset.tags.length > 0 ? (
-                      selectedAsset.tags.map((t, idx) => (
+                      selectedAsset.tags.map((t: string, idx: number) => (
                         <span
                           key={idx}
                           className="px-2 py-0.5 rounded-md bg-studio-800 text-studio-300 text-[10px]"
@@ -2161,17 +2148,21 @@ export const VideoLibraryView: React.FC = () => {
             >
               <div className="font-bold flex items-center gap-1.5">
                 <CheckCircle2 size={14} className="text-emerald-400" />
-                Transfer Complete: {transferResult.transferred} / {transferResult.total} Transferred
+                Transfer Complete: {transferResult.successful} / {transferResult.total} Transferred
               </div>
-              {transferResult.records.map((rec, i) => (
+              {transferResult.records.map((rec: TransferRecord, i: number) => (
                 <div key={i} className="text-[11px] font-mono text-studio-300 flex justify-between">
                   <span>{rec.fileName}</span>
-                  <span className="text-cyan-400">{rec.transferSpeedMbps} MB/s • Verified ✓</span>
+                  <span className="text-cyan-400">{rec.transferSpeedMbps ?? (rec.speedBps ? (rec.speedBps / (1024 * 1024)).toFixed(1) : '0.0')} MB/s • Verified ✓</span>
                 </div>
               ))}
-              {transferResult.errors.length > 0 && (
+              {transferResult.failed > 0 && (
                 <div className="text-rose-400 text-[10px] pt-1">
-                  {transferResult.errors.join('; ')}
+                  {transferResult.records
+                    .filter((r: TransferRecord) => r.status === 'failed')
+                    .map((r: TransferRecord) => r.errorMessage || r.error)
+                    .filter(Boolean)
+                    .join('; ')}
                 </div>
               )}
             </div>
@@ -2219,7 +2210,9 @@ export const VideoLibraryView: React.FC = () => {
                   </div>
 
                   <div className="text-right shrink-0 ml-4 space-y-0.5">
-                    <div className="text-cyan-400 font-bold">{rec.transferSpeedMbps} MB/s</div>
+                    <div className="text-cyan-400 font-bold">
+                      {rec.transferSpeedMbps ?? (rec.speedBps ? (rec.speedBps / (1024 * 1024)).toFixed(1) : '0.0')} MB/s
+                    </div>
                     <div className="text-[10px] text-studio-500">
                       {new Date(rec.createdAt).toLocaleString()}
                     </div>

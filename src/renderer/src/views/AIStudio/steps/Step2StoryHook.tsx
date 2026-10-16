@@ -15,23 +15,20 @@ import {
   Maximize2,
   FastForward,
   CheckCircle2,
-  FileText,
-  AlertCircle,
-  HelpCircle,
 } from 'lucide-react';
 
 interface Step2StoryHookProps {
   project: StoryProject;
   selectedCharacters: Character[];
   onUpdateProject: (updates: Partial<StoryProject>) => Promise<void>;
-  onGenerateFullScenes: () => Promise<void>;
+  onGenerateFullScenes?: () => Promise<void>;
 }
 
 export const Step2StoryHook: React.FC<Step2StoryHookProps> = ({
   project,
   selectedCharacters,
   onUpdateProject,
-  onGenerateFullScenes,
+  onGenerateFullScenes: _onGenerateFullScenes,
 }) => {
   const { addToast } = useAppStore();
 
@@ -651,7 +648,7 @@ export const Step2StoryHook: React.FC<Step2StoryHookProps> = ({
         </div>
 
         <Button
-          variant={hook ? 'success' : 'primary'}
+          variant={hook ? 'cyan' : 'primary'}
           size="sm"
           disabled={!hook}
           onClick={() => {

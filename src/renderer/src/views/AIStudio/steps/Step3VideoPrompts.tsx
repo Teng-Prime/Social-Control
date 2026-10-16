@@ -1,36 +1,25 @@
 import React, { useState } from 'react';
 import { Character, Scene, StoryProject, FlowConnectionInfo } from '../../../../../shared/types';
-import { Card } from '../../../components/common/Card';
 import { Button } from '../../../components/common/Button';
 import { Badge } from '../../../components/common/Badge';
 import { Modal } from '../../../components/common/Modal';
-import { EmptyState } from '../../../components/common/EmptyState';
 import { useAppStore } from '../../../stores/useAppStore';
 import { GoogleGIcon } from '../FlowConnectionCard';
 import {
   Film,
   Plus,
-  Play,
   RotateCcw,
-  CheckCircle,
   ExternalLink,
   Upload,
   ArrowUp,
   ArrowDown,
   Trash2,
   Copy,
-  Layers,
   Sparkles,
   Camera,
-  Sun,
-  Volume2,
   Lock,
-  Image as ImageIcon,
   FolderOpen,
-  UserCheck,
-  Sliders,
   Settings,
-  PlayCircle,
 } from 'lucide-react';
 
 interface Step3VideoPromptsProps {
@@ -46,7 +35,7 @@ export const Step3VideoPrompts: React.FC<Step3VideoPromptsProps> = ({
   scenes,
   selectedCharacters,
   onRefreshProject,
-  onUpdateProject,
+  onUpdateProject: _onUpdateProject,
 }) => {
   const { addToast } = useAppStore();
 
@@ -381,7 +370,7 @@ ${scene.narration}
                 Image Required
               </Badge>
             )}
-            <Badge variant="primary" size="sm">
+            <Badge variant="cyan" size="sm">
               {scenes.length} Scenes
             </Badge>
           </div>

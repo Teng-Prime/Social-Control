@@ -2,16 +2,13 @@ import React, { useState } from 'react';
 import { StoryProject } from '../../../../shared/types';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
-import { Badge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
 import { Select } from '../../components/common/Select';
 import {
   Film,
   Plus,
   Search,
-  Sparkles,
   Trash2,
-  FolderOpen,
   ChevronRight,
   ChevronLeft,
   Copy,

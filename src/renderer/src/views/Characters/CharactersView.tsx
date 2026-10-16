@@ -3,13 +3,11 @@ import { useAppStore } from '../../stores/useAppStore';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Input } from '../../components/common/Input';
-import { Select } from '../../components/common/Select';
 import { Badge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
 import { EmptyState } from '../../components/common/EmptyState';
 import {
   Users,
-  Plus,
   Lock,
   Unlock,
   Upload,
@@ -18,9 +16,8 @@ import {
   Edit,
   Sparkles,
   CheckCircle2,
-  Copy,
 } from 'lucide-react';
-import { Character, CharacterReference } from '../../../shared/types';
+import { Character, CharacterReference } from '../../../../shared/types';
 
 export interface CharactersViewProps {
   isModal?: boolean;
@@ -33,11 +30,11 @@ export interface CharactersViewProps {
 
 export const CharactersView: React.FC<CharactersViewProps> = ({
   isModal = false,
-  onClose,
+  onClose: _onClose,
   onCharactersChange,
   onSelectCharacterForProject,
   selectedCharacterIds = [],
-  activeProjectId,
+  activeProjectId: _activeProjectId,
 }) => {
   const { addToast } = useAppStore();
   const [characters, setCharacters] = useState<Character[]>([]);
@@ -329,7 +326,7 @@ export const CharactersView: React.FC<CharactersViewProps> = ({
             characters.map((char) => {
               const isSelected = selectedCharacter?.id === char.id;
               const hasImage = Boolean(char.references && char.references.length > 0);
-              const primaryRef = char.references.find((r) => r.isPrimary) || char.references[0];
+              const primaryRef = char.references?.find((r: CharacterReference) => r.isPrimary) || char.references?.[0];
 
               return (
                 <div
@@ -650,7 +647,7 @@ export const CharactersView: React.FC<CharactersViewProps> = ({
                 </div>
               ) : (
                 <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-4">
-                  {selectedCharacter.references.map((ref) => (
+                  {selectedCharacter.references?.map((ref: CharacterReference) => (
                     <div
                       key={ref.id}
                       className="group relative aspect-square bg-studio-950 rounded-xl overflow-hidden border border-studio-800 hover:border-brand-500 transition-all shadow-subtle"

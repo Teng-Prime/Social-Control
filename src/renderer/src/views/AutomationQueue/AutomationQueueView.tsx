@@ -9,12 +9,9 @@ import {
   Pause,
   RotateCcw,
   XCircle,
-  Clock,
-  CheckCircle2,
-  AlertTriangle,
   RefreshCw,
 } from 'lucide-react';
-import { TaskQueueItem, TaskStatus } from '../../../shared/types';
+import { TaskQueueItem, TaskStatus } from '../../../../shared/types';
 
 export const AutomationQueueView: React.FC = () => {
   const { addToast } = useAppStore();

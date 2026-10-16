@@ -2,21 +2,9 @@ import React, { useState } from 'react';
 import { Character, StoryProject } from '../../../../shared/types';
 import { Card } from '../../components/common/Card';
 import { Badge } from '../../components/common/Badge';
-import { Button } from '../../components/common/Button';
 import {
-  Sparkles,
   Lock,
-  Unlock,
-  CheckCircle2,
-  AlertCircle,
-  Clock,
-  Layers,
-  Music,
-  Mic,
-  Video,
-  FileText,
   Users,
-  Play,
   Film,
   Image as ImageIcon,
   Settings,

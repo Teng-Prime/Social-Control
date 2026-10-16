@@ -8,7 +8,6 @@ import { ToastContainer } from './components/common/Toast';
 // Views
 import { DashboardView } from './views/Dashboard/DashboardView';
 import { AIStudioView } from './views/AIStudio/AIStudioView';
-import { CharactersView } from './views/Characters/CharactersView';
 import { StoryProjectsView } from './views/StoryProjects/StoryProjectsView';
 import { VideoLibraryView } from './views/VideoLibrary/VideoLibraryView';
 import { PublishCenterView } from './views/PublishCenter/PublishCenterView';

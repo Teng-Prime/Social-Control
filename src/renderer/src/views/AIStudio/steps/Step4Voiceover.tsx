@@ -7,15 +7,9 @@ import { Badge } from '../../../components/common/Badge';
 import { useAppStore } from '../../../stores/useAppStore';
 import {
   Mic,
-  Play,
-  Pause,
   Upload,
-  RotateCcw,
   Volume2,
-  Clock,
   Sparkles,
-  CheckCircle2,
-  Sliders,
 } from 'lucide-react';
 
 interface Step4VoiceoverProps {
@@ -32,7 +26,6 @@ export const Step4Voiceover: React.FC<Step4VoiceoverProps> = ({
   const { addToast } = useAppStore();
 
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
 
   const defaultVoiceSettings: VoiceSettings = {
     provider: 'Neural Studio TTS',

@@ -4,54 +4,32 @@ import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
-import { EmptyState } from '../../components/common/EmptyState';
 import {
   Smartphone,
   RefreshCw,
-  CheckCircle2,
   AlertTriangle,
-  FolderOpen,
-  Play,
   HelpCircle,
   ExternalLink,
-  Battery,
-  HardDrive,
-  Check,
-  XCircle,
   ShieldCheck,
-  ShieldAlert,
   Wifi,
-  WifiOff,
   UserCheck,
-  Users,
   Download,
-  Package,
   Terminal,
   Settings,
   Eye,
   EyeOff,
-  Key,
   Save,
   LogIn,
   PlayCircle,
-  Copy,
-  Lock,
-  Globe,
-  Sparkles,
   Trash2,
 } from 'lucide-react';
 import {
   Device,
   PhoneSetupDiagnostic,
-  LocalAppPackageInfo,
-  AppInstallResult,
   PhoneAppInfo,
   PhoneAccountCredential,
   PhoneAccountPlatform,
-  PlayStoreInstallResult,
-  PlayStoreBatchResult,
-  GoogleAutoLoginResult,
-} from '../../../shared/types';
+} from '../../../../shared/types';
 
 export const PhoneControlView: React.FC = () => {
   const { addToast } = useAppStore();
@@ -791,7 +769,7 @@ export const PhoneControlView: React.FC = () => {
       <Card
         title="Connected Android Devices"
         subtitle="Device fleet status, connectivity details, and configuration controls"
-        headerAction={
+        action={
           <div className="flex items-center gap-2">
             <Badge variant={devices.length > 0 ? 'success' : 'neutral'} size="sm">
               {devices.length} {devices.length === 1 ? 'Device' : 'Devices'} Connected
@@ -845,6 +823,8 @@ export const PhoneControlView: React.FC = () => {
                             model: 'Virtual Android Phone (Staging)',
                             androidVersion: '13',
                             status: 'offline',
+                            installedApps: [],
+                            lastConnectedAt: new Date().toISOString(),
                             lastSeenAt: new Date().toISOString(),
                             isRooted: true,
                             ipAddress: '127.0.0.1',
@@ -890,7 +870,7 @@ export const PhoneControlView: React.FC = () => {
                                 </Badge>
                               )}
                               {device.isEmulator && (
-                                <Badge variant="default" size="sm">
+                                <Badge variant="neutral" size="sm">
                                   Emulator
                                 </Badge>
                               )}
@@ -1233,7 +1213,7 @@ export const PhoneControlView: React.FC = () => {
                     ? 'success'
                     : selectedDevice?.status === 'unauthorized'
                     ? 'warning'
-                    : 'default'
+                    : 'neutral'
                 }
                 size="sm"
                 dot

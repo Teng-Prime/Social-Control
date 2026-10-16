@@ -10,7 +10,6 @@ import {
   Eye,
   Heart,
   MessageSquare,
-  Share2,
   Clock,
   Sparkles,
   Info,
@@ -19,10 +18,8 @@ import {
   Send,
   Smartphone,
   Video,
-  CheckCircle2,
-  Calendar,
 } from 'lucide-react';
-import { AnalyticsSummary, SocialPlatform, PublishedPost } from '../../../shared/types';
+import { AnalyticsSummary, SocialPlatform } from '../../../../shared/types';
 
 export const AnalyticsView: React.FC = () => {
   const { addToast, setCurrentSection } = useAppStore();
@@ -146,8 +143,8 @@ export const AnalyticsView: React.FC = () => {
           <Button
             variant="primary"
             size="sm"
-            loading={isSyncing}
-            icon={<RefreshCw size={13} className={isSyncing ? 'animate-spin' : ''} />}
+            loading={isSyncing || isLoading}
+            icon={<RefreshCw size={13} className={isSyncing || isLoading ? 'animate-spin' : ''} />}
             onClick={handleSyncLiveMetrics}
           >
             Sync Live Analytics
@@ -332,7 +329,7 @@ export const AnalyticsView: React.FC = () => {
         <Card
           title="Genre & Topic Performance"
           subtitle="Dynamic retention breakdown across AI story genres"
-          headerAction={
+          action={
             <Badge variant="neutral" size="sm">
               {summary?.genreBreakdown.length || 0} Genres Analyzed
             </Badge>
@@ -346,7 +343,7 @@ export const AnalyticsView: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-3.5 text-xs">
-              {summary.genreBreakdown.map((item) => {
+              {summary.genreBreakdown.map((item: any) => {
                 const maxViews = summary.genreBreakdown[0]?.views || 1;
                 const widthPct = Math.max(12, Math.round((item.views / maxViews) * 100));
 
@@ -384,7 +381,7 @@ export const AnalyticsView: React.FC = () => {
             </div>
           ) : (
             <div className="space-y-3 text-xs">
-              {(summary?.durationBreakdown || []).map((item) => (
+              {(summary?.durationBreakdown || []).map((item: any) => (
                 <div
                   key={item.bucket}
                   className="p-3 bg-studio-900 rounded-xl border border-studio-800 space-y-1 hover:border-studio-700 transition-colors"
@@ -414,7 +411,7 @@ export const AnalyticsView: React.FC = () => {
       <Card
         title="Top Performing Story Videos"
         subtitle="Ranked by view counts, engagement retention, and platform distribution"
-        headerAction={
+        action={
           <Badge variant="brand" size="sm">
             Top {summary?.topPosts.length || 0} Ranked
           </Badge>
@@ -422,18 +419,11 @@ export const AnalyticsView: React.FC = () => {
       >
         {(!summary?.topPosts || summary.topPosts.length === 0) ? (
           <EmptyState
+            icon={<Send size={24} />}
             title="No Published Videos Yet"
             description="Once you publish stories through Publish Center, audited metrics and real-time engagement logs will be displayed here."
-            action={
-              <Button
-                variant="primary"
-                size="sm"
-                icon={<Send size={13} />}
-                onClick={() => setCurrentSection('publish-center')}
-              >
-                Go to Publish Center
-              </Button>
-            }
+            actionText="Go to Publish Center"
+            onAction={() => setCurrentSection('publish-center')}
           />
         ) : (
           <div className="overflow-x-auto -mx-6 -my-4">
@@ -451,7 +441,7 @@ export const AnalyticsView: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-studio-800">
-                {summary.topPosts.map((post, index) => (
+                {summary.topPosts.map((post: any, index: number) => (
                   <tr key={post.id} className="hover:bg-studio-850/50 transition-colors group">
                     <td className="py-3 px-4 text-center font-mono font-bold text-brand-400">
                       #{index + 1}

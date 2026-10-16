@@ -6,30 +6,20 @@ import { Input } from '../../components/common/Input';
 import { Select } from '../../components/common/Select';
 import { Badge } from '../../components/common/Badge';
 import { Modal } from '../../components/common/Modal';
-import { EmptyState } from '../../components/common/EmptyState';
 import {
   Send,
   Sparkles,
   Video,
-  Calendar,
   Eye,
   CheckCircle2,
-  AlertCircle,
-  Copy,
   ExternalLink,
-  ShieldAlert,
   Smartphone,
   RefreshCw,
-  AlertTriangle,
-  XCircle,
-  HelpCircle,
-  Terminal,
   ArrowUp,
   ArrowDown,
   ArrowLeft,
   ArrowRight,
   MousePointer,
-  Cpu,
   Bot,
   Layers,
 } from 'lucide-react';
@@ -42,9 +32,7 @@ import {
   AtxAgentStatus,
   AtxUiNode,
   AtxAutomatePostResult,
-  AtxAutomatePostStep,
-  AtxActionResult,
-} from '../../../shared/types';
+} from '../../../../shared/types';
 
 interface PlatformMeta {
   id: SocialPlatform;
@@ -95,7 +83,7 @@ const PLATFORMS_INFO: PlatformMeta[] = [
 ];
 
 export const PublishCenterView: React.FC = () => {
-  const { addToast, setCurrentSection } = useAppStore();
+  const { addToast } = useAppStore();
 
   const [assets, setAssets] = useState<MediaAsset[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
@@ -803,7 +791,7 @@ export const PublishCenterView: React.FC = () => {
                         : p === 'tiktok'
                         ? 'com.zhiliaoapp.musically'
                         : 'com.facebook.katana';
-                    const isInstalled = d?.installedApps?.some((a) => a.packageName === appPkg && a.isInstalled);
+                    const isInstalled = d?.installedApps?.some((a: any) => a.packageName === appPkg && a.isInstalled);
                     const appName = p === 'youtube' ? 'YouTube' : p === 'tiktok' ? 'TikTok' : 'Facebook';
                     return (
                       <span
@@ -990,7 +978,7 @@ export const PublishCenterView: React.FC = () => {
                             <span className="text-[9px] uppercase font-bold text-studio-400 block">
                               • {res.platformName}:
                             </span>
-                            {res.checks.map((c, i) => (
+                            {res.checks.map((c: any, i: number) => (
                               <div key={i} className="flex items-start gap-1.5 text-[10px] pl-2">
                                 <span className="shrink-0 mt-0.5">
                                   {c.severity === 'success' ? (
@@ -1163,7 +1151,7 @@ export const PublishCenterView: React.FC = () => {
                 );
               })}
             </div>
-            <Badge variant="default" size="sm" className="text-cyan-400 border-cyan-800/40 bg-cyan-950/40">
+            <Badge variant="neutral" size="sm" className="text-cyan-400 border-cyan-800/40 bg-cyan-950/40">
               Phone Direct Push
             </Badge>
           </div>
@@ -1250,7 +1238,7 @@ export const PublishCenterView: React.FC = () => {
                   ? `Automated posting steps for ${atxResult.platform.toUpperCase()} via ATX`
                   : 'Automates screen wake, app launch, media picking, caption typing, and posting on phone'
               }
-              headerAction={
+              action={
                 <div className="flex items-center gap-2">
                   <Button
                     variant="outline"
@@ -1296,7 +1284,7 @@ export const PublishCenterView: React.FC = () => {
 
                   {/* Step-by-step progress cards */}
                   <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-                    {atxResult.steps.map((st, idx) => (
+                    {atxResult.steps.map((st: any, idx: number) => (
                       <div
                         key={idx}
                         className="p-2.5 rounded-lg bg-studio-900/90 border border-studio-800 flex items-start justify-between gap-3 text-xs"

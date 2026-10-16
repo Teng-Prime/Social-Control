@@ -13,20 +13,14 @@ import {
   Lock,
   Unlock,
   Upload,
-  Image as ImageIcon,
   Sparkles,
   Check,
-  CheckCircle2,
   Trash2,
-  Edit,
   UserCheck,
   Camera,
-  Layers,
   Copy,
-  ExternalLink,
   ChevronDown,
   Sliders,
-  Settings,
 } from 'lucide-react';
 
 interface Step1CharacterProps {
@@ -44,8 +38,8 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
   selectedCharacterIds,
   onToggleCharacter,
   onRefreshCharacters,
-  project,
-  onUpdateProject,
+  project: _project,
+  onUpdateProject: _onUpdateProject,
   onOpenCharactersConfig,
 }) => {
   const { addToast } = useAppStore();
@@ -238,7 +232,7 @@ export const Step1Character: React.FC<Step1CharacterProps> = ({
     setIsGeneratingPhoto(charId);
     setPhotoMenuCharId(null);
     try {
-      const ref = await window.api.generateCharacterPhoto(charId, angle);
+      await window.api.generateCharacterPhoto(charId, angle);
       await onRefreshCharacters();
       addToast({
         type: 'success',

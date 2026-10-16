@@ -4,8 +4,8 @@ import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
 import { EmptyState } from '../../components/common/EmptyState';
-import { Film, Plus, Trash2, ArrowRight, Clock, Layers, Sparkles } from 'lucide-react';
-import { StoryProject } from '../../../shared/types';
+import { Film, Plus, Trash2, ArrowRight, Layers } from 'lucide-react';
+import { StoryProject } from '../../../../shared/types';
 
 export const StoryProjectsView: React.FC = () => {
   const { setCurrentSection, addToast } = useAppStore();

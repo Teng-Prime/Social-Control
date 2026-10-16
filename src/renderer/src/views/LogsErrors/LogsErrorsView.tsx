@@ -3,8 +3,8 @@ import { useAppStore } from '../../stores/useAppStore';
 import { Card } from '../../components/common/Card';
 import { Button } from '../../components/common/Button';
 import { Badge } from '../../components/common/Badge';
-import { FileText, Trash2, Download, RefreshCw, Terminal, AlertTriangle, ShieldCheck, Sparkles } from 'lucide-react';
-import { ActivityLog } from '../../../shared/types';
+import { FileText, Trash2, Download, RefreshCw, ShieldCheck } from 'lucide-react';
+import { ActivityLog } from '../../../../shared/types';
 
 export const LogsErrorsView: React.FC = () => {
   const { addToast } = useAppStore();

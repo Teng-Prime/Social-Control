@@ -8,17 +8,12 @@ import { useAppStore } from '../../../stores/useAppStore';
 import { FlowConnectionCard } from '../FlowConnectionCard';
 import {
   Film,
-  Play,
   RotateCcw,
   CheckCircle2,
-  AlertCircle,
   Sparkles,
-  Download,
   FolderOpen,
   Share2,
   Subtitles,
-  Sliders,
-  Video,
   Cpu,
 } from 'lucide-react';
 
@@ -92,7 +87,7 @@ export const Step7FinalExport: React.FC<Step7FinalExportProps> = ({
         });
       }, 800);
 
-      const res = await window.api.renderFinalVideo(project.id, {
+      await window.api.renderFinalVideo(project.id, {
         aspectRatio: selectedAspect,
         resolution: '1080p',
         mixAudio: true,

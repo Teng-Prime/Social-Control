@@ -6,7 +6,6 @@ import { Badge } from '../../components/common/Badge';
 import {
   Video,
   Send,
-  Calendar,
   AlertCircle,
   Smartphone,
   HardDrive,
@@ -24,7 +23,7 @@ import {
   ExternalLink,
   RotateCcw,
 } from 'lucide-react';
-import { DashboardMobileStats, PublishJob } from '../../../../shared/types';
+import { DashboardMobileStats } from '../../../../shared/types';
 
 export const DashboardView: React.FC = () => {
   const { stats, health, fetchDashboardStats, fetchSystemHealth, setCurrentSection, addToast } = useAppStore();
@@ -98,10 +97,10 @@ export const DashboardView: React.FC = () => {
     },
     {
       title: 'Failed / Pending',
-      value: mobileStats?.failedOrPendingPublishingTasks ?? stats?.failedJobs ?? 0,
+      value: (mobileStats ? (mobileStats.failedPublishingTasks + mobileStats.pendingPublishingTasks) : null) ?? stats?.failedJobs ?? 0,
       icon: <AlertCircle className="text-rose-400" size={18} />,
-      subtext: (mobileStats?.failedOrPendingPublishingTasks ?? 0) > 0 ? 'Action required' : 'All clear',
-      isWarning: (mobileStats?.failedOrPendingPublishingTasks ?? 0) > 0,
+      subtext: ((mobileStats?.failedPublishingTasks ?? 0) + (mobileStats?.pendingPublishingTasks ?? 0)) > 0 ? 'Action required' : 'All clear',
+      isWarning: ((mobileStats?.failedPublishingTasks ?? 0) + (mobileStats?.pendingPublishingTasks ?? 0)) > 0,
       action: () => setCurrentSection('automation-queue'),
     },
     {
@@ -120,11 +119,11 @@ export const DashboardView: React.FC = () => {
     },
     {
       title: 'Account Status',
-      value: mobileStats?.accountConnectionStatus?.verifiedAccounts
-        ? `${mobileStats.accountConnectionStatus.verifiedAccounts} Connected`
+      value: (mobileStats?.connectedAccountsCount ?? 0) > 0
+        ? `${mobileStats?.connectedAccountsCount} Connected`
         : 'Setup Needed',
       icon: <UserCheck className="text-cyan-300" size={18} />,
-      subtext: mobileStats?.accountConnectionStatus?.hasActiveConnection ? 'Verified' : 'Connect Profiles',
+      subtext: (mobileStats?.connectedAccountsCount ?? 0) > 0 ? 'Verified' : 'Connect Profiles',
       action: () => setCurrentSection('accounts'),
     },
   ];

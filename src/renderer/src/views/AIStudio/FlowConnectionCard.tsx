@@ -12,14 +12,13 @@ import {
   AlertTriangle,
   CheckCircle2,
   Lock,
-  Sparkles,
   UserCheck,
   Globe,
   LogIn,
   Smartphone,
   Check,
 } from 'lucide-react';
-import { FlowConnectionInfo, FlowConnectionStatus } from '../../../shared/types';
+import { FlowConnectionInfo } from '../../../../shared/types';
 
 // Official Google 4-color SVG G Icon
 export const GoogleGIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
@@ -578,7 +577,7 @@ export const FlowConnectionCard: React.FC<FlowConnectionCardProps> = ({ onStatus
           onClose={() => setIsEmailModalOpen(false)}
           title="Confirm Google Account"
           subtitle="Confirm your verified Google account to connect with Google Flow AI"
-          size="md"
+          maxWidth="md"
         >
           <div className="space-y-4 text-xs">
             <div className="p-4 bg-brand-500/10 border border-brand-500/30 rounded-2xl backdrop-blur-md flex items-start gap-3">
