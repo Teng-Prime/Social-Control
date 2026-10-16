@@ -200,6 +200,11 @@ const api: IElectronAPI = {
     ipcRenderer.invoke('autoLoginYouTubeGoogle', deviceId, googleEmail),
   autoLoginTikTokGoogle: (deviceId, googleEmail) =>
     ipcRenderer.invoke('autoLoginTikTokGoogle', deviceId, googleEmail),
+
+  // Hardware Acceleration & OpenAI Diagnostics
+  testHardwareAcceleration: (encoder) => ipcRenderer.invoke('testHardwareAcceleration', encoder),
+  testOpenAIConnection: (apiKey, model) => ipcRenderer.invoke('testOpenAIConnection', apiKey, model),
+  getHardwareInfo: () => ipcRenderer.invoke('getHardwareInfo'),
 };
 
 const authAPI = {

@@ -21,6 +21,7 @@ import { accountService } from '../services/accountService';
 import { emailVerificationService } from '../services/emailVerificationService';
 import { publishingQueueService } from '../services/publishingQueueService';
 import { automationOrchestrator } from '../services/automationOrchestrator';
+import { openAiService } from '../services/openAiService';
 import { mediaAssetRepo } from '../database/repositories/mediaAssetRepository';
 import { characterRepo } from '../database/repositories/characterRepository';
 import { projectRepo } from '../database/repositories/projectRepository';
@@ -60,6 +61,7 @@ export function registerIpcHandlers(): void {
     const ffmpegStatus = await ffmpegService.checkAvailability();
     const adbStatus = await adbService.checkAvailability();
     const disk = await storageService.getDiskSpace();
+    const hw = await ffmpegService.detectHardwareCapabilities();
 
     return {
       databaseConnected: true,
@@ -70,6 +72,12 @@ export function registerIpcHandlers(): void {
       storageAvailableMb: Math.round(disk.freeBytes / (1024 * 1024)),
       storageTotalMb: Math.round(disk.totalBytes / (1024 * 1024)),
       storagePath: storageService.getBaseDirectory(),
+      cpuModel: hw.cpuModel,
+      cpuThreads: hw.cpuThreads,
+      totalRamGb: hw.totalRamGb,
+      gpuName: hw.gpuName,
+      hardwareEncoder: hw.activeEncoder,
+      availableEncoders: hw.availableEncoders,
     };
   });
 
@@ -1048,5 +1056,19 @@ export function registerIpcHandlers(): void {
 
   ipcMain.handle('autoLoginTikTokGoogle', async (_, deviceId: string, googleEmail?: string) => {
     return atxAutomationService.autoLoginTikTokGoogle(deviceId, googleEmail);
+  });
+
+  // Hardware Acceleration Diagnostics & Testing
+  ipcMain.handle('testHardwareAcceleration', async (_, encoder?: string) => {
+    return ffmpegService.testHardwareAcceleration(encoder);
+  });
+
+  ipcMain.handle('getHardwareInfo', async () => {
+    return ffmpegService.detectHardwareCapabilities();
+  });
+
+  // OpenAI Connection Testing
+  ipcMain.handle('testOpenAIConnection', async (_, apiKey?: string, model?: string) => {
+    return openAiService.testConnection(apiKey, model);
   });
 }

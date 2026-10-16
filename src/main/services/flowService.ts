@@ -21,6 +21,7 @@ import { projectRepo } from '../database/repositories/projectRepository';
 import { mediaAssetRepo } from '../database/repositories/mediaAssetRepository';
 import { characterImageGenerator } from './characterImageGenerator';
 import { ffmpegService } from './ffmpegService';
+import { openAiService } from './openAiService';
 
 import { googleConnectionStatusService } from './googleConnectionStatusService';
 
@@ -641,6 +642,15 @@ export class FlowService {
   // --- Step 2: Story Ideas, Hooks, & Script AI Actions ---
 
   public async generateStoryIdeas(topic: string, genre: string, characterNames?: string[]): Promise<string[]> {
+    if (openAiService.hasApiKey()) {
+      try {
+        const aiIdeas = await openAiService.generateStoryIdeas({ topic, genre, characterNames });
+        if (aiIdeas && aiIdeas.length > 0) return aiIdeas;
+      } catch (err: any) {
+        logger.warn('FlowService', `OpenAI ideas fallback: ${err.message}`);
+      }
+    }
+
     const chars = characterNames && characterNames.length > 0 ? characterNames.join(' and ') : 'an unlikely protagonist';
     const cleanTopic = topic.trim() || 'an unforeseen anomaly';
 
@@ -699,6 +709,15 @@ export class FlowService {
   }
 
   public async generateHook(topic: string, genre: string, tone: string): Promise<string> {
+    if (openAiService.hasApiKey()) {
+      try {
+        const aiHook = await openAiService.generateHook({ topic, genre, tone });
+        if (aiHook) return aiHook;
+      } catch (err: any) {
+        logger.warn('FlowService', `OpenAI hook fallback: ${err.message}`);
+      }
+    }
+
     const cleanTopic = topic.trim() || 'this mysterious incident';
     const hooks: Record<string, string[]> = {
       mystery: [
@@ -806,7 +825,8 @@ export class FlowService {
     climax: string;
     ending: string;
   }> {
-    const { prompt, genre, targetDuration, character, characterIds, platform = 'tiktok', tone = 'engaging' } = options;
+    const targetDuration = options.targetDuration || 30;
+    const { prompt, genre, character, characterIds, platform = 'tiktok', tone = 'engaging' } = options;
     logger.info('FlowService', `Generating complete story for platform "${platform}", genre "${genre}", duration ${targetDuration}s`);
 
     // Fetch character continuity data if available
@@ -823,14 +843,36 @@ export class FlowService {
       }
     }
 
+    // Attempt generation with OpenAI API first if key configured
+    if (openAiService.hasApiKey()) {
+      try {
+        const aiStory = await openAiService.generateFullStory({
+          prompt,
+          genre,
+          targetDuration,
+          platform,
+          tone,
+          targetAudience: options.targetAudience,
+          characterNames: characterList.map((c) => c.name),
+          customInstructions: options.customInstructions,
+        });
+        if (aiStory && aiStory.scenes && aiStory.scenes.length > 0) {
+          logger.info('FlowService', `Successfully generated full story via OpenAI (${aiStory.scenes.length} scenes, ~${targetDuration}s)`);
+          return aiStory;
+        }
+      } catch (err: any) {
+        logger.warn('FlowService', `OpenAI story generation fallback: ${err.message}`);
+      }
+    }
+
     const primaryChar = characterList[0];
     const charContinuity = primaryChar
       ? `Protagonist: ${primaryChar.name} (${primaryChar.appearance}, wearing ${primaryChar.clothing}). Style: ${primaryChar.visualStyle}.`
       : 'Protagonist: Photorealistic character with distinct features and consistent wardrobe.';
 
-    // Scene count: 1 scene every 5-7 seconds
-    const sceneCount = Math.max(3, Math.min(8, Math.round(targetDuration / 6)));
-    const perSceneDuration = Math.round(targetDuration / sceneCount);
+    // Scene count: 5 scenes for 30s (6s per scene), or 1 scene every ~5-6s
+    const sceneCount = targetDuration <= 15 ? 3 : targetDuration <= 35 ? 5 : Math.max(3, Math.min(8, Math.round(targetDuration / 6)));
+    const perSceneDuration = Math.floor(targetDuration / sceneCount);
 
     const hook = await this.generateHook(prompt, genre, tone);
     const intro = `In the world of ${genre}, ${primaryChar ? primaryChar.name : 'our hero'} stumbled into an event that defied explanation.`;
@@ -904,12 +946,15 @@ export class FlowService {
       const narration = `${primaryChar ? primaryChar.name : 'They'} ${beat.action}. Every detail pointed to one inescapable truth.`;
       const scriptText = `[SCENE ${sceneNum}: ${beat.title.toUpperCase()}]\n${beat.camera}.\n${visualDescription}`;
 
+      const isLast = i === sceneCount - 1;
+      const sceneDuration = isLast ? (targetDuration - (sceneCount - 1) * perSceneDuration) : perSceneDuration;
+
       scenes.push({
         title: sceneTitle,
         scriptText,
         narration,
         prompt: generationPrompt,
-        duration: perSceneDuration,
+        duration: Math.max(2, sceneDuration),
         visualDescription,
         cameraAngle: beat.camera,
         lighting: beat.lighting,
@@ -1306,7 +1351,7 @@ ${scene.narration}
     const outName = `${safeTitle}_${Date.now()}.mp4`;
     const outputPath = path.join(draftsFolder, outName);
 
-    const duration = options.duration || scene.duration || 5;
+    const duration = options.duration || scene.duration || 6;
     const aspect = project.aspectRatio || '9:16';
 
     const result = await ffmpegService.generateSceneVideoClip({

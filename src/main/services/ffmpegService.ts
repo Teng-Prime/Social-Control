@@ -1,6 +1,7 @@
-import { spawn, exec } from 'child_process';
+import { exec } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import os from 'os';
 import { promisify } from 'util';
 import { storageService } from './storageService';
 import { appDb } from '../database/db';
@@ -8,7 +9,20 @@ import { logger } from '../logger';
 
 const execAsync = promisify(exec);
 
+export interface HardwareInfo {
+  cpuModel: string;
+  cpuThreads: number;
+  totalRamGb: number;
+  gpuName: string;
+  availableEncoders: string[];
+  activeEncoder: string;
+  recommendedEncoder: string;
+}
+
 export class FFmpegService {
+  private cachedHardwareInfo: HardwareInfo | null = null;
+  private verifiedWorkingEncoders: Set<string> = new Set();
+
   private getBinaryPath(): string {
     try {
       const settings = appDb.getSettings();
@@ -32,6 +46,214 @@ export class FFmpegService {
       return { available: true, version: firstLine.trim() };
     } catch (err: any) {
       return { available: false, error: err.message };
+    }
+  }
+
+  /**
+   * Detect Host CPU, RAM, GPU, and available FFmpeg video encoders.
+   */
+  public async detectHardwareCapabilities(): Promise<HardwareInfo> {
+    if (this.cachedHardwareInfo) {
+      return this.cachedHardwareInfo;
+    }
+
+    const cpus = os.cpus();
+    const cpuModel = cpus.length > 0 ? cpus[0].model.trim() : 'Generic CPU';
+    const cpuThreads = cpus.length || 4;
+    const totalRamGb = Math.round((os.totalmem() / (1024 * 1024 * 1024)) * 10) / 10;
+
+    let gpuName = 'Unknown Graphics Adapter';
+    try {
+      if (process.platform === 'win32') {
+        const { stdout } = await execAsync('powershell -NoProfile -Command "(Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name) -join \', \'"', { timeout: 5000 });
+        if (stdout && stdout.trim()) {
+          gpuName = stdout.trim();
+        }
+      }
+    } catch (e: any) {
+      logger.warn('FFmpegService', `GPU query failed: ${e.message}`);
+    }
+
+    // Query supported encoders from FFmpeg
+    const availableEncoders: string[] = [];
+    const binary = this.getBinaryPath();
+    try {
+      const { stdout } = await execAsync(`"${binary}" -encoders`, { timeout: 10000 });
+      if (stdout.includes('h264_mf')) availableEncoders.push('h264_mf');
+      if (stdout.includes('h264_nvenc')) availableEncoders.push('h264_nvenc');
+      if (stdout.includes('h264_amf')) availableEncoders.push('h264_amf');
+      if (stdout.includes('h264_qsv')) availableEncoders.push('h264_qsv');
+      if (stdout.includes('libx264')) availableEncoders.push('libx264');
+    } catch (err: any) {
+      logger.warn('FFmpegService', `Could not query encoders: ${err.message}`);
+      availableEncoders.push('libx264');
+    }
+
+    // Determine the most reliable hardware acceleration encoder by running a micro-probe
+    let recommendedEncoder = 'libx264';
+    if (availableEncoders.includes('h264_mf')) {
+      const mfOk = await this.probeEncoder('h264_mf');
+      if (mfOk) {
+        recommendedEncoder = 'h264_mf';
+      }
+    }
+    if (recommendedEncoder === 'libx264' && availableEncoders.includes('h264_nvenc')) {
+      const nvencOk = await this.probeEncoder('h264_nvenc');
+      if (nvencOk) {
+        recommendedEncoder = 'h264_nvenc';
+      }
+    }
+
+    const settings = appDb.getSettings();
+    const activeEncoder = this.resolveEncoderFromSettings(settings.hardwareAcceleration, recommendedEncoder);
+
+    this.cachedHardwareInfo = {
+      cpuModel,
+      cpuThreads,
+      totalRamGb,
+      gpuName,
+      availableEncoders,
+      activeEncoder,
+      recommendedEncoder,
+    };
+
+    logger.info('FFmpegService', `Hardware detected: CPU=${cpuModel} (${cpuThreads}t), RAM=${totalRamGb}GB, GPU=${gpuName}, Encoder=${activeEncoder}`);
+    return this.cachedHardwareInfo;
+  }
+
+  /**
+   * Fast probe to verify if a specific video encoder actually executes on the hardware.
+   */
+  private async probeEncoder(encoderName: string): Promise<boolean> {
+    if (this.verifiedWorkingEncoders.has(encoderName)) return true;
+
+    const binary = this.getBinaryPath();
+    const cmd = `"${binary}" -y -f lavfi -i color=c=black:s=128x128:d=0.1 -c:v ${encoderName} -f null -`;
+    try {
+      await execAsync(cmd, { timeout: 4000 });
+      this.verifiedWorkingEncoders.add(encoderName);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  private resolveEncoderFromSettings(pref: string | undefined, defaultEncoder: string): string {
+    switch (pref) {
+      case 'mediafoundation':
+        return 'h264_mf';
+      case 'nvenc':
+        return 'h264_nvenc';
+      case 'amf':
+        return 'h264_amf';
+      case 'qsv':
+        return 'h264_qsv';
+      case 'cpu':
+        return 'libx264';
+      case 'auto':
+      default:
+        return defaultEncoder || 'h264_mf';
+    }
+  }
+
+  /**
+   * Construct FFmpeg video encoding parameters utilizing Host CPU, RAM queues, and GPU.
+   */
+  private getEncodingFlags(customEncoder?: string): {
+    encoderName: string;
+    videoCodecArgs: string;
+    ramBufferArgs: string;
+    threadArgs: string;
+  } {
+    const settings = appDb.getSettings();
+    const encoderChoice = customEncoder || settings.hardwareAcceleration || 'auto';
+    const cpuThreads = settings.cpuThreads ?? 0; // 0 = all cores
+    const ramBufferMb = settings.ramBufferMb || 1024;
+    const preset = settings.renderPreset || 'veryfast';
+
+    // Scale queue size with configured RAM buffer (min 512, standard 1024, max 4096)
+    const queueSize = Math.max(512, Math.min(4096, ramBufferMb));
+    const ramBufferArgs = `-thread_queue_size ${queueSize}`;
+    const threadArgs = `-threads ${cpuThreads}`;
+
+    let encoderName = 'h264_mf';
+    let videoCodecArgs = '-c:v h264_mf -b:v 8M';
+
+    if (encoderChoice === 'nvenc' || (encoderChoice === 'auto' && this.verifiedWorkingEncoders.has('h264_nvenc'))) {
+      encoderName = 'h264_nvenc';
+      videoCodecArgs = '-c:v h264_nvenc -preset p4 -cq 23 -pix_fmt yuv420p';
+    } else if (encoderChoice === 'amf') {
+      encoderName = 'h264_amf';
+      videoCodecArgs = '-c:v h264_amf -quality speed -b:v 8M -pix_fmt yuv420p';
+    } else if (encoderChoice === 'qsv') {
+      encoderName = 'h264_qsv';
+      videoCodecArgs = '-c:v h264_qsv -b:v 8M';
+    } else if (encoderChoice === 'mediafoundation' || encoderChoice === 'auto') {
+      encoderName = 'h264_mf';
+      videoCodecArgs = '-c:v h264_mf -b:v 8M';
+    } else {
+      encoderName = 'libx264';
+      videoCodecArgs = `-c:v libx264 -preset ${preset} -crf 22 -pix_fmt yuv420p`;
+    }
+
+    return {
+      encoderName,
+      videoCodecArgs,
+      ramBufferArgs,
+      threadArgs,
+    };
+  }
+
+  /**
+   * Benchmark video rendering using current CPU / RAM / GPU configuration.
+   */
+  public async testHardwareAcceleration(encoderChoice?: string): Promise<{
+    success: boolean;
+    encoder: string;
+    speed: string;
+    durationMs: number;
+    error?: string;
+  }> {
+    const binary = this.getBinaryPath();
+    const tempDir = storageService.getFolder('Data');
+    const testOut = path.join(tempDir, `bench_${Date.now()}.mp4`);
+    const flags = this.getEncodingFlags(encoderChoice);
+
+    const cmd = `"${binary}" -y ${flags.ramBufferArgs} -f lavfi -i color=c=blue:s=1080x1920:d=1 -vf "format=yuv420p" ${flags.threadArgs} ${flags.videoCodecArgs} "${testOut}"`;
+
+    const startTime = Date.now();
+    try {
+      logger.info('FFmpegService', `Running benchmark test: ${flags.encoderName}`);
+      const { stderr } = await execAsync(cmd, { timeout: 15000 });
+      const durationMs = Date.now() - startTime;
+
+      let speedMatch = (stderr || '').match(/speed=\s*([0-9.]+x)/);
+      const speedStr = speedMatch ? speedMatch[1] : `${Math.round((1000 / Math.max(1, durationMs)) * 10) / 10}x`;
+
+      if (fs.existsSync(testOut)) {
+        fs.unlinkSync(testOut);
+      }
+
+      this.verifiedWorkingEncoders.add(flags.encoderName);
+
+      return {
+        success: true,
+        encoder: flags.encoderName,
+        speed: speedStr,
+        durationMs,
+      };
+    } catch (err: any) {
+      if (fs.existsSync(testOut)) {
+        fs.unlinkSync(testOut);
+      }
+      logger.warn('FFmpegService', `Benchmark failed for ${flags.encoderName}: ${err.message}`);
+      return {
+        success: false,
+        encoder: flags.encoderName,
+        speed: '0x',
+        durationMs: Date.now() - startTime,
+        error: err.message,
+      };
     }
   }
 
@@ -134,7 +356,6 @@ export class FFmpegService {
     const binary = this.getBinaryPath();
     const isAvailable = (await this.checkAvailability()).available;
 
-    // Fallback if ffmpeg is not available on system
     if (!isAvailable) {
       logger.warn('FFmpegService', 'FFmpeg binary not detected. Performing direct container fallback.');
       fs.copyFileSync(existingClips[0], outputFilePath);
@@ -150,46 +371,65 @@ export class FFmpegService {
 
     fs.writeFileSync(concatListPath, fileEntries, 'utf-8');
 
-    let scaleFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2';
+    let scaleFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,format=yuv420p';
     if (aspectRatio === '16:9') {
-      scaleFilter = 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2';
+      scaleFilter = 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,format=yuv420p';
     } else if (aspectRatio === '1:1') {
-      scaleFilter = 'scale=1080:1080:force_original_aspect_ratio=decrease,pad=1080:1080:(ow-iw)/2:(oh-ih)/2';
+      scaleFilter = 'scale=1080:1080:force_original_aspect_ratio=decrease,pad=1080:1080:(ow-iw)/2:(oh-ih)/2,format=yuv420p';
     }
 
     const hasVoice = audioFilePath && fs.existsSync(audioFilePath);
     const hasMusic = bgMusicPath && fs.existsSync(bgMusicPath);
 
-    let cmd: string;
+    // Get hardware encoding parameters (CPU threads, RAM buffer queue, GPU encoder)
+    const flags = this.getEncodingFlags();
 
-    if (hasVoice && hasMusic) {
-      cmd = `"${binary}" -y -f concat -safe 0 -i "${concatListPath}" -i "${audioFilePath}" -stream_loop -1 -i "${bgMusicPath}" -filter_complex "[0:v]${scaleFilter}[v];[1:a]volume=${voiceVolume}[voice];[2:a]volume=${bgMusicVolume}[music];[voice][music]amix=inputs=2:duration=first[a]" -map "[v]" -map "[a]" -c:v libx264 -preset fast -crf 22 -c:a aac -shortest "${outputFilePath}"`;
-    } else if (hasVoice) {
-      cmd = `"${binary}" -y -f concat -safe 0 -i "${concatListPath}" -i "${audioFilePath}" -filter_complex "[0:v]${scaleFilter}[v];[1:a]volume=${voiceVolume}[a]" -map "[v]" -map "[a]" -c:v libx264 -preset fast -crf 22 -c:a aac -shortest "${outputFilePath}"`;
-    } else if (hasMusic) {
-      cmd = `"${binary}" -y -f concat -safe 0 -i "${concatListPath}" -stream_loop -1 -i "${bgMusicPath}" -filter_complex "[0:v]${scaleFilter}[v];[1:a]volume=${bgMusicVolume}[a]" -map "[v]" -map "[a]" -c:v libx264 -preset fast -crf 22 -c:a aac -shortest "${outputFilePath}"`;
-    } else {
-      cmd = `"${binary}" -y -f concat -safe 0 -i "${concatListPath}" -vf "${scaleFilter}" -c:v libx264 -preset fast -crf 22 -c:a aac "${outputFilePath}"`;
-    }
+    const buildCommand = (encoderFlags: string, threads: string) => {
+      if (hasVoice && hasMusic) {
+        return `"${binary}" -y ${flags.ramBufferArgs} -f concat -safe 0 -i "${concatListPath}" ${flags.ramBufferArgs} -i "${audioFilePath}" ${flags.ramBufferArgs} -stream_loop -1 -i "${bgMusicPath}" -filter_complex "[0:v]${scaleFilter}[v];[1:a]volume=${voiceVolume}[voice];[2:a]volume=${bgMusicVolume}[music];[voice][music]amix=inputs=2:duration=first[a]" -map "[v]" -map "[a]" ${threads} ${encoderFlags} -c:a aac -shortest "${outputFilePath}"`;
+      } else if (hasVoice) {
+        return `"${binary}" -y ${flags.ramBufferArgs} -f concat -safe 0 -i "${concatListPath}" ${flags.ramBufferArgs} -i "${audioFilePath}" -filter_complex "[0:v]${scaleFilter}[v];[1:a]volume=${voiceVolume}[a]" -map "[v]" -map "[a]" ${threads} ${encoderFlags} -c:a aac -shortest "${outputFilePath}"`;
+      } else if (hasMusic) {
+        return `"${binary}" -y ${flags.ramBufferArgs} -f concat -safe 0 -i "${concatListPath}" ${flags.ramBufferArgs} -stream_loop -1 -i "${bgMusicPath}" -filter_complex "[0:v]${scaleFilter}[v];[1:a]volume=${bgMusicVolume}[a]" -map "[v]" -map "[a]" ${threads} ${encoderFlags} -c:a aac -shortest "${outputFilePath}"`;
+      } else {
+        return `"${binary}" -y ${flags.ramBufferArgs} -f concat -safe 0 -i "${concatListPath}" -vf "${scaleFilter}" ${threads} ${encoderFlags} -c:a aac "${outputFilePath}"`;
+      }
+    };
+
+    let cmd = buildCommand(flags.videoCodecArgs, flags.threadArgs);
 
     try {
-      logger.info('FFmpegService', `Rendering project assembly: ${outputFilePath}`);
-      await execAsync(cmd, { timeout: 180000 });
+      logger.info('FFmpegService', `Rendering project assembly using [${flags.encoderName}] on ${flags.threadArgs}: ${outputFilePath}`);
+      await execAsync(cmd, { timeout: 240000 });
       if (fs.existsSync(concatListPath)) {
         fs.unlinkSync(concatListPath);
       }
       return outputFilePath;
     } catch (err: any) {
-      if (fs.existsSync(concatListPath)) {
-        fs.unlinkSync(concatListPath);
-      }
-      logger.error('FFmpegService', `Render failed: ${err.message}`);
-      // Fallback: Copy first clip if render command failed
-      if (fs.existsSync(existingClips[0])) {
-        fs.copyFileSync(existingClips[0], outputFilePath);
+      logger.warn('FFmpegService', `Render with ${flags.encoderName} encountered error: ${err.message}. Retrying with CPU multithreaded fallback (libx264 -threads 0)...`);
+
+      // Fallback: Multithreaded CPU libx264 utilizing all processor cores
+      const cpuFallbackFlags = '-c:v libx264 -preset veryfast -crf 22 -pix_fmt yuv420p';
+      const fallbackCmd = buildCommand(cpuFallbackFlags, '-threads 0');
+
+      try {
+        await execAsync(fallbackCmd, { timeout: 300000 });
+        if (fs.existsSync(concatListPath)) {
+          fs.unlinkSync(concatListPath);
+        }
+        logger.info('FFmpegService', `Render succeeded with CPU multithreaded fallback.`);
         return outputFilePath;
+      } catch (fallbackErr: any) {
+        if (fs.existsSync(concatListPath)) {
+          fs.unlinkSync(concatListPath);
+        }
+        logger.error('FFmpegService', `Render failed on fallback: ${fallbackErr.message}`);
+        if (fs.existsSync(existingClips[0])) {
+          fs.copyFileSync(existingClips[0], outputFilePath);
+          return outputFilePath;
+        }
+        throw fallbackErr;
       }
-      throw err;
     }
   }
 
@@ -200,7 +440,7 @@ export class FFmpegService {
     aspectRatio?: '9:16' | '16:9' | '1:1';
     motionStyle?: string;
   }): Promise<{ videoPath: string; thumbnailPath: string }> {
-    const { imagePath, outputPath, durationSec = 5, aspectRatio = '9:16' } = options;
+    const { imagePath, outputPath, durationSec = 6, aspectRatio = '9:16' } = options;
     const binary = this.getBinaryPath();
 
     let inputImage = imagePath;
@@ -211,11 +451,11 @@ export class FFmpegService {
       }
     }
 
-    let scaleFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2';
+    let scaleFilter = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2,format=yuv420p';
     if (aspectRatio === '16:9') {
-      scaleFilter = 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2';
+      scaleFilter = 'scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2,format=yuv420p';
     } else if (aspectRatio === '1:1') {
-      scaleFilter = 'scale=1080:1080:force_original_aspect_ratio=decrease,pad=1080:1080:(ow-iw)/2:(oh-ih)/2';
+      scaleFilter = 'scale=1080:1080:force_original_aspect_ratio=decrease,pad=1080:1080:(ow-iw)/2:(oh-ih)/2,format=yuv420p';
     }
 
     const outDir = path.dirname(outputPath);
@@ -223,15 +463,24 @@ export class FFmpegService {
       fs.mkdirSync(outDir, { recursive: true });
     }
 
-    const cmd = `"${binary}" -y -loop 1 -i "${inputImage}" -t ${Math.max(1, durationSec)} -vf "${scaleFilter},format=yuv420p" -c:v libx264 -preset ultrafast -pix_fmt yuv420p -r 30 "${outputPath}"`;
+    const flags = this.getEncodingFlags();
+    const duration = Math.max(1, durationSec);
+
+    const cmd = `"${binary}" -y ${flags.ramBufferArgs} -loop 1 -i "${inputImage}" -t ${duration} -vf "${scaleFilter}" ${flags.threadArgs} ${flags.videoCodecArgs} -r 30 "${outputPath}"`;
 
     try {
-      logger.info('FFmpegService', `Generating AI scene clip from image: ${outputPath}`);
-      await execAsync(cmd, { timeout: 30000 });
+      logger.info('FFmpegService', `Generating AI scene clip (${duration}s) using [${flags.encoderName}]: ${outputPath}`);
+      await execAsync(cmd, { timeout: 45000 });
     } catch (err: any) {
-      logger.warn('FFmpegService', `Scene clip render error: ${err.message}`);
-      if (!fs.existsSync(outputPath)) {
-        fs.writeFileSync(outputPath, Buffer.from([]));
+      logger.warn('FFmpegService', `Scene clip render error with ${flags.encoderName}: ${err.message}. Retrying with CPU libx264...`);
+      const fallbackCmd = `"${binary}" -y -loop 1 -i "${inputImage}" -t ${duration} -vf "${scaleFilter}" -threads 0 -c:v libx264 -preset ultrafast -pix_fmt yuv420p -r 30 "${outputPath}"`;
+      try {
+        await execAsync(fallbackCmd, { timeout: 45000 });
+      } catch (err2: any) {
+        logger.error('FFmpegService', `Scene fallback also failed: ${err2.message}`);
+        if (!fs.existsSync(outputPath)) {
+          fs.writeFileSync(outputPath, Buffer.from([]));
+        }
       }
     }
 

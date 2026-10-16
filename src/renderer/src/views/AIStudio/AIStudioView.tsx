@@ -218,7 +218,7 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ initialOpenCharacter
         title: data.title?.trim() || 'New Story Adventure',
         genre: data.genre || 'mystery',
         aspectRatio: data.aspectRatio || '9:16',
-        targetDuration: data.targetDuration || 60,
+        targetDuration: data.targetDuration || settings?.defaultVideoDuration || 30,
         language: data.language || 'en',
         voice: data.voice || 'en-US-Standard-C',
         status: 'draft',
@@ -229,16 +229,16 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ initialOpenCharacter
         endingHook: data.endingHook || '',
       });
 
-      // Auto-initialize 3 starter scene templates for story continuity
+      // Auto-initialize 5 starter scene templates for a 30s short-form story
       try {
         await window.api.createScene({
           projectId: created.id,
           sceneNumber: 1,
           title: 'Scene 1: Hook & Incident',
-          scriptText: '[SCENE 1]\nOpening scene establishes mystery and grabs attention.',
+          scriptText: '[SCENE 1]\nOpening viral hook establishes the incident and grabs attention immediately.',
           narration: 'Something unexplainable was unfolding in the shadows.',
           generationPrompt: `Cinematic visual scene in ${created.genre} style. Dramatic cinematic lighting, high-contrast, ultra-detailed 8k.`,
-          duration: 5,
+          duration: 6,
           characterId: defaultChar,
           status: 'draft',
         });
@@ -249,18 +249,40 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ initialOpenCharacter
           scriptText: '[SCENE 2]\nProtagonist investigates the anomaly and uncovers an unexpected lead.',
           narration: 'Every clue pointed toward a truth nobody was prepared to accept.',
           generationPrompt: `Cinematic tracking shot in ${created.genre} style. Intense atmosphere, dynamic camera motion.`,
-          duration: 5,
+          duration: 6,
           characterId: defaultChar,
           status: 'draft',
         });
         await window.api.createScene({
           projectId: created.id,
           sceneNumber: 3,
-          title: 'Scene 3: Climax & Cliffhanger',
-          scriptText: '[SCENE 3]\nDecisive revelation that leaves viewers eager for the next chapter.',
+          title: 'Scene 3: The Complication',
+          scriptText: '[SCENE 3]\nThe stakes heighten as unexpected resistance emerges.',
+          narration: 'There was no turning back now.',
+          generationPrompt: `High-tension dramatic shot in ${created.genre} style. Volumetric lighting and moody shadows.`,
+          duration: 6,
+          characterId: defaultChar,
+          status: 'draft',
+        });
+        await window.api.createScene({
+          projectId: created.id,
+          sceneNumber: 4,
+          title: 'Scene 4: The Turning Point',
+          scriptText: '[SCENE 4]\nA key breakthrough reverses the balance of power.',
+          narration: 'The missing piece was finally uncovered.',
+          generationPrompt: `Cinematic Dutch angle close-up in ${created.genre} style. Cold cyan spotlight, 35mm lens.`,
+          duration: 6,
+          characterId: defaultChar,
+          status: 'draft',
+        });
+        await window.api.createScene({
+          projectId: created.id,
+          sceneNumber: 5,
+          title: 'Scene 5: Climax & Cliffhanger',
+          scriptText: '[SCENE 5]\nDecisive revelation that leaves viewers eager for the next chapter.',
           narration: 'And then, the impossible happened. Follow for part two.',
-          generationPrompt: `Cinematic climactic shot in ${created.genre} style. Volumetric lighting, high tension.`,
-          duration: 5,
+          generationPrompt: `Cinematic climactic shot in ${created.genre} style. Golden hour dramatic lighting, heroic framing.`,
+          duration: 6,
           characterId: defaultChar,
           status: 'draft',
         });
@@ -724,7 +746,7 @@ export const AIStudioView: React.FC<AIStudioViewProps> = ({ initialOpenCharacter
                       min={10}
                       max={300}
                       value={activeProject.targetDuration}
-                      onChange={(e) => handleUpdateActiveProject({ targetDuration: parseInt(e.target.value) || 60 })}
+                      onChange={(e) => handleUpdateActiveProject({ targetDuration: parseInt(e.target.value) || 30 })}
                       className="w-full bg-studio-900 border border-studio-750 rounded-lg px-2.5 py-1.5 text-studio-200"
                     />
                   </div>

@@ -698,6 +698,19 @@ export interface StudioSettings {
   logLevel: string;
   theme: 'dark' | 'light';
   googleClientId?: string;
+
+  // Video Output & Duration
+  defaultVideoDuration: number;
+
+  // Hardware Acceleration (CPU / RAM / GPU)
+  hardwareAcceleration: 'auto' | 'nvenc' | 'amf' | 'qsv' | 'mediafoundation' | 'cpu';
+  cpuThreads: number;
+  ramBufferMb: number;
+  renderPreset: 'ultrafast' | 'veryfast' | 'fast' | 'medium';
+
+  // OpenAI Integration
+  openaiApiKey?: string;
+  openaiModel?: string;
 }
 
 export interface ActivityLog {
@@ -718,6 +731,14 @@ export interface SystemHealth {
   storageAvailableMb: number;
   storageTotalMb: number;
   storagePath: string;
+
+  // Detected Hardware & Encoding Support
+  cpuModel?: string;
+  cpuThreads?: number;
+  totalRamGb?: number;
+  gpuName?: string;
+  hardwareEncoder?: string;
+  availableEncoders?: string[];
 }
 
 export interface DashboardStats {
@@ -1017,6 +1038,11 @@ export interface IElectronAPI {
   installAllAppsFromPlayStore: (deviceId: string, googlePassword?: string) => Promise<PlayStoreBatchResult>;
   autoLoginYouTubeGoogle: (deviceId: string, googleEmail?: string) => Promise<GoogleAutoLoginResult>;
   autoLoginTikTokGoogle: (deviceId: string, googleEmail?: string) => Promise<GoogleAutoLoginResult>;
+
+  // Hardware Acceleration & OpenAI Diagnostics
+  testHardwareAcceleration: (encoder?: string) => Promise<{ success: boolean; encoder: string; speed: string; durationMs: number; error?: string }>;
+  testOpenAIConnection: (apiKey?: string, model?: string) => Promise<{ success: boolean; message: string; modelCount?: number }>;
+  getHardwareInfo: () => Promise<{ cpuModel: string; cpuThreads: number; totalRamGb: number; gpuName: string; availableEncoders: string[]; activeEncoder: string }>;
 }
 
 declare global {

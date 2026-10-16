@@ -40,7 +40,7 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
   const [newTitle, setNewTitle] = useState('');
   const [newGenre, setNewGenre] = useState<any>('mystery');
   const [newAspect, setNewAspect] = useState<'9:16' | '16:9' | '1:1'>('9:16');
-  const [newDuration, setNewDuration] = useState(60);
+  const [newDuration, setNewDuration] = useState(30);
 
   const filteredProjects = projects.filter((p) =>
     p.title.toLowerCase().includes(search.toLowerCase()) ||
@@ -279,7 +279,8 @@ export const ProjectSidebar: React.FC<ProjectSidebarProps> = ({
               className="w-full accent-brand-500"
             />
             <div className="flex justify-between text-[10px] text-studio-500 mt-1">
-              <span>15s (Shorts)</span>
+              <span>15s (Short)</span>
+              <span className="text-cyan-400 font-semibold">30s (Default)</span>
               <span>60s (Standard)</span>
               <span>180s (Deep Story)</span>
             </div>

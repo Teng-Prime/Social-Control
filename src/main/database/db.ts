@@ -128,7 +128,7 @@ export class AppDatabase {
       flowApiKey: '',
       flowApiEndpoint: '',
       flowIntegrationMode: 'manual_assisted',
-      defaultAiProvider: 'google-flow',
+      defaultAiProvider: 'openai',
       defaultResolution: '1080x1920',
       defaultAspectRatio: '9:16',
       defaultVoice: 'en-US-Standard-C',
@@ -136,6 +136,13 @@ export class AppDatabase {
       queueConcurrency: '2',
       logLevel: 'info',
       theme: 'dark',
+      defaultVideoDuration: '30',
+      hardwareAcceleration: 'auto',
+      cpuThreads: '0',
+      ramBufferMb: '1024',
+      renderPreset: 'veryfast',
+      openaiApiKey: '',
+      openaiModel: 'gpt-4o-mini',
     };
 
     const insertStmt = db.prepare(`
@@ -169,7 +176,7 @@ export class AppDatabase {
       flowApiKey: map.flowApiKey || '',
       flowApiEndpoint: map.flowApiEndpoint || 'https://flow.google.com/api',
       flowIntegrationMode: map.flowIntegrationMode || 'manual_assisted',
-      defaultAiProvider: map.defaultAiProvider || 'google-flow',
+      defaultAiProvider: map.defaultAiProvider || 'openai',
       defaultResolution: map.defaultResolution || '1080x1920',
       defaultAspectRatio: map.defaultAspectRatio || '9:16',
       defaultVoice: map.defaultVoice || 'en-US-Standard-C',
@@ -177,6 +184,14 @@ export class AppDatabase {
       queueConcurrency: map.queueConcurrency || 2,
       logLevel: map.logLevel || 'info',
       theme: map.theme || 'dark',
+      defaultVideoDuration: parseInt(map.defaultVideoDuration, 10) || 30,
+      hardwareAcceleration: map.hardwareAcceleration || 'auto',
+      cpuThreads: parseInt(map.cpuThreads, 10) || 0,
+      ramBufferMb: parseInt(map.ramBufferMb, 10) || 1024,
+      renderPreset: map.renderPreset || 'veryfast',
+      openaiApiKey: map.openaiApiKey || '',
+      openaiModel: map.openaiModel || 'gpt-4o-mini',
+      googleClientId: map.googleClientId || '',
     };
   }
 
